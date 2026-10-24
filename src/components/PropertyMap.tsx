@@ -1,7 +1,7 @@
 // Source: Google Maps Platform Code Assist
 import React, { useState, Component, ErrorInfo, ReactNode } from 'react';
 import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow, useAdvancedMarkerRef } from '@vis.gl/react-google-maps';
-import { MapPin, Navigation, ExternalLink, ShieldCheck, Compass, ZoomIn, ZoomOut, Layers } from 'lucide-react';
+import { MapPin, Navigation, ExternalLink, ShieldCheck, Compass } from 'lucide-react';
 import { Property } from '../types/property';
 
 interface PropertyMapProps {
@@ -47,7 +47,7 @@ const LiveGoogleMap: React.FC<{
   property: Property;
   googleMapsUrl: string;
 }> = ({ coordinates, property, googleMapsUrl }) => {
-  const [infoOpen, setInfoOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(true);
   const [markerRef, marker] = useAdvancedMarkerRef();
 
   return (
@@ -63,7 +63,7 @@ const LiveGoogleMap: React.FC<{
       <AdvancedMarker
         ref={markerRef}
         position={coordinates}
-        title={`${property.title} - ${property.code}`}
+        title={`${property.title} - ${property.address || property.neighborhood}`}
         onClick={() => setInfoOpen(!infoOpen)}
       >
         <Pin
@@ -77,20 +77,39 @@ const LiveGoogleMap: React.FC<{
       {infoOpen && marker && (
         <InfoWindow
           anchor={marker}
-          maxWidth={300}
+          maxWidth={320}
           onCloseClick={() => setInfoOpen(false)}
         >
-          <div className="p-1 text-slate-900 font-sans">
-            <span className="text-[10px] font-mono uppercase font-bold text-amber-700 block">
-              REF: {property.code} · {property.purpose}
-            </span>
-            <h4 className="text-xs font-bold text-slate-900 leading-tight mt-0.5 line-clamp-2">
+          <div className="p-2 text-slate-900 font-sans space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-mono uppercase font-bold text-amber-800 bg-amber-100/70 px-1.5 py-0.5 rounded">
+                REF: {property.code} · {property.purpose}
+              </span>
+              {property.zipCode && (
+                <span className="text-[9px] font-mono font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                  CEP: {property.zipCode}
+                </span>
+              )}
+            </div>
+
+            <h4 className="text-xs font-extrabold text-slate-900 leading-snug">
               {property.title}
             </h4>
-            <p className="text-[11px] text-slate-600 mt-1 font-mono">
-              {property.neighborhood}, {property.city}
-            </p>
-            <div className="mt-2 pt-1.5 border-t border-slate-200 flex items-center justify-between">
+
+            {/* Endereço Cadastrado Destacado */}
+            <div className="p-2 bg-amber-50 rounded-lg border border-amber-200">
+              <span className="text-[9px] font-mono uppercase font-bold text-amber-900 block">
+                Endereço Cadastrado:
+              </span>
+              <p className="text-xs font-bold text-slate-900 mt-0.5 leading-snug">
+                {property.address || 'Endereço disponível para visitas'}
+              </p>
+              <p className="text-[10px] text-slate-600 font-mono mt-0.5">
+                {property.neighborhood}, {property.city} - {property.stateOrDept} ({property.country})
+              </p>
+            </div>
+
+            <div className="pt-1.5 border-t border-slate-200 flex items-center justify-between">
               <span className="text-xs font-bold font-mono text-amber-800">
                 {property.priceFormatted}
               </span>
@@ -98,9 +117,9 @@ const LiveGoogleMap: React.FC<{
                 href={googleMapsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[10px] text-blue-600 hover:underline flex items-center gap-0.5"
+                className="text-[11px] font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
               >
-                Rotas <ExternalLink className="w-2.5 h-2.5" />
+                Abrir Rota <ExternalLink className="w-2.5 h-2.5" />
               </a>
             </div>
           </div>
@@ -141,7 +160,7 @@ const StylizedMapFallback: React.FC<{
         </div>
       </div>
 
-      {/* Center Interactive Location Pin */}
+      {/* Center Interactive Location Pin with Full Registered Address */}
       <div className="relative z-10 flex flex-col items-center justify-center my-auto">
         <div className="relative flex items-center justify-center">
           <div className="absolute w-20 h-20 rounded-full bg-[#D4AF37]/15 animate-ping" />
@@ -150,10 +169,14 @@ const StylizedMapFallback: React.FC<{
             <MapPin className="w-5 h-5 fill-[#D4AF37]/20" />
           </div>
         </div>
-        <div className="mt-2.5 px-3 py-1 rounded-xl bg-[#070F26]/95 border border-[#D4AF37]/50 text-center shadow-lg">
+        <div className="mt-2.5 px-4 py-2 rounded-2xl bg-[#070F26]/95 border border-[#D4AF37]/60 text-center shadow-xl max-w-sm">
           <span className="text-xs font-bold text-white block">{property.title}</span>
-          <span className="text-[10px] text-slate-300 font-mono">
-            {property.neighborhood}, {property.city}
+          <div className="mt-1 flex items-center justify-center gap-1.5 text-xs text-[#E5C378] font-semibold">
+            <MapPin className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
+            <span>{property.address || `${property.neighborhood}, ${property.city}`}</span>
+          </div>
+          <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
+            {property.neighborhood}, {property.city} - {property.stateOrDept} ({property.country}) {property.zipCode ? `· CEP ${property.zipCode}` : ''}
           </span>
         </div>
       </div>
@@ -162,7 +185,7 @@ const StylizedMapFallback: React.FC<{
       <div className="relative z-10 flex items-center justify-between pt-2">
         <span className="text-[10px] font-mono text-slate-400 flex items-center gap-1">
           <ShieldCheck className="w-3.5 h-3.5 text-[#D4AF37]" />
-          Coordenadas verificadas no Google Maps
+          Endereço georreferenciado no Google Maps
         </span>
 
         <a
@@ -202,7 +225,13 @@ export const PropertyMap: React.FC<PropertyMapProps> = ({ property, className = 
       : (property.city === 'Balneário Camboriú' ? -48.6341 : property.city === 'São Paulo' ? -46.6660 : -49.2831),
   };
 
-  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${coordinates.lat},${coordinates.lng}`;
+  const addressSearchQuery = property.address?.trim()
+    ? `${property.address.trim()}, ${property.neighborhood ? property.neighborhood + ', ' : ''}${property.city} - ${property.stateOrDept}, ${property.country}`
+    : `${property.neighborhood ? property.neighborhood + ', ' : ''}${property.city} - ${property.stateOrDept}, ${property.country}`;
+
+  const googleMapsUrl = property.address?.trim()
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressSearchQuery)}`
+    : `https://www.google.com/maps/search/?api=1&query=${coordinates.lat},${coordinates.lng}`;
 
   const fallbackElement = (
     <StylizedMapFallback
@@ -214,17 +243,27 @@ export const PropertyMap: React.FC<PropertyMapProps> = ({ property, className = 
 
   return (
     <div className={`space-y-3 ${className}`}>
-      {/* Map Header with Location Badges */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[#D4AF37]/25">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-[#050B1A] border border-[#D4AF37]/50 flex items-center justify-center text-[#D4AF37]">
-            <MapPin className="w-4 h-4" />
+      {/* Map Header with Prominent Registered Address */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-[#0B163B]/90 border border-[#D4AF37]/35 shadow-lg">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-xl bg-[#050B1A] border border-[#D4AF37]/50 flex items-center justify-center text-[#D4AF37] shrink-0 mt-0.5">
+            <MapPin className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#E5C378] block">
-              Localização no Google Maps
-            </span>
-            <span className="text-[11px] text-slate-300">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#E5C378]">
+                Endereço Cadastrado no Google Maps
+              </span>
+              {property.zipCode && (
+                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                  CEP: {property.zipCode}
+                </span>
+              )}
+            </div>
+            <h3 className="text-sm sm:text-base font-bold text-white mt-0.5">
+              {property.address || `${property.neighborhood}, ${property.city}`}
+            </h3>
+            <span className="text-xs text-slate-300 font-mono block mt-0.5">
               {property.neighborhood}, {property.city} - {property.stateOrDept} ({property.country})
             </span>
           </div>
@@ -234,8 +273,8 @@ export const PropertyMap: React.FC<PropertyMapProps> = ({ property, className = 
           href={googleMapsUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#050B1A] hover:bg-[#0B163B] border border-[#D4AF37]/40 text-[#ECC97E] text-[11px] font-mono font-semibold transition-colors shadow-xs"
-          title="Abrir diretamente no Google Maps"
+          className="tech-btn-primary inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-[#050B1A] shadow-md transition-all shrink-0 cursor-pointer"
+          title="Abrir endereço exato no Google Maps"
         >
           <ExternalLink className="w-3.5 h-3.5" />
           <span>Ver no Google Maps</span>
@@ -243,7 +282,7 @@ export const PropertyMap: React.FC<PropertyMapProps> = ({ property, className = 
       </div>
 
       {/* Google Map Container with explicit height */}
-      <div className="relative w-full h-72 sm:h-80 rounded-2xl overflow-hidden border border-[#D4AF37]/40 shadow-[0_10px_30px_rgba(0,0,0,0.6)] bg-[#050B1A]">
+      <div className="relative w-full h-80 sm:h-96 rounded-2xl overflow-hidden border border-[#D4AF37]/40 shadow-[0_10px_30px_rgba(0,0,0,0.6)] bg-[#050B1A]">
         {isKeyValid ? (
           <MapErrorBoundary fallback={fallbackElement}>
             <APIProvider apiKey={apiKey} libraries={['marker']}>
@@ -265,19 +304,26 @@ export const PropertyMap: React.FC<PropertyMapProps> = ({ property, className = 
         <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-[#D4AF37] pointer-events-none" />
 
         {/* Floating Quick Street Address Tag */}
-        <div className="absolute bottom-3 left-3 z-10 bg-[#070F26]/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-[#D4AF37]/35 text-[11px] text-white flex items-center gap-2 shadow-lg">
-          <Navigation className="w-3.5 h-3.5 text-[#D4AF37]" />
-          <span className="font-mono text-slate-200">
-            {property.address || `${property.neighborhood}, ${property.city}`}
-          </span>
+        <div className="absolute bottom-3 left-3 right-3 sm:right-auto z-10 bg-[#070F26]/95 backdrop-blur-md px-3.5 py-2 rounded-xl border border-[#D4AF37]/50 text-white flex items-center gap-2.5 shadow-2xl">
+          <div className="w-6 h-6 rounded-lg bg-[#D4AF37]/20 border border-[#D4AF37]/50 flex items-center justify-center text-[#D4AF37] shrink-0">
+            <Navigation className="w-3.5 h-3.5" />
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="text-[9px] font-mono uppercase text-[#E5C378] font-bold">
+              Endereço Cadastrado do Imóvel:
+            </span>
+            <span className="text-xs font-mono text-white font-semibold truncate">
+              {property.address ? `${property.address} · ${property.neighborhood}, ${property.city}` : `${property.neighborhood}, ${property.city} - ${property.stateOrDept}`}
+            </span>
+          </div>
         </div>
       </div>
 
       {/* Safety & Physical Visit Disclaimer */}
-      <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono px-1">
+      <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-400 font-mono px-1 gap-2">
         <span className="flex items-center gap-1.5">
           <ShieldCheck className="w-3.5 h-3.5 text-[#D4AF37]" />
-          Localização e ponto de referência georreferenciados no Google Maps.
+          Endereço cadastrado e ponto georreferenciado verificado no Google Maps.
         </span>
         <span className="text-slate-500 hidden sm:inline">
           Coord: {coordinates.lat.toFixed(4)}, {coordinates.lng.toFixed(4)}
