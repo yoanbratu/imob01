@@ -119,4 +119,21 @@ export interface PropertyOwner {
   updatedAt?: string;
 }
 
+export interface Condominium {
+  id: string;
+  name: string; // Nome oficial do Condomínio / Edifício
+  condoFee?: string; // Taxa mensal estimada, ex: R$ 1.850 / mês
+  address?: string; // Endereço / Logradouro
+  neighborhood?: string; // Bairro
+  city?: string; // Cidade
+  stateOrDept?: string; // Estado / Província
+  country?: Country; // Brasil | Paraguai | Estados Unidos
+  zipCode?: string; // CEP / Código Postal
+  amenities?: string[]; // Piscina, Portaria 24h, Academia, etc.
+  notes?: string; // Notas de zeladoria, administração ou regras
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+
 

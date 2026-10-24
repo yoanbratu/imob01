@@ -10,7 +10,7 @@ import {
   orderBy,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Property, LeadSubmission, Realtor, PropertyOwner } from '../types/property';
+import { Property, LeadSubmission, Realtor, PropertyOwner, Condominium } from '../types/property';
 import { PROPERTIES as INITIAL_PROPERTIES } from '../data/properties';
 
 const PROPERTIES_COLLECTION = 'properties';
@@ -640,5 +640,184 @@ export async function deleteOwner(ownerId: string): Promise<void> {
     throw new Error(err?.message || 'Falha ao excluir proprietário.');
   }
 }
+
+// -------------------------------------------------------------
+// CONDOMÍNIOS / EDIFÍCIOS REGISTRATION & PERSISTENCE
+// -------------------------------------------------------------
+const CONDOMINIUMS_COLLECTION = 'condominiums';
+
+export const INITIAL_CONDOMINIUMS: Condominium[] = [
+  {
+    id: 'condo-01',
+    name: 'Edifício Maison Batel Platinum',
+    condoFee: 'R$ 2.450 / mês',
+    address: 'Av. Desembargador Motta, 1420',
+    neighborhood: 'Batel',
+    city: 'Curitiba',
+    stateOrDept: 'PR',
+    country: 'Brasil',
+    zipCode: '80420-190',
+    amenities: ['Portaria Blindada 24h', 'Piscina Aquecida Coberta', 'Academia Technogym', 'Espaço Gourmet', 'Elevador Privativo'],
+    notes: 'Zelador Sr. Ademir (41 99888-1122). Mudanças apenas em dias úteis das 9h às 17h. Acesso para visitas com pré-aviso de 1h na portaria.',
+    createdAt: '2026-01-15T10:00:00Z',
+    updatedAt: '2026-01-15T10:00:00Z',
+  },
+  {
+    id: 'condo-02',
+    name: 'Residencial Villa Jardins Ecoville',
+    condoFee: 'R$ 1.680 / mês',
+    address: 'Rua Professor Pedro Viriato Parigot de Souza, 2800',
+    neighborhood: 'Ecoville (Mossunguê)',
+    city: 'Curitiba',
+    stateOrDept: 'PR',
+    country: 'Brasil',
+    zipCode: '81200-100',
+    amenities: ['Bosque Privativo Preservado', 'Quadra de Tênis Saibro', 'Piscina Externa com Borda Infinita', 'Sauna Seca e Úmida', 'Pet Place'],
+    notes: 'Administradora Apolar. Taxa inclui consumo de água do condomínio e manutenção do bosque.',
+    createdAt: '2026-01-20T11:00:00Z',
+    updatedAt: '2026-01-20T11:00:00Z',
+  },
+  {
+    id: 'condo-03',
+    name: 'Torre Corporativa Santa Teresa',
+    condoFee: 'US$ 420 / mês',
+    address: 'Avenida Santa Teresa, 2450',
+    neighborhood: 'Santa Teresa / Ycuá Satí',
+    city: 'Asunción',
+    stateOrDept: 'Distrito Capital',
+    country: 'Paraguai',
+    zipCode: '1820',
+    amenities: ['Heliponto Homologado', 'Lobby com Controle Biométrico', 'Salas de Reunião Corporativas', 'Segurança 24h Armada', 'Gerador Full'],
+    notes: 'Complexo empresarial triple A. Portaria com cadastro de documento internacional (RG ou Passaporte).',
+    createdAt: '2026-02-01T09:30:00Z',
+    updatedAt: '2026-02-01T09:30:00Z',
+  },
+  {
+    id: 'condo-04',
+    name: 'Brickell Flatiron Luxury Residences',
+    condoFee: 'US$ 1.850 / mês',
+    address: '1000 Brickell Plaza',
+    neighborhood: 'Brickell Financial District',
+    city: 'Miami',
+    stateOrDept: 'FL',
+    country: 'Estados Unidos',
+    zipCode: '33131',
+    amenities: ['Sky Club 64th Floor', 'Rooftop Pool 360°', 'Spa & Fitness Center', 'Serviço de Concierge 24/7', 'Valet Parking'],
+    notes: 'Taxa de condomínio (HOA) cobre internet de alta velocidade, seguro predial e acesso irrestrito às áreas sociais.',
+    createdAt: '2026-02-10T14:00:00Z',
+    updatedAt: '2026-02-10T14:00:00Z',
+  },
+  {
+    id: 'condo-05',
+    name: 'Condomínio Alphaville Graciosa Residencial',
+    condoFee: 'R$ 1.350 / mês',
+    address: 'Estrada da Graciosa, 800',
+    neighborhood: 'Alphaville Graciosa',
+    city: 'Pinhais',
+    stateOrDept: 'PR',
+    country: 'Brasil',
+    zipCode: '83321-000',
+    amenities: ['Campo de Golfe Oficial 18 Buracos', 'Clube Completo', 'Monitoramento por Câmeras e Drones', 'Rondas Motorizadas 24h'],
+    notes: 'Acesso pela Portaria Principal Graciosa. Prestadores de serviço devem portar crachá fornecido pela associação.',
+    createdAt: '2026-02-15T08:00:00Z',
+    updatedAt: '2026-02-15T08:00:00Z',
+  },
+];
+
+export async function fetchCondominiums(): Promise<Condominium[]> {
+  try {
+    const colRef = collection(db, CONDOMINIUMS_COLLECTION);
+    const snapshot = await getDocs(colRef);
+    if (snapshot.empty) {
+      await seedInitialCondominiums();
+      return INITIAL_CONDOMINIUMS;
+    }
+    const list: Condominium[] = [];
+    snapshot.forEach((docSnap) => {
+      list.push({ id: docSnap.id, ...(docSnap.data() as any) });
+    });
+    return list.sort((a, b) => a.name.localeCompare(b.name));
+  } catch (err) {
+    console.error('Error fetching condominiums from Firestore:', err);
+    return INITIAL_CONDOMINIUMS;
+  }
+}
+
+async function seedInitialCondominiums() {
+  try {
+    for (const condo of INITIAL_CONDOMINIUMS) {
+      const docRef = doc(db, CONDOMINIUMS_COLLECTION, condo.id);
+      await setDoc(docRef, condo);
+    }
+  } catch (err) {
+    console.error('Error seeding initial condominiums:', err);
+  }
+}
+
+export function subscribeToCondominiums(callback: (condos: Condominium[]) => void) {
+  const colRef = collection(db, CONDOMINIUMS_COLLECTION);
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      if (snapshot.empty) {
+        callback(INITIAL_CONDOMINIUMS);
+        return;
+      }
+      const list: Condominium[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...(docSnap.data() as any) });
+      });
+      callback(list.sort((a, b) => a.name.localeCompare(b.name)));
+    },
+    (err) => {
+      console.error('Firestore condominiums snapshot error:', err);
+      callback(INITIAL_CONDOMINIUMS);
+    }
+  );
+}
+
+export async function saveCondominium(condo: Condominium): Promise<void> {
+  try {
+    const condoId = condo.id || `condo-${Date.now()}`;
+    const docRef = doc(db, CONDOMINIUMS_COLLECTION, condoId);
+    const payload: Condominium = {
+      id: condoId,
+      name: (condo.name || '').trim(),
+      condoFee: (condo.condoFee || '').trim(),
+      address: (condo.address || '').trim(),
+      neighborhood: (condo.neighborhood || '').trim(),
+      city: (condo.city || '').trim(),
+      stateOrDept: (condo.stateOrDept || '').trim(),
+      country: condo.country || 'Brasil',
+      zipCode: (condo.zipCode || '').trim(),
+      amenities: Array.isArray(condo.amenities) ? condo.amenities.filter(Boolean) : [],
+      notes: (condo.notes || '').trim(),
+      updatedAt: new Date().toISOString(),
+      createdAt: condo.createdAt || new Date().toISOString(),
+    };
+
+    // Filter out undefined values
+    const cleanedPayload: Record<string, any> = {};
+    for (const [key, val] of Object.entries(payload)) {
+      if (val !== undefined) cleanedPayload[key] = val;
+    }
+
+    await setDoc(docRef, cleanedPayload, { merge: true });
+  } catch (err: any) {
+    console.error('Erro ao salvar condomínio no Firestore:', err);
+    throw new Error(err?.message || 'Falha ao salvar condomínio.');
+  }
+}
+
+export async function deleteCondominium(condoId: string): Promise<void> {
+  try {
+    const docRef = doc(db, CONDOMINIUMS_COLLECTION, condoId);
+    await deleteDoc(docRef);
+  } catch (err: any) {
+    console.error('Erro ao excluir condomínio do Firestore:', err);
+    throw new Error(err?.message || 'Falha ao excluir condomínio.');
+  }
+}
+
 
 

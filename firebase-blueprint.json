@@ -108,6 +108,27 @@
         "updatedAt": { "type": "string" }
       },
       "required": ["name", "phone"]
+    },
+    "Condominium": {
+      "title": "Condominium",
+      "description": "Condomínios e edifícios cadastrados com valores de taxa, endereço, comodidades e notas.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "condoFee": { "type": "string" },
+        "address": { "type": "string" },
+        "neighborhood": { "type": "string" },
+        "city": { "type": "string" },
+        "stateOrDept": { "type": "string" },
+        "country": { "type": "string" },
+        "zipCode": { "type": "string" },
+        "amenities": { "type": "array" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name"]
     }
   },
   "firestore": {
@@ -126,6 +147,10 @@
     "/owners/{ownerId}": {
       "schema": { "$ref": "#/entities/PropertyOwner" },
       "description": "Lista de proprietários cadastrados com informações sigilosas."
+    },
+    "/condominiums/{condominiumId}": {
+      "schema": { "$ref": "#/entities/Condominium" },
+      "description": "Lista de condomínios e edifícios cadastrados para preenchimento de taxas e especificações."
     }
   }
 }

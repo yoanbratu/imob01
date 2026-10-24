@@ -42,7 +42,7 @@ import {
   Square,
   Compass,
 } from 'lucide-react';
-import { Property, PropertyType, PropertyPurpose, Country, LeadSubmission, Realtor, PropertyOwner } from '../types/property';
+import { Property, PropertyType, PropertyPurpose, Country, LeadSubmission, Realtor, PropertyOwner, Condominium } from '../types/property';
 import {
   saveProperty,
   updateProperty,
@@ -57,6 +57,11 @@ import {
   deleteOwner,
   subscribeToOwners,
   INITIAL_OWNERS,
+  fetchCondominiums,
+  saveCondominium,
+  deleteCondominium,
+  subscribeToCondominiums,
+  INITIAL_CONDOMINIUMS,
 } from '../services/propertyService';
 import { COMPANY_INFO } from '../utils/whatsapp';
 import { updateAdminPassword } from '../utils/security';
@@ -82,7 +87,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onLogout,
   onRefreshData,
 }) => {
-  const [activeTab, setActiveTab] = useState<'properties' | 'new' | 'owners' | 'realtors' | 'leads' | 'security'>('properties');
+  const [activeTab, setActiveTab] = useState<'properties' | 'new' | 'owners' | 'condos' | 'realtors' | 'leads' | 'security'>('properties');
   const [searchFilter, setSearchFilter] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'residencial' | 'comercial'>('all');
 
@@ -132,6 +137,35 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   useEffect(() => {
     const unsubscribe = subscribeToOwners((data) => {
       setOwners(data);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Condominiums (Condomínios / Edifícios) State & Listener
+  const [condos, setCondos] = useState<Condominium[]>(INITIAL_CONDOMINIUMS);
+  const [isCondoModalOpen, setIsCondoModalOpen] = useState(false);
+  const [editingCondo, setEditingCondo] = useState<Condominium | null>(null);
+  const [condoFormData, setCondoFormData] = useState<Partial<Condominium>>({
+    name: '',
+    condoFee: '',
+    address: '',
+    neighborhood: '',
+    city: 'Curitiba',
+    stateOrDept: 'PR',
+    country: 'Brasil',
+    zipCode: '',
+    amenities: [],
+    notes: '',
+  });
+  const [condoAmenityInput, setCondoAmenityInput] = useState('');
+  const [condoFeedback, setCondoFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [isSavingCondo, setIsSavingCondo] = useState(false);
+  const [isCustomCondoNew, setIsCustomCondoNew] = useState(false);
+  const [isCustomCondoEdit, setIsCustomCondoEdit] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToCondominiums((data) => {
+      setCondos(data);
     });
     return () => unsubscribe();
   }, []);
@@ -672,6 +706,95 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
+  const handleOpenCreateCondo = () => {
+    setEditingCondo(null);
+    setCondoFormData({
+      name: '',
+      condoFee: '',
+      address: '',
+      neighborhood: '',
+      city: 'Curitiba',
+      stateOrDept: 'PR',
+      country: 'Brasil',
+      zipCode: '',
+      amenities: ['Portaria 24h', 'Piscina', 'Academia'],
+      notes: '',
+    });
+    setCondoAmenityInput('');
+    setIsCondoModalOpen(true);
+  };
+
+  const handleOpenEditCondo = (condo: Condominium) => {
+    setEditingCondo(condo);
+    setCondoFormData({ ...condo });
+    setCondoAmenityInput('');
+    setIsCondoModalOpen(true);
+  };
+
+  const handleAddCondoAmenity = () => {
+    if (!condoAmenityInput.trim()) return;
+    const current = condoFormData.amenities || [];
+    if (!current.includes(condoAmenityInput.trim())) {
+      setCondoFormData({ ...condoFormData, amenities: [...current, condoAmenityInput.trim()] });
+    }
+    setCondoAmenityInput('');
+  };
+
+  const handleRemoveCondoAmenity = (index: number) => {
+    const current = condoFormData.amenities || [];
+    setCondoFormData({ ...condoFormData, amenities: current.filter((_, i) => i !== index) });
+  };
+
+  const handleSaveCondoForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!condoFormData.name?.trim()) {
+      setCondoFeedback({ type: 'error', message: 'Preencha o Nome do Condomínio / Edifício.' });
+      return;
+    }
+    setIsSavingCondo(true);
+    try {
+      const idToUse = editingCondo?.id || `condo-${Date.now()}`;
+      const condoToSave: Condominium = {
+        id: idToUse,
+        name: condoFormData.name.trim(),
+        condoFee: (condoFormData.condoFee || '').trim(),
+        address: (condoFormData.address || '').trim(),
+        neighborhood: (condoFormData.neighborhood || '').trim(),
+        city: (condoFormData.city || 'Curitiba').trim(),
+        stateOrDept: (condoFormData.stateOrDept || 'PR').trim(),
+        country: condoFormData.country || 'Brasil',
+        zipCode: (condoFormData.zipCode || '').trim(),
+        amenities: Array.isArray(condoFormData.amenities) ? condoFormData.amenities : [],
+        notes: (condoFormData.notes || '').trim(),
+        createdAt: editingCondo?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      await saveCondominium(condoToSave);
+      setCondoFeedback({
+        type: 'success',
+        message: editingCondo ? 'Condomínio atualizado com sucesso no banco de dados!' : 'Novo condomínio cadastrado com sucesso!',
+      });
+      setIsCondoModalOpen(false);
+      setTimeout(() => setCondoFeedback(null), 3000);
+    } catch (err: any) {
+      setCondoFeedback({ type: 'error', message: err?.message || 'Erro ao salvar condomínio.' });
+    } finally {
+      setIsSavingCondo(false);
+    }
+  };
+
+  const handleDeleteCondo = async (condoId: string, name: string) => {
+    if (confirm(`Tem certeza que deseja excluir o condomínio "${name}" do banco de dados?`)) {
+      try {
+        await deleteCondominium(condoId);
+        setCondoFeedback({ type: 'success', message: `Condomínio "${name}" excluído com sucesso.` });
+        setTimeout(() => setCondoFeedback(null), 3000);
+      } catch (err: any) {
+        setCondoFeedback({ type: 'error', message: err?.message || 'Erro ao excluir condomínio.' });
+      }
+    }
+  };
+
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
@@ -794,6 +917,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           >
             <UserCheck className="w-4 h-4" />
             <span>Proprietários Cadastrados ({owners.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('condos')}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+              activeTab === 'condos'
+                ? 'tech-btn-primary'
+                : 'tech-btn-secondary text-slate-300'
+            }`}
+          >
+            <Building className="w-4 h-4" />
+            <span>Condomínios / Edifícios ({condos.length})</span>
           </button>
 
           <button
@@ -1352,7 +1487,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-mono text-[#E5C378] mb-1">VALOR DO CONDOMÍNIO</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-mono text-[#E5C378]">VALOR DO CONDOMÍNIO</label>
+                        {condos.some((c) => c.name === newProp.condoName) && (
+                          <span className="text-[10px] font-mono text-emerald-400 font-semibold">
+                            ✓ Padrão
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="text"
                         value={newProp.condoFee || ''}
@@ -1363,20 +1505,119 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </div>
                   </div>
 
-                  {/* Condomínio: Nome do Condomínio / Edifício */}
-                  <div className="mb-4 p-3.5 rounded-2xl bg-[#0B163B]/60 border border-[#D4AF37]/25">
-                    <label className="block text-[11px] font-mono text-[#ECC97E] mb-1 font-bold">
-                      NOME DO CONDOMÍNIO / EDIFÍCIO
-                    </label>
-                    <input
-                      type="text"
-                      value={newProp.condoName || ''}
-                      onChange={(e) => setNewProp({ ...newProp, condoName: e.target.value })}
-                      placeholder="Ex: Edifício Maison Batel Platinum, Residencial Villa Jardins, Torre Corporativa Santa Teresa"
-                      className="w-full bg-[#050B1A] border border-[#D4AF37]/35 text-white rounded-xl px-3.5 py-2 text-xs focus:ring-1 focus:ring-[#D4AF37]"
-                    />
-                    <span className="text-[10px] text-slate-400 mt-1 block">
-                      Nome oficial do edifício ou condomínio residencial/empresarial exibido na ficha técnica do imóvel.
+                  {/* Condomínio: Nome do Condomínio / Edifício com Seletor dos Cadastrados */}
+                  <div className="mb-4 p-4 rounded-2xl bg-[#0B163B]/70 border border-[#D4AF37]/30 space-y-3">
+                    <div className="flex items-center justify-between gap-2 pb-1 border-b border-white/10">
+                      <div className="flex items-center gap-2">
+                        <Building className="w-4 h-4 text-[#D4AF37]" />
+                        <label className="text-[11px] font-mono text-[#ECC97E] font-bold uppercase tracking-wider">
+                          CONDOMÍNIO / EDIFÍCIO DO IMÓVEL
+                        </label>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setIsCustomCondoNew(!isCustomCondoNew)}
+                          className="text-[10px] font-mono text-[#ECC97E] hover:underline cursor-pointer"
+                        >
+                          {isCustomCondoNew ? '« Escolher da Lista' : '+ Digitar outro manualmente'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('condos')}
+                          className="text-[10px] font-mono text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>Gerenciar Condomínios ({condos.length})</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {!isCustomCondoNew ? (
+                      <div>
+                        <select
+                          value={
+                            condos.some((c) => c.name === newProp.condoName)
+                              ? condos.find((c) => c.name === newProp.condoName)?.id
+                              : ''
+                          }
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === 'custom') {
+                              setIsCustomCondoNew(true);
+                              return;
+                            }
+                            const selected = condos.find((c) => c.id === val);
+                            if (selected) {
+                              setNewProp((prev) => ({
+                                ...prev,
+                                condoName: selected.name,
+                                condoFee: selected.condoFee || prev.condoFee,
+                                neighborhood: prev.neighborhood || selected.neighborhood,
+                                city: prev.city || selected.city,
+                                address: prev.address || selected.address,
+                                zipCode: prev.zipCode || selected.zipCode,
+                                country: prev.country || selected.country || 'Brasil',
+                              }));
+                            } else {
+                              setNewProp((prev) => ({
+                                ...prev,
+                                condoName: '',
+                              }));
+                            }
+                          }}
+                          className="w-full bg-[#050B1A] border border-[#D4AF37]/50 text-white rounded-xl px-3.5 py-2.5 text-xs font-semibold focus:ring-1 focus:ring-[#D4AF37] cursor-pointer"
+                        >
+                          <option value="">-- Selecione o Condomínio / Edifício Cadastrado --</option>
+                          {condos.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name} · {c.neighborhood}, {c.city} ({c.condoFee || 'Sob consulta'})
+                            </option>
+                          ))}
+                          <option value="custom">&#x270E; Digitar outro condomínio manualmente...</option>
+                        </select>
+
+                        {/* Selected Condo Preview Pill */}
+                        {condos.some((c) => c.name === newProp.condoName) && (() => {
+                          const currentCondo = condos.find((c) => c.name === newProp.condoName);
+                          return (
+                            <div className="mt-2.5 p-3 rounded-xl bg-[#070F26] border border-[#D4AF37]/25 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                              <div>
+                                <span className="font-bold text-white">{currentCondo?.name}</span>
+                                <span className="text-[11px] text-slate-400 block font-mono">
+                                  {currentCondo?.address ? `${currentCondo.address} · ` : ''}{currentCondo?.neighborhood}, {currentCondo?.city}
+                                </span>
+                              </div>
+                              {currentCondo?.amenities && currentCondo.amenities.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {currentCondo.amenities.slice(0, 3).map((a, i) => (
+                                    <span key={i} className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#0B163B] text-[#ECC97E] border border-[#D4AF37]/30">
+                                      {a}
+                                    </span>
+                                  ))}
+                                  {currentCondo.amenities.length > 3 && (
+                                    <span className="text-[10px] font-mono text-slate-400 self-center">
+                                      +{currentCondo.amenities.length - 3}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        value={newProp.condoName || ''}
+                        onChange={(e) => setNewProp({ ...newProp, condoName: e.target.value })}
+                        placeholder="Digite o nome oficial do condomínio ou edifício..."
+                        className="w-full bg-[#050B1A] border border-[#D4AF37]/50 text-white rounded-xl px-3.5 py-2 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                        autoFocus
+                      />
+                    )}
+                    <span className="text-[10px] text-slate-400 block font-sans">
+                      Nome oficial do edifício ou condomínio residencial/empresarial exibido na ficha técnica do anúncio.
                     </span>
                   </div>
 
@@ -2388,6 +2629,201 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         )}
 
+        {/* TAB: GESTÃO COMPLETA DE CONDOMÍNIOS / EDIFÍCIOS */}
+        {activeTab === 'condos' && (
+          <div className="py-6 flex-1 space-y-6">
+            {/* Feedback Alert */}
+            {condoFeedback && (
+              <div
+                className={`p-4 rounded-2xl flex items-center justify-between text-xs font-mono border animate-fadeIn ${
+                  condoFeedback.type === 'success'
+                    ? 'bg-emerald-950/80 border-emerald-500/50 text-emerald-300'
+                    : 'bg-red-950/80 border-red-500/50 text-red-300'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {condoFeedback.type === 'success' ? (
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                  )}
+                  <span>{condoFeedback.message}</span>
+                </div>
+                <button
+                  onClick={() => setCondoFeedback(null)}
+                  className="p-1 text-slate-400 hover:text-white cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {/* Header with Title and Add Condo Action */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#070F26] p-5 rounded-3xl border border-[#D4AF37]/30 shadow-xl">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base sm:text-lg font-extrabold text-white">
+                    Condomínios & Edifícios Cadastrados ({condos.length})
+                  </h3>
+                  <span className="text-[10px] font-mono bg-[#0B163B] text-[#E5C378] border border-[#D4AF37]/35 px-2.5 py-0.5 rounded-full">
+                    Sincronizado no Firestore
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1 max-w-2xl font-sans">
+                  Gerencie os condomínios residenciais e edifícios corporativos. Ao cadastrar ou editar um imóvel, você pode
+                  selecionar o condomínio para preenchimento imediato de nome, taxa mensal, endereço e especificações de infraestrutura.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleOpenCreateCondo}
+                className="tech-btn-primary inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-[#050B1A] shrink-0 shadow-lg cursor-pointer"
+              >
+                <PlusCircle className="w-4 h-4 text-[#050B1A]" />
+                <span>Cadastrar Novo Condomínio</span>
+              </button>
+            </div>
+
+            {/* List of Condominiums */}
+            {condos.length === 0 ? (
+              <div className="text-center py-12 bg-[#070F26] rounded-3xl border border-white/10 p-6">
+                <Building className="w-12 h-12 text-[#D4AF37]/50 mx-auto mb-3" />
+                <h4 className="text-sm font-bold text-white">Nenhum condomínio cadastrado</h4>
+                <p className="text-xs text-slate-400 mt-1 mb-4">
+                  Clique no botão acima para adicionar o primeiro condomínio ou edifício.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleOpenCreateCondo}
+                  className="tech-btn-primary px-4 py-2 rounded-xl text-xs font-bold text-[#050B1A] cursor-pointer"
+                >
+                  Cadastrar Condomínio Agora
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {condos.map((condo) => {
+                  const linkedPropsCount = properties.filter(
+                    (p) => p.condoName && p.condoName.toLowerCase() === condo.name.toLowerCase()
+                  ).length;
+
+                  return (
+                    <div
+                      key={condo.id}
+                      className="bg-[#070F26] rounded-3xl p-5 border border-[#D4AF37]/30 shadow-lg hover:border-[#D4AF37]/60 transition-all flex flex-col justify-between space-y-4 group"
+                    >
+                      <div>
+                        {/* Top Profile Strip */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#0B163B] to-[#12235E] border-2 border-[#D4AF37]/50 flex items-center justify-center text-[#ECC97E] shadow-md shrink-0">
+                              <Building className="w-5 h-5 text-[#D4AF37]" />
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-bold text-white group-hover:text-[#ECC97E] transition-colors leading-snug">
+                                {condo.name}
+                              </h4>
+                              <span className="text-[11px] font-mono text-[#E5C378] block">
+                                {condo.neighborhood ? `${condo.neighborhood}, ` : ''}{condo.city} · {condo.country}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditCondo(condo)}
+                              className="p-1.5 rounded-lg bg-[#0B163B] hover:bg-[#12235E] border border-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                              title="Editar Condomínio"
+                            >
+                              <Edit className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCondo(condo.id, condo.name)}
+                              className="p-1.5 rounded-lg bg-red-950/70 hover:bg-red-900 border border-red-500/30 text-red-300 hover:text-white transition-colors cursor-pointer"
+                              title="Excluir Condomínio"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Details Badges */}
+                        <div className="mt-4 space-y-2 text-xs">
+                          {condo.condoFee && (
+                            <div className="flex items-center gap-2 text-[#E5C378] font-mono">
+                              <DollarSign className="w-3.5 h-3.5 shrink-0" />
+                              <span className="font-semibold">Taxa Mensal: {condo.condoFee}</span>
+                            </div>
+                          )}
+
+                          {condo.address && (
+                            <div className="flex items-start gap-2 text-slate-300">
+                              <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                              <span className="text-[11px] leading-tight">
+                                {condo.address} {condo.zipCode ? `· CEP ${condo.zipCode}` : ''}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Amenities Tags */}
+                          {condo.amenities && condo.amenities.length > 0 && (
+                            <div className="pt-1">
+                              <div className="text-[10px] font-mono text-slate-400 mb-1 font-semibold uppercase">
+                                Infraestrutura & Lazer:
+                              </div>
+                              <div className="flex flex-wrap gap-1">
+                                {condo.amenities.map((item, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="text-[10px] font-mono px-2 py-0.5 rounded-lg bg-[#0B163B] text-[#ECC97E] border border-[#D4AF37]/30"
+                                  >
+                                    {item}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {condo.notes && (
+                            <div className="p-2.5 rounded-xl bg-[#050B1A] border border-white/10 text-[11px] text-slate-300 leading-relaxed mt-2">
+                              <div className="flex items-center gap-1.5 text-slate-400 mb-1 font-semibold uppercase text-[10px]">
+                                <FileText className="w-3 h-3 text-[#D4AF37]" />
+                                <span>Portaria & Zeladoria:</span>
+                              </div>
+                              <p className="line-clamp-2">{condo.notes}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Footer Info */}
+                      <div className="pt-3 border-t border-white/10 flex items-center justify-between text-[11px] font-mono text-slate-400">
+                        <span className="text-slate-300">
+                          {linkedPropsCount > 0 ? (
+                            <strong className="text-[#ECC97E]">{linkedPropsCount} imóvel(is) cadastrado(s)</strong>
+                          ) : (
+                            'Nenhum imóvel vinculado'
+                          )}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditCondo(condo)}
+                          className="text-[#D4AF37] hover:underline font-semibold cursor-pointer"
+                        >
+                          Editar &rarr;
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* TAB 2.5: GESTÃO COMPLETA DE CORRETORES CADASTRADOS */}
         {activeTab === 'realtors' && (
           <div className="py-6 flex-1 space-y-6">
@@ -3130,17 +3566,73 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-mono text-slate-300 mb-1">NOME DO CONDOMÍNIO / EDIFÍCIO</label>
-                        <input
-                          type="text"
-                          value={editingProperty.condoName || ''}
-                          onChange={(e) => setEditingProperty({ ...editingProperty, condoName: e.target.value })}
-                          placeholder="Ex: Edifício Torre de Batel"
-                          className="w-full bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-2 text-xs"
-                        />
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[11px] font-mono text-slate-300 flex items-center gap-1 font-bold">
+                            <Building className="w-3.5 h-3.5 text-[#D4AF37]" />
+                            <span>CONDOMÍNIO / EDIFÍCIO</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setIsCustomCondoEdit(!isCustomCondoEdit)}
+                            className="text-[10px] font-mono text-[#ECC97E] hover:underline cursor-pointer"
+                          >
+                            {isCustomCondoEdit ? '« Escolher da Lista' : '+ Digitar outro'}
+                          </button>
+                        </div>
+
+                        {!isCustomCondoEdit ? (
+                          <select
+                            value={
+                              condos.some((c) => c.name === editingProperty.condoName)
+                                ? condos.find((c) => c.name === editingProperty.condoName)?.id
+                                : ''
+                            }
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === 'custom') {
+                                setIsCustomCondoEdit(true);
+                                return;
+                              }
+                              const selected = condos.find((c) => c.id === val);
+                              if (selected && editingProperty) {
+                                setEditingProperty({
+                                  ...editingProperty,
+                                  condoName: selected.name,
+                                  condoFee: selected.condoFee || editingProperty.condoFee,
+                                });
+                              }
+                            }}
+                            className="w-full bg-[#050B1A] border border-[#D4AF37]/50 text-white rounded-xl px-3 py-2 text-xs font-semibold focus:ring-1 focus:ring-[#D4AF37] cursor-pointer"
+                          >
+                            <option value="">-- Selecione o Condomínio Cadastrado --</option>
+                            {condos.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name} · {c.neighborhood}, {c.city} ({c.condoFee || 'Sob consulta'})
+                              </option>
+                            ))}
+                            <option value="custom">&#x270E; Digitar outro condomínio manualmente...</option>
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            value={editingProperty.condoName || ''}
+                            onChange={(e) => setEditingProperty({ ...editingProperty, condoName: e.target.value })}
+                            placeholder="Ex: Edifício Torre de Batel"
+                            className="w-full bg-[#050B1A] border border-[#D4AF37]/50 text-white rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                            autoFocus
+                          />
+                        )}
                       </div>
+
                       <div>
-                        <label className="block text-[11px] font-mono text-slate-300 mb-1">TAXA DO CONDOMÍNIO</label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[11px] font-mono text-slate-300">TAXA DO CONDOMÍNIO</label>
+                          {condos.some((c) => c.name === editingProperty.condoName) && (
+                            <span className="text-[10px] font-mono text-emerald-400 font-semibold">
+                              ✓ Vinculado
+                            </span>
+                          )}
+                        </div>
                         <input
                           type="text"
                           value={editingProperty.condoFee || ''}
@@ -4204,6 +4696,254 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   >
                     <Save className="w-4 h-4 text-[#050B1A]" />
                     <span>{isSavingOwner ? 'Salvando...' : editingOwner ? 'Salvar Alterações' : 'Cadastrar Proprietário'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE CADASTRO / EDIÇÃO DE CONDOMÍNIO OU EDIFÍCIO */}
+        {isCondoModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#050B1A]/85 backdrop-blur-md animate-in fade-in duration-200"
+            onClick={() => setIsCondoModalOpen(false)}
+          >
+            <div
+              className="relative w-full max-w-2xl max-h-[90vh] bg-[#070F26] text-white rounded-3xl shadow-[0_25px_70px_rgba(0,0,0,0.85)] overflow-hidden flex flex-col border border-[#D4AF37]/50"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-5 border-b border-[#D4AF37]/30 bg-[#050B1A] shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#0B163B] border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37] shrink-0">
+                    <Building className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-white">
+                      {editingCondo ? `Editar Condomínio · ${editingCondo.name}` : 'Cadastrar Novo Condomínio / Edifício'}
+                    </h3>
+                    <p className="text-[11px] text-slate-400 font-sans mt-0.5">
+                      Fica disponível imediatamente para seleção de taxa e especificações em qualquer imóvel.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsCondoModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-[#070F26] hover:bg-[#0B163B] border border-white/10 text-white flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4 text-[#D4AF37]" />
+                </button>
+              </div>
+
+              {/* Form Body */}
+              <form onSubmit={handleSaveCondoForm} className="p-6 space-y-4 overflow-y-auto flex-1">
+                <div>
+                  <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                    NOME DO CONDOMÍNIO OU EDIFÍCIO *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={condoFormData.name || ''}
+                    onChange={(e) => setCondoFormData({ ...condoFormData, name: e.target.value })}
+                    placeholder="Ex: Edifício Maison Batel Platinum ou Residencial Villa Jardins"
+                    className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-mono text-[#E5C378] mb-1">
+                      TAXA DE CONDOMÍNIO ESTIMADA (MENSAL)
+                    </label>
+                    <input
+                      type="text"
+                      value={condoFormData.condoFee || ''}
+                      onChange={(e) => setCondoFormData({ ...condoFormData, condoFee: e.target.value })}
+                      placeholder="Ex: R$ 1.850 / mês ou US$ 450 / mês"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-[#E5C378] font-bold rounded-xl px-3.5 py-2 text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      CEP / CÓDIGO POSTAL
+                    </label>
+                    <input
+                      type="text"
+                      value={condoFormData.zipCode || ''}
+                      onChange={(e) => setCondoFormData({ ...condoFormData, zipCode: e.target.value })}
+                      placeholder="Ex: 80420-190"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">PAÍS</label>
+                    <select
+                      value={condoFormData.country || 'Brasil'}
+                      onChange={(e) => setCondoFormData({ ...condoFormData, country: e.target.value as Country })}
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3 py-2 text-xs cursor-pointer"
+                    >
+                      <option value="Brasil" className="bg-[#070F26]">Brasil</option>
+                      <option value="Estados Unidos" className="bg-[#070F26]">Estados Unidos</option>
+                      <option value="Paraguai" className="bg-[#070F26]">Paraguai</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">CIDADE *</label>
+                    <input
+                      type="text"
+                      required
+                      value={condoFormData.city || ''}
+                      onChange={(e) => setCondoFormData({ ...condoFormData, city: e.target.value })}
+                      placeholder="Curitiba"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">BAIRRO *</label>
+                    <input
+                      type="text"
+                      required
+                      value={condoFormData.neighborhood || ''}
+                      onChange={(e) => setCondoFormData({ ...condoFormData, neighborhood: e.target.value })}
+                      placeholder="Batel"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">ESTADO / UF</label>
+                    <input
+                      type="text"
+                      value={condoFormData.stateOrDept || ''}
+                      onChange={(e) => setCondoFormData({ ...condoFormData, stateOrDept: e.target.value })}
+                      placeholder="PR"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                    ENDEREÇO COMPLETO / LOGRADOURO
+                  </label>
+                  <input
+                    type="text"
+                    value={condoFormData.address || ''}
+                    onChange={(e) => setCondoFormData({ ...condoFormData, address: e.target.value })}
+                    placeholder="Ex: Av. Desembargador Motta, 1420"
+                    className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs"
+                  />
+                </div>
+
+                {/* Comodidades e Lazer do Condomínio */}
+                <div>
+                  <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                    INFRAESTRUTURA & COMODIDADES DO CONDOMÍNIO
+                  </label>
+
+                  {/* Amenities Tags */}
+                  {condoFormData.amenities && condoFormData.amenities.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-2.5 p-2 rounded-xl bg-[#050B1A] border border-white/10">
+                      {condoFormData.amenities.map((item, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1.5 text-xs font-mono px-2.5 py-1 rounded-lg bg-[#0B163B] text-[#ECC97E] border border-[#D4AF37]/40"
+                        >
+                          <span>{item}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCondoAmenity(idx)}
+                            className="text-red-400 hover:text-red-200 cursor-pointer text-xs"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add Amenity Input */}
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={condoAmenityInput}
+                      onChange={(e) => setCondoAmenityInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddCondoAmenity();
+                        }
+                      }}
+                      placeholder="Ex: Piscina Aquecida, Academia, Espaço Gourmet..."
+                      className="flex-1 bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCondoAmenity}
+                      className="px-4 py-2 bg-[#0B163B] hover:bg-[#12235E] border border-[#D4AF37]/40 text-[#ECC97E] text-xs font-semibold rounded-xl cursor-pointer"
+                    >
+                      + Incluir
+                    </button>
+                  </div>
+
+                  {/* Quick Suggestions Chips */}
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {['Portaria 24h', 'Piscina Aquecida', 'Academia', 'Salão de Festas Gourmet', 'Quadra de Tênis', 'Heliponto', 'Elevador Privativo', 'Pet Place', 'Gerador Full'].map((quick) => (
+                      <button
+                        key={quick}
+                        type="button"
+                        onClick={() => {
+                          const current = condoFormData.amenities || [];
+                          if (!current.includes(quick)) {
+                            setCondoFormData({ ...condoFormData, amenities: [...current, quick] });
+                          }
+                        }}
+                        className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#070F26] text-slate-300 border border-white/10 hover:border-[#D4AF37]/50 hover:text-white cursor-pointer"
+                      >
+                        + {quick}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                    OBSERVAÇÕES DA PORTARIA, REGRAS DE MUDANÇA & CONTATO DE ZELADORIA
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={condoFormData.notes || ''}
+                    onChange={(e) => setCondoFormData({ ...condoFormData, notes: e.target.value })}
+                    placeholder="Ex: Zelador Sr. Carlos (41 99999-0000). Horário de visitas até as 18h. Chaves na portaria com autorização prévia..."
+                    className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl p-3 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setIsCondoModalOpen(false)}
+                    className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-400 hover:text-white cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingCondo}
+                    className="tech-btn-primary inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-[#050B1A] cursor-pointer disabled:opacity-50"
+                  >
+                    <Save className="w-4 h-4 text-[#050B1A]" />
+                    <span>{isSavingCondo ? 'Salvando...' : editingCondo ? 'Salvar Alterações' : 'Cadastrar Condomínio'}</span>
                   </button>
                 </div>
               </form>
