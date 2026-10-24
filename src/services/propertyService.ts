@@ -10,7 +10,7 @@ import {
   orderBy,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Property, LeadSubmission } from '../types/property';
+import { Property, LeadSubmission, Realtor } from '../types/property';
 import { PROPERTIES as INITIAL_PROPERTIES } from '../data/properties';
 
 const PROPERTIES_COLLECTION = 'properties';
@@ -336,3 +336,151 @@ export async function fetchLeads(): Promise<LeadSubmission[]> {
     return [];
   }
 }
+
+// ==========================================
+// CORRETORES (REALTORS) MANAGEMENT SERVICES
+// ==========================================
+const REALTORS_COLLECTION = 'realtors';
+
+export const INITIAL_REALTORS: Realtor[] = [
+  {
+    id: 'corretor-alexandre',
+    name: 'Alexandre Bratu',
+    creci: 'CRECI-PR 32.410',
+    phone: '+55 (21) 98098-4243',
+    email: 'Demy@Bratu.com.br',
+    defaultCommission: '6% Padrão Venda',
+    specialty: 'Curitiba & Negócios Internacionais',
+    active: true,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'corretor-carlos',
+    name: 'Carlos M. Bogado',
+    creci: 'Matrícula Registro PY 45.290',
+    phone: '+55 (21) 98098-4243',
+    email: 'Demy@Bratu.com.br',
+    defaultCommission: '5% em USD',
+    specialty: 'Paraguai & Mercosul (Asunción / CDE)',
+    active: true,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'corretor-juliana',
+    name: 'Juliana Mendes',
+    creci: 'CRECI-PR 38.120',
+    phone: '+55 (41) 99882-1020',
+    email: 'juliana.mendes@bratu.com.br',
+    defaultCommission: '6%',
+    specialty: 'Residencial Alto Padrão Batel & Ecoville',
+    active: true,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'corretor-marcus',
+    name: 'Marcus Vinicius',
+    creci: 'CRECI-SC 42.890',
+    phone: '+55 (47) 99112-8877',
+    email: 'marcus.sc@bratu.com.br',
+    defaultCommission: '6%',
+    specialty: 'Balneário Camboriú & Litoral SC',
+    active: true,
+    createdAt: new Date().toISOString(),
+  },
+];
+
+export async function fetchRealtors(): Promise<Realtor[]> {
+  try {
+    const colRef = collection(db, REALTORS_COLLECTION);
+    const snapshot = await getDocs(colRef);
+
+    if (snapshot.empty) {
+      await seedInitialRealtors();
+      return INITIAL_REALTORS;
+    }
+
+    const list: Realtor[] = [];
+    snapshot.forEach((docSnap) => {
+      list.push({ id: docSnap.id, ...(docSnap.data() as any) });
+    });
+    return list.sort((a, b) => a.name.localeCompare(b.name));
+  } catch (err) {
+    console.error('Error fetching realtors from Firestore:', err);
+    return INITIAL_REALTORS;
+  }
+}
+
+async function seedInitialRealtors() {
+  try {
+    for (const realtor of INITIAL_REALTORS) {
+      const docRef = doc(db, REALTORS_COLLECTION, realtor.id);
+      await setDoc(docRef, realtor);
+    }
+  } catch (err) {
+    console.error('Error seeding initial realtors:', err);
+  }
+}
+
+export function subscribeToRealtors(callback: (realtors: Realtor[]) => void) {
+  const colRef = collection(db, REALTORS_COLLECTION);
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      if (snapshot.empty) {
+        callback(INITIAL_REALTORS);
+        return;
+      }
+      const list: Realtor[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...(docSnap.data() as any) });
+      });
+      callback(list.sort((a, b) => a.name.localeCompare(b.name)));
+    },
+    (err) => {
+      console.error('Firestore realtors snapshot error:', err);
+      callback(INITIAL_REALTORS);
+    }
+  );
+}
+
+export async function saveRealtor(realtor: Realtor): Promise<void> {
+  try {
+    const realtorId = realtor.id || `corretor-${Date.now()}`;
+    const docRef = doc(db, REALTORS_COLLECTION, realtorId);
+    const payload: Realtor = {
+      id: realtorId,
+      name: (realtor.name || '').trim(),
+      creci: (realtor.creci || '').trim(),
+      phone: (realtor.phone || '').trim(),
+      email: (realtor.email || '').trim(),
+      defaultCommission: (realtor.defaultCommission || '6%').trim(),
+      specialty: (realtor.specialty || '').trim(),
+      active: realtor.active !== false,
+      avatarUrl: (realtor.avatarUrl || '').trim(),
+      updatedAt: new Date().toISOString(),
+      createdAt: realtor.createdAt || new Date().toISOString(),
+    };
+
+    // Filter out undefined values
+    const cleanedPayload: Record<string, any> = {};
+    for (const [key, val] of Object.entries(payload)) {
+      if (val !== undefined) cleanedPayload[key] = val;
+    }
+
+    await setDoc(docRef, cleanedPayload, { merge: true });
+  } catch (err: any) {
+    console.error('Erro ao salvar corretor no Firestore:', err);
+    throw new Error(err?.message || 'Falha ao salvar corretor.');
+  }
+}
+
+export async function deleteRealtor(realtorId: string): Promise<void> {
+  try {
+    const docRef = doc(db, REALTORS_COLLECTION, realtorId);
+    await deleteDoc(docRef);
+  } catch (err: any) {
+    console.error('Erro ao excluir corretor do Firestore:', err);
+    throw new Error(err?.message || 'Falha ao excluir corretor.');
+  }
+}
+

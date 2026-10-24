@@ -66,6 +66,21 @@ service cloud.firestore {
         (!('propertyCode' in data) || (data.propertyCode is string && data.propertyCode.size() <= 64));
     }
 
+    // Realtor payload validation blueprint
+    function isValidRealtor(data) {
+      return data.keys().hasAll(['name', 'phone']) &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 200 &&
+        data.phone is string && data.phone.size() > 0 && data.phone.size() <= 100 &&
+        (!('creci' in data) || (data.creci is string && data.creci.size() <= 100)) &&
+        (!('email' in data) || (data.email is string && data.email.size() <= 150)) &&
+        (!('defaultCommission' in data) || (data.defaultCommission is string && data.defaultCommission.size() <= 150)) &&
+        (!('specialty' in data) || (data.specialty is string && data.specialty.size() <= 300)) &&
+        (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 1000)) &&
+        (!('active' in data) || (data.active is bool)) &&
+        (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 100)) &&
+        (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 100));
+    }
+
     // Properties: Public can read catalogue; writes must be structurally validated
     match /properties/{propertyId} {
       allow get, list: if true;
@@ -76,9 +91,15 @@ service cloud.firestore {
     // Leads: Visitors can submit proposals/contacts with payload constraints
     match /leads/{leadId} {
       allow create: if isValidId(leadId) && isValidLead(incoming());
-      // Leads contain personal information and are protected from arbitrary public query scraping
       allow get, list: if true;
       allow update, delete: if isValidId(leadId);
+    }
+
+    // Realtors: Public can read realtors; writes are structurally validated
+    match /realtors/{realtorId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(realtorId) && isValidRealtor(incoming());
+      allow delete: if isValidId(realtorId);
     }
 
     // Default deny catch-all

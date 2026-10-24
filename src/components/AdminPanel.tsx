@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   ShieldCheck,
   Building,
@@ -7,6 +7,10 @@ import {
   PlusCircle,
   FileText,
   User,
+  Users,
+  UserCheck,
+  Award,
+  BadgeCheck,
   Phone,
   Mail,
   CreditCard,
@@ -38,8 +42,17 @@ import {
   Square,
   Compass,
 } from 'lucide-react';
-import { Property, PropertyType, PropertyPurpose, Country, LeadSubmission } from '../types/property';
-import { saveProperty, updateProperty, deleteProperty } from '../services/propertyService';
+import { Property, PropertyType, PropertyPurpose, Country, LeadSubmission, Realtor } from '../types/property';
+import {
+  saveProperty,
+  updateProperty,
+  deleteProperty,
+  fetchRealtors,
+  saveRealtor,
+  deleteRealtor,
+  subscribeToRealtors,
+  INITIAL_REALTORS,
+} from '../services/propertyService';
 import { COMPANY_INFO } from '../utils/whatsapp';
 import { updateAdminPassword } from '../utils/security';
 import { isValidYouTubeUrl, getYouTubeEmbedUrl } from '../utils/youtube';
@@ -64,9 +77,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onLogout,
   onRefreshData,
 }) => {
-  const [activeTab, setActiveTab] = useState<'properties' | 'new' | 'leads' | 'security'>('properties');
+  const [activeTab, setActiveTab] = useState<'properties' | 'new' | 'realtors' | 'leads' | 'security'>('properties');
   const [searchFilter, setSearchFilter] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'residencial' | 'comercial'>('all');
+
+  // Realtors (Corretores) State & Listener
+  const [realtors, setRealtors] = useState<Realtor[]>(INITIAL_REALTORS);
+  const [isRealtorModalOpen, setIsRealtorModalOpen] = useState(false);
+  const [editingRealtor, setEditingRealtor] = useState<Realtor | null>(null);
+  const [realtorFormData, setRealtorFormData] = useState<Partial<Realtor>>({
+    name: '',
+    creci: '',
+    phone: '',
+    email: '',
+    defaultCommission: '6%',
+    specialty: '',
+    active: true,
+  });
+  const [realtorFeedback, setRealtorFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [isSavingRealtor, setIsSavingRealtor] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToRealtors((data) => {
+      setRealtors(data);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Inline notes editing state: propertyId -> string
   const [editingNotes, setEditingNotes] = useState<Record<string, string>>({});
@@ -469,6 +505,74 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
+  const handleOpenCreateRealtor = () => {
+    setEditingRealtor(null);
+    setRealtorFormData({
+      name: '',
+      creci: '',
+      phone: COMPANY_INFO.phoneDisplay,
+      email: COMPANY_INFO.email,
+      defaultCommission: '6% Padrão Venda',
+      specialty: 'Alto Padrão',
+      active: true,
+    });
+    setIsRealtorModalOpen(true);
+  };
+
+  const handleOpenEditRealtor = (realtor: Realtor) => {
+    setEditingRealtor(realtor);
+    setRealtorFormData({ ...realtor });
+    setIsRealtorModalOpen(true);
+  };
+
+  const handleSaveRealtorForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!realtorFormData.name?.trim() || !realtorFormData.phone?.trim()) {
+      setRealtorFeedback({ type: 'error', message: 'Preencha ao menos o Nome e o Telefone do corretor.' });
+      return;
+    }
+    setIsSavingRealtor(true);
+    try {
+      const idToUse = editingRealtor?.id || `corretor-${Date.now()}`;
+      const realtorToSave: Realtor = {
+        id: idToUse,
+        name: realtorFormData.name.trim(),
+        creci: (realtorFormData.creci || '').trim(),
+        phone: realtorFormData.phone.trim(),
+        email: (realtorFormData.email || '').trim(),
+        defaultCommission: (realtorFormData.defaultCommission || '6%').trim(),
+        specialty: (realtorFormData.specialty || '').trim(),
+        active: realtorFormData.active !== false,
+        avatarUrl: (realtorFormData.avatarUrl || '').trim(),
+        createdAt: editingRealtor?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      await saveRealtor(realtorToSave);
+      setRealtorFeedback({
+        type: 'success',
+        message: editingRealtor ? 'Corretor atualizado com sucesso no banco de dados!' : 'Novo corretor cadastrado com sucesso!',
+      });
+      setIsRealtorModalOpen(false);
+      setTimeout(() => setRealtorFeedback(null), 3000);
+    } catch (err: any) {
+      setRealtorFeedback({ type: 'error', message: err?.message || 'Erro ao salvar corretor.' });
+    } finally {
+      setIsSavingRealtor(false);
+    }
+  };
+
+  const handleDeleteRealtor = async (realtorId: string, name: string) => {
+    if (confirm(`Tem certeza que deseja excluir o corretor "${name}" do banco de dados?`)) {
+      try {
+        await deleteRealtor(realtorId);
+        setRealtorFeedback({ type: 'success', message: `Corretor "${name}" excluído com sucesso.` });
+        setTimeout(() => setRealtorFeedback(null), 3000);
+      } catch (err: any) {
+        setRealtorFeedback({ type: 'error', message: err?.message || 'Erro ao excluir corretor.' });
+      }
+    }
+  };
+
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
@@ -579,6 +683,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           >
             <PlusCircle className="w-4 h-4" />
             <span>Cadastrar Novo Imóvel (Comercial / Residencial)</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('realtors')}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+              activeTab === 'realtors'
+                ? 'tech-btn-primary'
+                : 'tech-btn-secondary text-slate-300'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>Corretores Cadastrados ({realtors.length})</span>
           </button>
 
           <button
@@ -1660,14 +1776,55 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                 {/* Section C: CORRETOR RESPONSÁVEL */}
                 <div className="pt-4">
-                  <div className="flex items-center gap-2 mb-3 pb-1 border-b border-[#D4AF37]/30">
-                    <Briefcase className="w-4 h-4 text-[#D4AF37]" />
-                    <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-[#E5C378]">
-                      PARTE 3: CORRETOR RESPONSÁVEL (BRATU)
-                    </h4>
+                  <div className="flex items-center justify-between gap-2 mb-3 pb-1 border-b border-[#D4AF37]/30">
+                    <div className="flex items-center gap-2">
+                      <Briefcase className="w-4 h-4 text-[#D4AF37]" />
+                      <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-[#E5C378]">
+                        PARTE 3: CORRETOR RESPONSÁVEL (BRATU)
+                      </h4>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('realtors')}
+                      className="text-[11px] font-mono text-[#ECC97E] hover:text-white flex items-center gap-1 cursor-pointer"
+                    >
+                      <Users className="w-3.5 h-3.5" />
+                      <span>Gerenciar Corretores ({realtors.length})</span>
+                    </button>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* Quick Select from Registered Realtors */}
+                  <div className="bg-[#050B1A] p-3.5 rounded-2xl border border-[#D4AF37]/45 mb-4 shadow-sm">
+                    <label className="block text-[11px] font-mono font-bold text-[#E5C378] mb-1.5 flex items-center gap-1.5">
+                      <UserCheck className="w-4 h-4 text-[#D4AF37]" />
+                      SELECIONAR CORRETOR CADASTRADO NA EQUIPE (PREENCHIMENTO AUTOMÁTICO)
+                    </label>
+                    <select
+                      onChange={(e) => {
+                        const selected = realtors.find((r) => r.id === e.target.value);
+                        if (selected) {
+                          setNewProp((prev) => ({
+                            ...prev,
+                            realtorName: selected.name,
+                            realtorCreci: selected.creci,
+                            realtorPhone: selected.phone,
+                            realtorEmail: selected.email,
+                            realtorCommission: selected.defaultCommission || '6%',
+                          }));
+                        }
+                      }}
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs font-mono focus:ring-1 focus:ring-[#D4AF37] cursor-pointer"
+                    >
+                      <option value="">-- Escolha um corretor da equipe para preencher automaticamente --</option>
+                      {realtors.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name} · {r.creci} ({r.specialty || 'Corretor Associado'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-3">
                     <div>
                       <label className="block text-[11px] font-mono text-slate-300 mb-1">NOME DO CORRETOR</label>
                       <input
@@ -1686,7 +1843,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         value={newProp.realtorCreci || ''}
                         onChange={(e) => setNewProp({ ...newProp, realtorCreci: e.target.value })}
                         placeholder="CRECI-PR 32.410"
-                        className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs"
+                        className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs font-mono"
                       />
                     </div>
 
@@ -1697,6 +1854,30 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         value={newProp.realtorCommission || ''}
                         onChange={(e) => setNewProp({ ...newProp, realtorCommission: e.target.value })}
                         placeholder="Ex: 6% ou 1º aluguel + 8%"
+                        className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-mono text-slate-300 mb-1">TELEFONE / WHATSAPP DO CORRETOR</label>
+                      <input
+                        type="text"
+                        value={newProp.realtorPhone || ''}
+                        onChange={(e) => setNewProp({ ...newProp, realtorPhone: e.target.value })}
+                        placeholder="+55 (21) 98098-4243"
+                        className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-emerald-400 rounded-xl px-3.5 py-2 text-xs font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-mono text-slate-300 mb-1">E-MAIL DO CORRETOR</label>
+                      <input
+                        type="email"
+                        value={newProp.realtorEmail || ''}
+                        onChange={(e) => setNewProp({ ...newProp, realtorEmail: e.target.value })}
+                        placeholder="Demy@Bratu.com.br"
                         className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs"
                       />
                     </div>
@@ -1755,6 +1936,208 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
               </form>
             </div>
+          </div>
+        )}
+
+        {/* TAB 2.5: GESTÃO COMPLETA DE CORRETORES CADASTRADOS */}
+        {activeTab === 'realtors' && (
+          <div className="py-6 flex-1 space-y-6">
+            {/* Feedback Alert */}
+            {realtorFeedback && (
+              <div
+                className={`p-4 rounded-2xl flex items-center justify-between text-xs font-mono border animate-fadeIn ${
+                  realtorFeedback.type === 'success'
+                    ? 'bg-emerald-950/80 border-emerald-500/50 text-emerald-300'
+                    : 'bg-red-950/80 border-red-500/50 text-red-300'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {realtorFeedback.type === 'success' ? (
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                  )}
+                  <span>{realtorFeedback.message}</span>
+                </div>
+                <button
+                  onClick={() => setRealtorFeedback(null)}
+                  className="p-1 text-slate-400 hover:text-white"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {/* Header with Title and Add Realtor Action */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#070F26] p-5 rounded-3xl border border-[#D4AF37]/30 shadow-xl">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base sm:text-lg font-extrabold text-white">
+                    Equipe de Corretores Cadastrados ({realtors.length})
+                  </h3>
+                  <span className="text-[10px] font-mono bg-[#0B163B] text-[#E5C378] border border-[#D4AF37]/35 px-2.5 py-0.5 rounded-full">
+                    Sincronizado no Firestore
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1 max-w-2xl font-sans">
+                  Gerencie os corretores responsáveis pelos imóveis. Ao cadastrar ou editar qualquer imóvel,
+                  você pode selecionar diretamente um corretor desta lista para preenchimento instantâneo.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleOpenCreateRealtor}
+                className="tech-btn-primary inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-[#050B1A] shrink-0 shadow-lg cursor-pointer"
+              >
+                <PlusCircle className="w-4 h-4 text-[#050B1A]" />
+                <span>Cadastrar Novo Corretor</span>
+              </button>
+            </div>
+
+            {/* List of Realtors */}
+            {realtors.length === 0 ? (
+              <div className="text-center py-12 bg-[#070F26] rounded-3xl border border-white/10 p-6">
+                <Users className="w-12 h-12 text-[#D4AF37]/50 mx-auto mb-3" />
+                <h4 className="text-sm font-bold text-white">Nenhum corretor cadastrado</h4>
+                <p className="text-xs text-slate-400 mt-1 mb-4">
+                  Clique no botão acima para adicionar o primeiro corretor da equipe.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleOpenCreateRealtor}
+                  className="tech-btn-primary px-4 py-2 rounded-xl text-xs font-bold text-[#050B1A] cursor-pointer"
+                >
+                  Cadastrar Corretor Agora
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {realtors.map((realtor) => {
+                  const linkedPropsCount = properties.filter(
+                    (p) => p.realtorName && p.realtorName.toLowerCase() === realtor.name.toLowerCase()
+                  ).length;
+                  const initials = realtor.name
+                    .split(' ')
+                    .map((n) => n[0])
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .join('')
+                    .toUpperCase();
+
+                  return (
+                    <div
+                      key={realtor.id}
+                      className="bg-[#070F26] rounded-3xl p-5 border border-[#D4AF37]/30 shadow-lg hover:border-[#D4AF37]/60 transition-all flex flex-col justify-between space-y-4 group"
+                    >
+                      <div>
+                        {/* Top Profile Strip */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#0B163B] to-[#12235E] border-2 border-[#D4AF37]/50 flex items-center justify-center text-sm font-extrabold text-[#ECC97E] shadow-md shrink-0">
+                              {initials}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <h4 className="text-sm font-bold text-white group-hover:text-[#ECC97E] transition-colors">
+                                  {realtor.name}
+                                </h4>
+                                {realtor.active !== false && (
+                                  <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" title="Ativo" />
+                                )}
+                              </div>
+                              <span className="text-[11px] font-mono text-[#E5C378] block">
+                                {realtor.creci || 'CRECI Sob Consulta'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditRealtor(realtor)}
+                              className="p-1.5 rounded-lg bg-[#0B163B] hover:bg-[#12235E] border border-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                              title="Editar Dados do Corretor"
+                            >
+                              <Edit className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteRealtor(realtor.id, realtor.name)}
+                              className="p-1.5 rounded-lg bg-red-950/70 hover:bg-red-900 border border-red-500/30 text-red-300 hover:text-white transition-colors cursor-pointer"
+                              title="Excluir Corretor"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Details Badges */}
+                        <div className="mt-4 space-y-2 text-xs">
+                          {realtor.specialty && (
+                            <div className="flex items-center gap-2 text-slate-300">
+                              <Award className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
+                              <span className="truncate">{realtor.specialty}</span>
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2 text-emerald-400 font-mono">
+                            <Phone className="w-3.5 h-3.5 shrink-0" />
+                            <a
+                              href={`https://wa.me/${realtor.phone.replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="hover:underline truncate"
+                              title="Conversar no WhatsApp"
+                            >
+                              {realtor.phone}
+                            </a>
+                          </div>
+
+                          {realtor.email && (
+                            <div className="flex items-center gap-2 text-slate-300 font-mono">
+                              <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              <a
+                                href={`mailto:${realtor.email}`}
+                                className="hover:underline truncate"
+                                title="Enviar E-mail"
+                              >
+                                {realtor.email}
+                              </a>
+                            </div>
+                          )}
+
+                          {realtor.defaultCommission && (
+                            <div className="flex items-center gap-2 text-[#E5C378] font-mono">
+                              <DollarSign className="w-3.5 h-3.5 shrink-0" />
+                              <span>Comissão Padrão: {realtor.defaultCommission}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Footer Info */}
+                      <div className="pt-3 border-t border-white/10 flex items-center justify-between text-[11px] font-mono text-slate-400">
+                        <span className="text-slate-300">
+                          {linkedPropsCount > 0 ? (
+                            <strong className="text-[#ECC97E]">{linkedPropsCount} imóvel(is) sob gestão</strong>
+                          ) : (
+                            'Nenhum imóvel vinculado'
+                          )}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditRealtor(realtor)}
+                          className="text-[#D4AF37] hover:underline font-semibold cursor-pointer"
+                        >
+                          Editar &rarr;
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -2820,9 +3203,46 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                     {/* Corretor & Notas Internas */}
                     <div className="p-4 rounded-2xl bg-[#0B163B]/70 border border-[#D4AF37]/30 space-y-3">
-                      <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#E5C378] block">
-                        Corretor Responsável & Comissão
-                      </span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#E5C378]">
+                          Corretor Responsável & Comissão
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-400">
+                          {realtors.length} corretores cadastrados
+                        </span>
+                      </div>
+
+                      {/* Selector from Registered Realtors */}
+                      <div className="bg-[#050B1A] p-3 rounded-xl border border-[#D4AF37]/40 shadow-xs">
+                        <label className="block text-[10px] font-mono font-bold text-[#E5C378] mb-1 flex items-center gap-1.5">
+                          <UserCheck className="w-3.5 h-3.5 text-[#D4AF37]" />
+                          SELECIONAR DA EQUIPE DE CORRETORES (PREENCHIMENTO AUTOMÁTICO)
+                        </label>
+                        <select
+                          onChange={(e) => {
+                            const selected = realtors.find((r) => r.id === e.target.value);
+                            if (selected && editingProperty) {
+                              setEditingProperty({
+                                ...editingProperty,
+                                realtorName: selected.name,
+                                realtorCreci: selected.creci,
+                                realtorPhone: selected.phone,
+                                realtorEmail: selected.email,
+                                realtorCommission: selected.defaultCommission || '6%',
+                              });
+                            }
+                          }}
+                          className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-lg px-3 py-1.5 text-xs font-mono focus:ring-1 focus:ring-[#D4AF37] cursor-pointer"
+                        >
+                          <option value="">-- Escolha um corretor para atualizar os dados abaixo --</option>
+                          {realtors.map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.name} · {r.creci} ({r.specialty || 'Corretor Associado'})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                           <label className="block text-[11px] font-mono text-slate-300 mb-1">CORRETOR</label>
@@ -2850,6 +3270,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             onChange={(e) => setEditingProperty({ ...editingProperty, realtorCommission: e.target.value })}
                             placeholder="Ex: 6% integral"
                             className="w-full bg-[#050B1A] border border-white/15 text-[#E5C378] rounded-xl px-3 py-2 text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-mono text-slate-300 mb-1">TELEFONE / WHATSAPP</label>
+                          <input
+                            type="text"
+                            value={editingProperty.realtorPhone || ''}
+                            onChange={(e) => setEditingProperty({ ...editingProperty, realtorPhone: e.target.value })}
+                            placeholder="+55 (21) 98098-4243"
+                            className="w-full bg-[#050B1A] border border-white/15 text-emerald-400 rounded-xl px-3 py-2 text-xs font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-mono text-slate-300 mb-1">E-MAIL</label>
+                          <input
+                            type="email"
+                            value={editingProperty.realtorEmail || ''}
+                            onChange={(e) => setEditingProperty({ ...editingProperty, realtorEmail: e.target.value })}
+                            placeholder="Demy@Bratu.com.br"
+                            className="w-full bg-[#050B1A] border border-white/15 text-white rounded-xl px-3 py-2 text-xs"
                           />
                         </div>
                       </div>
@@ -2894,6 +3337,162 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       <span>{isSavingEdit ? 'Salvando...' : 'Salvar Todas as Alterações'}</span>
                     </button>
                   </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL PARA CADASTRAR OU EDITAR CORRETOR */}
+        {isRealtorModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#050B1A]/90 backdrop-blur-md animate-in fade-in duration-200"
+            onClick={() => setIsRealtorModalOpen(false)}
+          >
+            <div
+              className="relative w-full max-w-lg bg-[#070F26] text-white rounded-3xl shadow-[0_25px_70px_rgba(0,0,0,0.85)] overflow-hidden border border-[#D4AF37]/50 flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-5 border-b border-[#D4AF37]/30 bg-[#050B1A]">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#0B163B] border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37] shrink-0">
+                    <UserCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-extrabold text-white">
+                      {editingRealtor ? `Editar Corretor · ${editingRealtor.name}` : 'Cadastrar Novo Corretor na Equipe'}
+                    </h3>
+                    <p className="text-[11px] text-slate-400 font-sans mt-0.5">
+                      Fica disponível imediatamente para seleção em qualquer imóvel.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsRealtorModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-[#070F26] hover:bg-[#0B163B] border border-white/10 text-white flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4 text-[#D4AF37]" />
+                </button>
+              </div>
+
+              {/* Form Body */}
+              <form onSubmit={handleSaveRealtorForm} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                    NOME COMPLETO DO CORRETOR *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={realtorFormData.name || ''}
+                    onChange={(e) => setRealtorFormData({ ...realtorFormData, name: e.target.value })}
+                    placeholder="Ex: Alexandre Bratu ou Maria Fernandes"
+                    className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      CRECI / REGISTRO PROFISSIONAL
+                    </label>
+                    <input
+                      type="text"
+                      value={realtorFormData.creci || ''}
+                      onChange={(e) => setRealtorFormData({ ...realtorFormData, creci: e.target.value })}
+                      placeholder="Ex: CRECI-PR 32.410 ou Matrícula PY 45.290"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      COMISSÃO PADRÃO
+                    </label>
+                    <input
+                      type="text"
+                      value={realtorFormData.defaultCommission || ''}
+                      onChange={(e) => setRealtorFormData({ ...realtorFormData, defaultCommission: e.target.value })}
+                      placeholder="Ex: 6% Padrão Venda ou 5% USD"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-[#E5C378] rounded-xl px-3.5 py-2 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      TELEFONE / WHATSAPP *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={realtorFormData.phone || ''}
+                      onChange={(e) => setRealtorFormData({ ...realtorFormData, phone: e.target.value })}
+                      placeholder="+55 (21) 98098-4243"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-emerald-400 rounded-xl px-3.5 py-2 text-xs font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      E-MAIL CORPORATIVO
+                    </label>
+                    <input
+                      type="email"
+                      value={realtorFormData.email || ''}
+                      onChange={(e) => setRealtorFormData({ ...realtorFormData, email: e.target.value })}
+                      placeholder="corretor@bratu.com.br"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                    ESPECIALIDADE / REGIÃO DE ATUAÇÃO
+                  </label>
+                  <input
+                    type="text"
+                    value={realtorFormData.specialty || ''}
+                    onChange={(e) => setRealtorFormData({ ...realtorFormData, specialty: e.target.value })}
+                    placeholder="Ex: Curitiba Batel & Ecoville / Litoral SC / Miami"
+                    className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <input
+                    type="checkbox"
+                    id="realtorActive"
+                    checked={realtorFormData.active !== false}
+                    onChange={(e) => setRealtorFormData({ ...realtorFormData, active: e.target.checked })}
+                    className="w-4 h-4 text-[#D4AF37] rounded border-white/20 bg-[#0B163B] cursor-pointer"
+                  />
+                  <label htmlFor="realtorActive" className="text-xs text-slate-300 font-mono cursor-pointer">
+                    Corretor ativo na equipe (visível para seleção em novos imóveis)
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setIsRealtorModalOpen(false)}
+                    className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-400 hover:text-white cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingRealtor}
+                    className="tech-btn-primary inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-[#050B1A] cursor-pointer disabled:opacity-50"
+                  >
+                    <Save className="w-4 h-4 text-[#050B1A]" />
+                    <span>{isSavingRealtor ? 'Salvando...' : editingRealtor ? 'Salvar Alterações' : 'Cadastrar Corretor'}</span>
+                  </button>
                 </div>
               </form>
             </div>

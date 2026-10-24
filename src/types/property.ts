@@ -91,3 +91,18 @@ export interface LeadSubmission {
   createdAt?: string;
   status?: 'Novo' | 'Em Atendimento' | 'Concluído';
 }
+
+export interface Realtor {
+  id: string;
+  name: string;
+  creci: string;
+  phone: string;
+  email: string;
+  defaultCommission?: string;
+  specialty?: string;
+  active?: boolean;
+  avatarUrl?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+

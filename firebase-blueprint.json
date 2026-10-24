@@ -71,6 +71,25 @@
         "createdAt": { "type": "string" }
       },
       "required": ["name", "phone"]
+    },
+    "Realtor": {
+      "title": "Realtor",
+      "description": "Corretores cadastrados para gestão de imóveis e atendimento comercial.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "creci": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "defaultCommission": { "type": "string" },
+        "specialty": { "type": "string" },
+        "active": { "type": "boolean" },
+        "avatarUrl": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name", "phone"]
     }
   },
   "firestore": {
@@ -81,6 +100,10 @@
     "/leads/{leadId}": {
       "schema": { "$ref": "#/entities/Lead" },
       "description": "Propostas e contatos enviados via formulário."
+    },
+    "/realtors/{realtorId}": {
+      "schema": { "$ref": "#/entities/Realtor" },
+      "description": "Lista de corretores autorizados cadastrados na imobiliária."
     }
   }
 }
