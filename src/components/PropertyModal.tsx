@@ -23,9 +23,15 @@ import {
   KeyRound,
   Compass,
   ShieldCheck,
+  Play,
+  Star,
+  ExternalLink,
+  Video,
 } from 'lucide-react';
 import { Property } from '../types/property';
 import { getPropertyWhatsAppLink, COMPANY_INFO } from '../utils/whatsapp';
+import { getYouTubeEmbedUrl } from '../utils/youtube';
+import { parse360Tour } from '../utils/virtualTour360';
 import { PropertyMap } from './PropertyMap';
 
 interface PropertyModalProps {
@@ -42,13 +48,17 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
   onSaveAdminNotes,
 }) => {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [activeMediaTab, setActiveMediaTab] = useState<'photos' | 'video' | 'tour360'>('photos');
   const [copied, setCopied] = useState(false);
   const [adminNotes, setAdminNotes] = useState('');
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [noteSaved, setNoteSaved] = useState(false);
 
+  const parsed360 = parse360Tour(property?.virtualTour360Url);
+
   useEffect(() => {
     setActiveImageIndex(0);
+    setActiveMediaTab('photos');
     if (property) {
       setAdminNotes(property.adminNotes || '');
     }
@@ -90,6 +100,8 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
     }
   };
 
+  const embedUrl = property.youtubeUrl ? getYouTubeEmbedUrl(property.youtubeUrl) : null;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-[#050B1A]/85 backdrop-blur-md animate-in fade-in duration-200"
@@ -110,72 +122,186 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
 
         {/* Modal Scrollable Body */}
         <div className="overflow-y-auto p-0">
-          {/* Main Gallery Display with Modern Technological Overlay */}
-          <div className="relative aspect-[16/9] w-full bg-[#050B1A] overflow-hidden group">
-            <img
-              src={property.images[activeImageIndex] || property.images[0]}
-              alt={property.title}
-              className="w-full h-full object-cover filter contrast-[1.05] brightness-[0.95]"
-              referrerPolicy="no-referrer"
-            />
-            {/* Scrims */}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#070F26] via-transparent to-[#050B1A]/60 pointer-events-none" />
-            <div className="absolute inset-0 bg-[linear-gradient(rgba(212,175,55,0.03)_1px,transparent_1px)] bg-[size:100%_4px] pointer-events-none opacity-50" />
+          {/* Media Switcher Tabs (Fotos x Tour Virtual 360° x Vídeo YouTube) */}
+          {(property.youtubeUrl || (property.virtualTour360Url && parsed360.isValid)) && (
+            <div className="px-4 sm:px-6 pt-4 pb-2 bg-[#050B1A] flex flex-wrap items-center gap-2 border-b border-[#D4AF37]/20">
+              <button
+                type="button"
+                onClick={() => setActiveMediaTab('photos')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeMediaTab === 'photos'
+                    ? 'tech-btn-primary text-[#050B1A]'
+                    : 'bg-[#070F26] text-slate-300 hover:text-white border border-white/10'
+                }`}
+              >
+                <span>📷 Fotos do Imóvel ({property.images.length})</span>
+              </button>
 
-            {/* Tech Corner HUD Reticles */}
-            <div className="absolute top-3 left-3 w-4 h-4 border-t-2 border-l-2 border-[#D4AF37]" />
-            <div className="absolute top-3 right-3 w-4 h-4 border-t-2 border-r-2 border-[#D4AF37]" />
-            <div className="absolute bottom-3 left-3 w-4 h-4 border-b-2 border-l-2 border-[#D4AF37]" />
-            <div className="absolute bottom-3 right-3 w-4 h-4 border-b-2 border-r-2 border-[#D4AF37]" />
+              {property.virtualTour360Url && parsed360.isValid && parsed360.embedUrl && (
+                <button
+                  type="button"
+                  onClick={() => setActiveMediaTab('tour360')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    activeMediaTab === 'tour360'
+                      ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white border border-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.45)]'
+                      : 'bg-[#070F26] text-cyan-300 hover:text-white border border-cyan-500/35 hover:border-cyan-400'
+                  }`}
+                >
+                  <Compass className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                  <span>🌐 Tour Virtual 360° ({parsed360.provider})</span>
+                </button>
+              )}
 
-            {/* Badges & Code */}
-            <div className="absolute top-4 left-4 flex items-center gap-2 text-xs font-mono font-semibold text-white drop-shadow">
-              <span className="bg-[#050B1A]/80 backdrop-blur-md px-2 py-0.5 rounded border border-[#D4AF37]/40 text-[#E5C378]">
-                {property.purpose.toUpperCase()}
-              </span>
-              <span>·</span>
-              <span className="bg-[#050B1A]/80 backdrop-blur-md px-2 py-0.5 rounded border border-white/20">
-                {property.country.toUpperCase()}
-              </span>
-              <span>·</span>
-              <span className="bg-[#0B163B] border border-[#D4AF37]/50 px-2 py-0.5 rounded text-[#D4AF37]">
-                REF: {property.code}
-              </span>
-              {isAdmin && (
-                <span className="bg-[#D4AF37] text-[#050B1A] font-bold px-2 py-0.5 rounded text-[10px] flex items-center gap-1">
-                  <Lock className="w-3 h-3" /> ADMIN VISUALIZAÇÃO
-                </span>
+              {property.youtubeUrl && embedUrl && (
+                <button
+                  type="button"
+                  onClick={() => setActiveMediaTab('video')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    activeMediaTab === 'video'
+                      ? 'bg-red-600 text-white border border-red-400 shadow-md'
+                      : 'bg-[#070F26] text-slate-300 hover:text-white border border-white/10'
+                  }`}
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>▶ Vídeo Tour no YouTube</span>
+                </button>
               )}
             </div>
+          )}
 
-            {/* Price on Image Bottom Left */}
-            <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between text-white z-10">
-              <div>
-                <span className="text-xs uppercase tracking-wider text-slate-400 font-mono block">
-                  VALOR DE AVALIAÇÃO
+          {/* Main Media Display: 360 Virtual Tour, Video Player or Photo Gallery */}
+          {activeMediaTab === 'tour360' && parsed360.isValid && parsed360.embedUrl ? (
+            <div className="relative aspect-[16/10] sm:aspect-[16/9] min-h-[420px] w-full bg-black overflow-hidden flex flex-col items-center justify-center border-b border-[#D4AF37]/20">
+              <iframe
+                src={parsed360.embedUrl}
+                title={`Tour Virtual 360° - ${property.title}`}
+                className="w-full h-full min-h-[420px] border-0"
+                allow="accelerometer; autoplay; gyroscope; magnetometer; xr-spatial-tracking; fullscreen"
+                allowFullScreen
+              />
+
+              {/* Floating 360 Provider HUD Tag */}
+              <div className="absolute top-3 left-3 flex items-center gap-2 pointer-events-auto">
+                <span className="bg-[#050B1A]/90 backdrop-blur-md px-3 py-1 rounded-xl text-[11px] font-mono text-cyan-300 border border-cyan-500/40 flex items-center gap-1.5 shadow-lg">
+                  <Compass className="w-3.5 h-3.5 text-cyan-400 animate-spin" style={{ animationDuration: '10s' }} />
+                  <span>{parsed360.provider} · 360° Interativo</span>
                 </span>
-                <span className="text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-[#ECC97E]">
-                  {property.priceFormatted}
+              </div>
+
+              {/* Floating Fullscreen / External Trigger */}
+              <div className="absolute top-3 right-16 flex items-center gap-2 pointer-events-auto">
+                <a
+                  href={parsed360.originalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-[#050B1A]/90 hover:bg-[#0B163B] backdrop-blur-md px-3 py-1 rounded-xl text-[11px] font-mono text-white border border-white/20 hover:border-cyan-400 transition-colors flex items-center gap-1.5 shadow-lg"
+                  title="Abrir em tela cheia na plataforma original"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 text-cyan-300" />
+                  <span>Tela Cheia</span>
+                </a>
+              </div>
+
+              {/* Navigation Hint */}
+              <div className="absolute bottom-2 inset-x-2 flex justify-center pointer-events-none">
+                <span className="bg-[#050B1A]/85 backdrop-blur-md px-3 py-0.5 rounded-full text-[10px] font-mono text-cyan-200 border border-cyan-500/30 shadow">
+                  Arraste com o mouse ou toque para girar 360° e explore os ambientes
                 </span>
-                {property.priceNote && (
-                  <p className="text-xs text-[#E5C378] mt-0.5 font-mono">{property.priceNote}</p>
+              </div>
+            </div>
+          ) : activeMediaTab === 'video' && embedUrl ? (
+            <div className="relative aspect-[16/9] w-full bg-black overflow-hidden flex items-center justify-center">
+              <iframe
+                src={embedUrl}
+                title={`Vídeo do Imóvel ${property.title}`}
+                className="w-full h-full border-0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            </div>
+          ) : (
+            <div className="relative aspect-[16/9] w-full bg-[#050B1A] overflow-hidden group">
+              <img
+                src={property.images[activeImageIndex] || property.images[0]}
+                alt={property.title}
+                className="w-full h-full object-cover filter contrast-[1.05] brightness-[0.95]"
+                referrerPolicy="no-referrer"
+              />
+              {/* Scrims */}
+              <div className="absolute inset-0 bg-gradient-to-t from-[#070F26] via-transparent to-[#050B1A]/60 pointer-events-none" />
+              <div className="absolute inset-0 bg-[linear-gradient(rgba(212,175,55,0.03)_1px,transparent_1px)] bg-[size:100%_4px] pointer-events-none opacity-50" />
+
+              {/* Tech Corner HUD Reticles */}
+              <div className="absolute top-3 left-3 w-4 h-4 border-t-2 border-l-2 border-[#D4AF37]" />
+              <div className="absolute top-3 right-3 w-4 h-4 border-t-2 border-r-2 border-[#D4AF37]" />
+              <div className="absolute bottom-3 left-3 w-4 h-4 border-b-2 border-l-2 border-[#D4AF37]" />
+              <div className="absolute bottom-3 right-3 w-4 h-4 border-b-2 border-r-2 border-[#D4AF37]" />
+
+              {/* Badges & Code */}
+              <div className="absolute top-4 left-4 flex flex-wrap items-center gap-2 text-xs font-mono font-semibold text-white drop-shadow">
+                {property.featured && (
+                  <span className="bg-gradient-to-r from-[#ECC97E] to-[#D4AF37] text-[#050B1A] font-extrabold px-2 py-0.5 rounded text-[10px] flex items-center gap-1 shadow-md">
+                    <Star className="w-3 h-3 fill-[#050B1A]" /> EM DESTAQUE
+                  </span>
+                )}
+                {property.virtualTour360Url && parsed360.isValid && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveMediaTab('tour360')}
+                    className="bg-cyan-950/90 hover:bg-cyan-900 text-cyan-300 font-bold px-2.5 py-0.5 rounded text-[10px] flex items-center gap-1 border border-cyan-400/60 shadow-[0_0_10px_rgba(6,182,212,0.35)] transition-all cursor-pointer pointer-events-auto"
+                    title="Clique para abrir o Tour Virtual 360°"
+                  >
+                    <Compass className="w-3 h-3 text-cyan-400 animate-spin" style={{ animationDuration: '8s' }} />
+                    <span>TOUR 360° DISPONÍVEL</span>
+                  </button>
+                )}
+                <span className="bg-[#050B1A]/80 backdrop-blur-md px-2 py-0.5 rounded border border-[#D4AF37]/40 text-[#E5C378]">
+                  {property.purpose.toUpperCase()}
+                </span>
+                <span>·</span>
+                <span className="bg-[#050B1A]/80 backdrop-blur-md px-2 py-0.5 rounded border border-white/20">
+                  {property.country.toUpperCase()}
+                </span>
+                <span>·</span>
+                <span className="bg-[#0B163B] border border-[#D4AF37]/50 px-2 py-0.5 rounded text-[#D4AF37]">
+                  REF: {property.code}
+                </span>
+                {isAdmin && (
+                  <span className="bg-[#D4AF37] text-[#050B1A] font-bold px-2 py-0.5 rounded text-[10px] flex items-center gap-1">
+                    <Lock className="w-3 h-3" /> ADMIN VISUALIZAÇÃO
+                  </span>
                 )}
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleCopyLink}
-                  className="px-3 py-1.5 rounded-xl bg-[#050B1A]/80 hover:bg-[#0B163B] border border-[#D4AF37]/40 text-white text-xs font-medium backdrop-blur-md transition-colors flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Copy className="w-3.5 h-3.5 text-[#D4AF37]" />
-                  <span>{copied ? 'Copiado!' : 'Compartilhar'}</span>
-                </button>
+              {/* Price on Image Bottom Left */}
+              <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between text-white z-10">
+                <div>
+                  <span className="text-xs uppercase tracking-wider text-slate-400 font-mono block">
+                    VALOR DE AVALIAÇÃO
+                  </span>
+                  <span className="text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-[#ECC97E]">
+                    {property.priceFormatted}
+                  </span>
+                  {property.priceNote && (
+                    <p className="text-xs text-[#E5C378] mt-0.5 font-mono">{property.priceNote}</p>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleCopyLink}
+                    className="px-3 py-1.5 rounded-xl bg-[#050B1A]/80 hover:bg-[#0B163B] border border-[#D4AF37]/40 text-white text-xs font-medium backdrop-blur-md transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-[#D4AF37]" />
+                    <span>{copied ? 'Copiado!' : 'Compartilhar'}</span>
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Thumbnails Strip */}
-          {property.images.length > 1 && (
+          {activeMediaTab === 'photos' && property.images.length > 1 && (
             <div className="flex items-center gap-2 p-3 bg-[#050B1A] border-y border-[#D4AF37]/20 overflow-x-auto scrollbar-none">
               {property.images.map((img, idx) => (
                 <button
@@ -263,6 +389,59 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
                 </div>
               )}
             </div>
+
+            {/* TOUR VIRTUAL 360° BANNER IMERSIVO SE DISPONÍVEL */}
+            {property.virtualTour360Url && parsed360.isValid && parsed360.embedUrl && (
+              <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-[#041d33] via-[#081f42] to-[#071330] border border-cyan-400/40 shadow-[0_8px_30px_rgba(6,182,212,0.18)] flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-cyan-950/80 border border-cyan-400/50 flex items-center justify-center text-cyan-300 shadow-md shrink-0">
+                    <Compass className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono font-bold text-cyan-300 uppercase tracking-wider">
+                        Experiência Imersiva · {parsed360.provider}
+                      </span>
+                      <span className="bg-cyan-500/20 text-cyan-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded border border-cyan-400/30">
+                        360° INTERATIVO
+                      </span>
+                    </div>
+                    <h4 className="text-sm sm:text-base font-bold text-white mt-0.5">
+                      Tour Virtual 360° Disponível
+                    </h4>
+                    <p className="text-xs text-slate-300 font-sans mt-0.5">
+                      Caminhe pelos ambientes em 3D, analise a vista e navegue com total imersão.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveMediaTab('tour360');
+                      // Scroll modal top smoothly
+                      const modalScroll = document.querySelector('.overflow-y-auto');
+                      if (modalScroll) modalScroll.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-mono text-xs font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.4)] flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Compass className="w-4 h-4" />
+                    <span>Navegar no Tour 360°</span>
+                  </button>
+
+                  <a
+                    href={parsed360.originalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2.5 rounded-xl bg-[#050B1A] hover:bg-[#0B163B] border border-cyan-500/40 text-cyan-300 hover:text-white transition-colors cursor-pointer"
+                    title="Abrir em tela cheia na plataforma original"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                </div>
+              </div>
+            )}
 
             {/* FICHA TÉCNICA, LOCALIZAÇÃO & FINANCEIRO: M², IPTU, VALOR VENDA, VALOR ALUGUEL, BAIRRO, ENDEREÇO, CEP */}
             <div className="p-5 sm:p-6 rounded-3xl bg-[#050B1A] border border-[#D4AF37]/35 shadow-xl space-y-4">
@@ -371,6 +550,40 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* YOUTUBE VIDEO TOUR EMBED SECTION */}
+            {property.youtubeUrl && embedUrl && (
+              <div className="p-5 sm:p-6 rounded-3xl bg-[#050B1A] border border-[#D4AF37]/35 shadow-xl space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-[#D4AF37]/25">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-red-600/20 text-red-500 border border-red-500/30 flex items-center justify-center">
+                      <Play className="w-3.5 h-3.5 fill-red-500" />
+                    </div>
+                    <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#E5C378]">
+                      Vídeo Tour do Imóvel no YouTube
+                    </span>
+                  </div>
+                  <a
+                    href={property.youtubeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] font-mono text-[#ECC97E] hover:text-white transition-colors flex items-center gap-1.5 bg-[#0B163B] px-3 py-1 rounded-xl border border-[#D4AF37]/30"
+                  >
+                    <span>Abrir no YouTube</span>
+                    <ExternalLink className="w-3 h-3 text-[#D4AF37]" />
+                  </a>
+                </div>
+                <div className="relative aspect-[16/9] w-full rounded-2xl overflow-hidden border border-[#D4AF37]/40 shadow-2xl bg-black">
+                  <iframe
+                    src={embedUrl}
+                    title={`Vídeo do Imóvel ${property.title}`}
+                    className="w-full h-full border-0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                  />
+                </div>
+              </div>
+            )}
 
             {/* GOOGLE MAPS INTERACTIVE LOCATION SECTION */}
             <PropertyMap property={property} />

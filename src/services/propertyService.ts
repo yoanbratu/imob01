@@ -121,6 +121,7 @@ export async function fetchProperties(): Promise<Property[]> {
       properties.push({
         id: docSnap.id,
         ...(initialMatch?.coordinates ? { coordinates: initialMatch.coordinates } : {}),
+        ...(initialMatch?.virtualTour360Url ? { virtualTour360Url: initialMatch.virtualTour360Url } : {}),
         ...data,
       });
     });
@@ -181,6 +182,7 @@ export function subscribeToProperties(callback: (properties: Property[]) => void
         list.push({
           id: d.id,
           ...(initialMatch?.coordinates ? { coordinates: initialMatch.coordinates } : {}),
+          ...(initialMatch?.virtualTour360Url ? { virtualTour360Url: initialMatch.virtualTour360Url } : {}),
           ...data,
         });
       });
@@ -209,6 +211,14 @@ export async function saveProperty(property: Property): Promise<void> {
 export async function deleteProperty(propertyId: string): Promise<void> {
   const docRef = doc(db, PROPERTIES_COLLECTION, propertyId);
   await deleteDoc(docRef);
+}
+
+export async function updateProperty(propertyId: string, updates: Partial<Property>): Promise<void> {
+  const docRef = doc(db, PROPERTIES_COLLECTION, propertyId);
+  await updateDoc(docRef, {
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  });
 }
 
 export async function saveLead(lead: Omit<LeadSubmission, 'id'>): Promise<string> {

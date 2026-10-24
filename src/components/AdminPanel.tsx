@@ -31,11 +31,19 @@ import {
   Maximize2,
   KeyRound,
   ShieldAlert,
+  Play,
+  Video,
+  Zap,
+  CheckSquare,
+  Square,
+  Compass,
 } from 'lucide-react';
-import { Property, PropertyType, PropertyPurpose, LeadSubmission } from '../types/property';
-import { saveProperty, deleteProperty } from '../services/propertyService';
+import { Property, PropertyType, PropertyPurpose, Country, LeadSubmission } from '../types/property';
+import { saveProperty, updateProperty, deleteProperty } from '../services/propertyService';
 import { COMPANY_INFO } from '../utils/whatsapp';
 import { updateAdminPassword } from '../utils/security';
+import { isValidYouTubeUrl, getYouTubeEmbedUrl } from '../utils/youtube';
+import { isValid360Url, get360EmbedUrl, detect360Provider } from '../utils/virtualTour360';
 
 interface AdminPanelProps {
   properties: Property[];
@@ -104,6 +112,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     bathrooms: 3,
     parkingSpots: 2,
     featured: true,
+    featuredInQuickSuggestions: true,
+    youtubeUrl: '',
+    virtualTour360Url: '',
     images: [
       'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
     ],
@@ -126,6 +137,98 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   });
 
   const [createSuccess, setCreateSuccess] = useState(false);
+
+  // Property editing state
+  const [editingProperty, setEditingProperty] = useState<Property | null>(null);
+  const [editActiveTab, setEditActiveTab] = useState<'info' | 'valores' | 'specs' | 'midia' | 'proprietario'>('info');
+  const [editUrlInput, setEditUrlInput] = useState('');
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editSuccessMessage, setEditSuccessMessage] = useState<string | null>(null);
+
+  const handleEditFileUpload = (files: FileList | null) => {
+    if (!files || files.length === 0 || !editingProperty) return;
+    Array.from(files).forEach((file) => {
+      if (!file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string;
+        if (dataUrl) {
+          setEditingProperty((prev) =>
+            prev ? { ...prev, images: [...(prev.images || []), dataUrl] } : null
+          );
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleEditAddUrl = () => {
+    if (!editUrlInput.trim() || !editingProperty) return;
+    setEditingProperty((prev) =>
+      prev ? { ...prev, images: [...(prev.images || []), editUrlInput.trim()] } : null
+    );
+    setEditUrlInput('');
+  };
+
+  const handleEditRemovePhoto = (index: number) => {
+    if (!editingProperty) return;
+    setEditingProperty((prev) =>
+      prev ? { ...prev, images: (prev.images || []).filter((_, i) => i !== index) } : null
+    );
+  };
+
+  const handleEditSetPrimaryPhoto = (index: number) => {
+    if (!editingProperty) return;
+    setEditingProperty((prev) => {
+      if (!prev) return null;
+      const currentImages = [...(prev.images || [])];
+      if (index <= 0 || index >= currentImages.length) return prev;
+      const [chosen] = currentImages.splice(index, 1);
+      currentImages.unshift(chosen);
+      return { ...prev, images: currentImages };
+    });
+  };
+
+  const handleToggleFeatured = async (prop: Property) => {
+    try {
+      const next = !prop.featured;
+      await updateProperty(prop.id, { featured: next });
+      onRefreshData();
+    } catch (err) {
+      console.error('Error toggling featured:', err);
+    }
+  };
+
+  const handleToggleQuickSuggestions = async (prop: Property) => {
+    try {
+      const next = !prop.featuredInQuickSuggestions;
+      await updateProperty(prop.id, { featuredInQuickSuggestions: next });
+      onRefreshData();
+    } catch (err) {
+      console.error('Error toggling quick suggestion:', err);
+    }
+  };
+
+  const handleSaveEditProperty = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProperty) return;
+    setIsSavingEdit(true);
+    try {
+      await saveProperty(editingProperty);
+      setEditSuccessMessage('Imóvel atualizado com sucesso no banco de dados e sincronizado para Google/IA!');
+      onRefreshData();
+      setTimeout(() => {
+        setEditSuccessMessage(null);
+        setEditingProperty(null);
+      }, 1200);
+    } catch (err) {
+      console.error('Error saving property edit:', err);
+      alert('Erro ao atualizar dados do imóvel.');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
 
   const handleFileUpload = (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -553,7 +656,82 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* 1-Click Toggle: ⭐ Em Destaque */}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleFeatured(prop)}
+                          className={`px-3 py-1.5 rounded-xl text-[11px] font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm ${
+                            prop.featured
+                              ? 'bg-gradient-to-r from-[#ECC97E] to-[#D4AF37] text-[#050B1A] shadow-[0_0_12px_rgba(212,175,55,0.4)]'
+                              : 'bg-[#0B163B] text-slate-400 hover:text-white border border-white/15'
+                          }`}
+                          title="Clique para alternar Destaque no Catálogo Geral"
+                        >
+                          <Star className={`w-3.5 h-3.5 ${prop.featured ? 'fill-[#050B1A]' : 'text-slate-400'}`} />
+                          <span>{prop.featured ? 'Destaque: ATIVO' : 'Destaque: Inativo'}</span>
+                        </button>
+
+                        {/* 1-Click Toggle: ⚡ Sugestões Rápidas */}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleQuickSuggestions(prop)}
+                          className={`px-3 py-1.5 rounded-xl text-[11px] font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm ${
+                            prop.featuredInQuickSuggestions
+                              ? 'bg-amber-400/20 text-[#ECC97E] border border-amber-400/60 shadow-xs'
+                              : 'bg-[#0B163B] text-slate-400 hover:text-white border border-white/15'
+                          }`}
+                          title="Clique para alternar presença nas Sugestões Rápidas de Pesquisa"
+                        >
+                          <Zap className={`w-3.5 h-3.5 ${prop.featuredInQuickSuggestions ? 'text-amber-400 fill-amber-400' : 'text-slate-400'}`} />
+                          <span>{prop.featuredInQuickSuggestions ? 'Sugestão: ATIVA' : 'Sugestão: Inativa'}</span>
+                        </button>
+
+                        {/* YouTube Video Button */}
+                        <button
+                          type="button"
+                          onClick={() => setEditingProperty({ ...prop })}
+                          className={`px-3 py-1.5 rounded-xl text-[11px] font-mono font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                            prop.youtubeUrl
+                              ? 'bg-red-600/20 text-red-300 border border-red-500/40'
+                              : 'bg-[#0B163B] text-slate-400 hover:text-white border border-white/15'
+                          }`}
+                          title={prop.youtubeUrl ? 'Possui vídeo do YouTube vinculado. Clique para editar' : 'Adicionar vídeo do YouTube'}
+                        >
+                          <Play className={`w-3 h-3 ${prop.youtubeUrl ? 'fill-red-400 text-red-400' : 'text-slate-400'}`} />
+                          <span>{prop.youtubeUrl ? 'Vídeo YouTube: OK' : '+ Vídeo YouTube'}</span>
+                        </button>
+
+                        {/* Tour 360 Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingProperty({ ...prop });
+                            setEditActiveTab('midia');
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-[11px] font-mono font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                            prop.virtualTour360Url
+                              ? 'bg-cyan-950/70 text-cyan-300 border border-cyan-400/50 shadow-[0_0_10px_rgba(6,182,212,0.25)]'
+                              : 'bg-[#0B163B] text-slate-400 hover:text-white border border-white/15'
+                          }`}
+                          title={prop.virtualTour360Url ? 'Possui Tour Virtual 360° cadastrado. Clique para editar' : 'Adicionar Tour Virtual 360°'}
+                        >
+                          <Compass className={`w-3.5 h-3.5 ${prop.virtualTour360Url ? 'text-cyan-400 animate-spin' : 'text-slate-400'}`} style={{ animationDuration: '10s' }} />
+                          <span>{prop.virtualTour360Url ? 'Tour 360°: OK' : '+ Tour 360°'}</span>
+                        </button>
+
+                        {/* Edit Button */}
+                        <button
+                          type="button"
+                          onClick={() => setEditingProperty({ ...prop })}
+                          className="px-3 py-1.5 rounded-xl bg-[#0B163B] hover:bg-[#12235E] text-[#E5C378] border border-[#D4AF37]/40 text-[11px] font-bold font-mono transition-colors cursor-pointer flex items-center gap-1.5"
+                          title="Editar todos os dados do imóvel"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                          <span>Editar</span>
+                        </button>
+
+                        {/* Delete Button */}
                         <button
                           onClick={() => handleDelete(prop.id, prop.title)}
                           className="p-2 rounded-xl bg-red-950/40 text-red-400 hover:bg-red-900 hover:text-white border border-red-500/30 transition-colors cursor-pointer"
@@ -838,6 +1016,169 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <span className="text-[10px] text-slate-400 mt-1 block">
                       Nome oficial do edifício ou condomínio residencial/empresarial exibido na ficha técnica do imóvel.
                     </span>
+                  </div>
+
+                  {/* CONFIGURAÇÕES DE DESTAQUE & SUGESTÕES RÁPIDAS */}
+                  <div className="mb-4 p-4 rounded-2xl bg-[#0B163B]/80 border border-[#D4AF37]/35 space-y-3">
+                    <div className="flex items-center gap-2 pb-2 border-b border-white/10">
+                      <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+                      <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#E5C378]">
+                        Visibilidade Especial & Destaques
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Checkbox Destaque Geral */}
+                      <label className="flex items-start gap-3 p-3 rounded-xl bg-[#050B1A] border border-[#D4AF37]/30 hover:border-[#D4AF37] cursor-pointer transition-colors group">
+                        <input
+                          type="checkbox"
+                          checked={newProp.featured || false}
+                          onChange={(e) => setNewProp({ ...newProp, featured: e.target.checked })}
+                          className="mt-0.5 rounded text-[#D4AF37] focus:ring-[#D4AF37] bg-[#070F26] border-white/20 w-4 h-4"
+                        />
+                        <div>
+                          <span className="text-xs font-bold text-white group-hover:text-[#ECC97E] flex items-center gap-1.5">
+                            <Star className="w-3.5 h-3.5 fill-[#D4AF37] text-[#D4AF37]" />
+                            <span>Imóvel em Destaque no Catálogo</span>
+                          </span>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">
+                            Recebe o selo dourado "EM DESTAQUE" e é priorizado nos filtros de busca.
+                          </span>
+                        </div>
+                      </label>
+
+                      {/* Checkbox Sugestões Rápidas */}
+                      <label className="flex items-start gap-3 p-3 rounded-xl bg-[#050B1A] border border-[#D4AF37]/30 hover:border-[#D4AF37] cursor-pointer transition-colors group">
+                        <input
+                          type="checkbox"
+                          checked={newProp.featuredInQuickSuggestions || false}
+                          onChange={(e) => setNewProp({ ...newProp, featuredInQuickSuggestions: e.target.checked })}
+                          className="mt-0.5 rounded text-[#D4AF37] focus:ring-[#D4AF37] bg-[#070F26] border-white/20 w-4 h-4"
+                        />
+                        <div>
+                          <span className="text-xs font-bold text-white group-hover:text-[#ECC97E] flex items-center gap-1.5">
+                            <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                            <span>Exibir em Destaque nas Sugestões Rápidas</span>
+                          </span>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">
+                            Aparece como atalho direto nas pílulas rápidas e no topo do auto-complete.
+                          </span>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* VÍDEO DO YOUTUBE (TOUR VIRTUAL) */}
+                  <div className="mb-4 p-4 rounded-2xl bg-[#0B163B]/80 border border-[#D4AF37]/35 space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-md bg-red-600/25 text-red-500 border border-red-500/30 flex items-center justify-center">
+                          <Play className="w-3.5 h-3.5 fill-red-500" />
+                        </div>
+                        <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#E5C378]">
+                          Vídeo Tour no YouTube (Tour Virtual do Imóvel)
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        Opcional
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                        LINK OU URL DO VÍDEO DO YOUTUBE
+                      </label>
+                      <input
+                        type="text"
+                        value={newProp.youtubeUrl || ''}
+                        onChange={(e) => setNewProp({ ...newProp, youtubeUrl: e.target.value })}
+                        placeholder="Ex: https://www.youtube.com/watch?v=... ou https://youtu.be/..."
+                        className="w-full bg-[#050B1A] border border-[#D4AF37]/35 text-white rounded-xl px-3.5 py-2 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                      />
+                      <span className="text-[10px] text-slate-400 mt-1 block">
+                        Insira qualquer link do YouTube. O vídeo será incorporado interativamente na galeria e na página de detalhes do anúncio.
+                      </span>
+                    </div>
+
+                    {/* Live Preview if valid URL */}
+                    {newProp.youtubeUrl && isValidYouTubeUrl(newProp.youtubeUrl) && (
+                      <div className="pt-2">
+                        <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1 mb-2">
+                          <CheckCircle className="w-3 h-3" /> Vídeo do YouTube validado com sucesso:
+                        </span>
+                        <div className="relative aspect-[16/9] max-w-sm rounded-xl overflow-hidden border border-[#D4AF37]/40 shadow-lg bg-black">
+                          <iframe
+                            src={getYouTubeEmbedUrl(newProp.youtubeUrl) || ''}
+                            title="Preview do Vídeo"
+                            className="w-full h-full border-0"
+                            allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* TOUR VIRTUAL 360° (MATTERPORT, KUULA, CLOUDPANO, ETC.) */}
+                  <div className="mb-4 p-4 rounded-2xl bg-[#0B163B]/80 border border-cyan-500/35 space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-md bg-cyan-600/25 text-cyan-400 border border-cyan-400/30 flex items-center justify-center">
+                          <Compass className="w-3.5 h-3.5 text-cyan-300 animate-spin" style={{ animationDuration: '10s' }} />
+                        </div>
+                        <span className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-300">
+                          Tour Virtual 360° Interativo (Matterport, Kuula, CloudPano, etc.)
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono text-cyan-400/80">
+                        {newProp.virtualTour360Url ? detect360Provider(newProp.virtualTour360Url) : 'Opcional'}
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                        LINK DO TOUR VIRTUAL 360° (MATTERPORT, KUULA, ETC.)
+                      </label>
+                      <input
+                        type="text"
+                        value={newProp.virtualTour360Url || ''}
+                        onChange={(e) => setNewProp({ ...newProp, virtualTour360Url: e.target.value })}
+                        placeholder="Ex: https://my.matterport.com/show/?m=... ou https://kuula.co/share/..."
+                        className="w-full bg-[#050B1A] border border-cyan-500/40 text-white rounded-xl px-3.5 py-2 text-xs focus:ring-1 focus:ring-cyan-400 font-mono"
+                      />
+                      <span className="text-[10px] text-slate-400 mt-1 block">
+                        Insira a URL de um tour virtual 360° do Matterport 3D, Kuula, CloudPano, Momento360 ou YouTube 360°. O imóvel receberá o selo TOUR 360° e aba de navegação imersiva.
+                      </span>
+                    </div>
+
+                    {/* Live Preview if valid URL */}
+                    {newProp.virtualTour360Url && isValid360Url(newProp.virtualTour360Url) && (
+                      <div className="pt-2">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-mono text-cyan-300 flex items-center gap-1">
+                            <CheckCircle className="w-3 h-3 text-cyan-400" /> Tour 360° detectado ({detect360Provider(newProp.virtualTour360Url)}):
+                          </span>
+                          <a
+                            href={newProp.virtualTour360Url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] font-mono text-[#ECC97E] hover:underline flex items-center gap-1"
+                          >
+                            <span>Testar em nova aba</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </div>
+                        <div className="relative aspect-[16/9] max-w-sm rounded-xl overflow-hidden border border-cyan-500/50 shadow-lg bg-black">
+                          <iframe
+                            src={get360EmbedUrl(newProp.virtualTour360Url) || ''}
+                            title="Preview Tour 360"
+                            className="w-full h-full border-0"
+                            allow="accelerometer; autoplay; gyroscope; magnetometer; xr-spatial-tracking; fullscreen"
+                            allowFullScreen
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Location & Specs: País, Cidade, Bairro, M2, Endereço, CEP */}
@@ -1375,6 +1716,877 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <Save className="w-4 h-4 text-[#050B1A]" />
                     <span>{isUpdatingPwd ? 'Criptografando e Atualizando...' : 'Salvar Nova Senha'}</span>
                   </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE EDIÇÃO COMPLETA DE QUALQUER IMÓVEL REGISTRADO */}
+        {editingProperty && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-[#050B1A]/90 backdrop-blur-md animate-in fade-in duration-200"
+            onClick={() => setEditingProperty(null)}
+          >
+            <div
+              className="relative w-full max-w-4xl max-h-[92vh] bg-[#070F26] text-white rounded-3xl shadow-[0_25px_70px_rgba(0,0,0,0.85)] overflow-hidden flex flex-col border border-[#D4AF37]/50"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-4 sm:p-5 border-b border-[#D4AF37]/30 bg-[#050B1A]">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#0B163B] border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37] shrink-0">
+                    <Edit className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm sm:text-base font-extrabold text-white">
+                        Editar Imóvel · {editingProperty.code}
+                      </h3>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#0B163B] text-[#E5C378] border border-[#D4AF37]/30">
+                        {editingProperty.purpose}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 font-sans mt-0.5">
+                      Edite todos os dados do anúncio, valores, fotos, vídeos, destaques e dados sigilosos do proprietário.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setEditingProperty(null)}
+                  className="w-8 h-8 rounded-full bg-[#070F26] hover:bg-[#0B163B] border border-white/10 text-white flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4 text-[#D4AF37]" />
+                </button>
+              </div>
+
+              {/* Sub-Tabs Navigation */}
+              <div className="flex items-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-2.5 bg-[#081233] border-b border-white/10 overflow-x-auto shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setEditActiveTab('info')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                    editActiveTab === 'info'
+                      ? 'bg-[#D4AF37] text-[#050B1A] font-bold shadow-sm'
+                      : 'text-slate-300 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <Building className="w-3.5 h-3.5" />
+                  <span>1. Dados & Local</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setEditActiveTab('valores')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                    editActiveTab === 'valores'
+                      ? 'bg-[#D4AF37] text-[#050B1A] font-bold shadow-sm'
+                      : 'text-slate-300 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <DollarSign className="w-3.5 h-3.5" />
+                  <span>2. Valores & Condomínio</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setEditActiveTab('specs')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                    editActiveTab === 'specs'
+                      ? 'bg-[#D4AF37] text-[#050B1A] font-bold shadow-sm'
+                      : 'text-slate-300 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                  <span>3. M² & Cômodos</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setEditActiveTab('midia')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                    editActiveTab === 'midia'
+                      ? 'bg-[#D4AF37] text-[#050B1A] font-bold shadow-sm'
+                      : 'text-slate-300 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <Video className="w-3.5 h-3.5" />
+                  <span>4. Vídeo, Fotos & Destaques</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setEditActiveTab('proprietario')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                    editActiveTab === 'proprietario'
+                      ? 'bg-amber-400 text-[#050B1A] font-bold shadow-sm'
+                      : 'text-amber-300/80 hover:text-amber-200 hover:bg-amber-400/10 border border-amber-400/20'
+                  }`}
+                >
+                  <Lock className="w-3.5 h-3.5 text-amber-400" />
+                  <span>5. Dados Sigilosos</span>
+                </button>
+              </div>
+
+              {/* Form Body */}
+              <form onSubmit={handleSaveEditProperty} className="overflow-y-auto p-4 sm:p-6 space-y-5 flex-1">
+                {editSuccessMessage && (
+                  <div className="p-3.5 rounded-2xl bg-emerald-950/90 border border-emerald-500/60 text-emerald-300 text-xs font-mono flex items-center gap-2.5 animate-fadeIn">
+                    <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
+                    <span>{editSuccessMessage}</span>
+                  </div>
+                )}
+
+                {/* TAB 1: DADOS BÁSICOS & LOCALIZAÇÃO */}
+                {editActiveTab === 'info' && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-mono text-slate-300 mb-1">CÓDIGO REF *</label>
+                        <input
+                          type="text"
+                          required
+                          value={editingProperty.code}
+                          onChange={(e) => setEditingProperty({ ...editingProperty, code: e.target.value })}
+                          className="w-full bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-2 text-xs font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-mono text-slate-300 mb-1">FINALIDADE *</label>
+                        <select
+                          value={editingProperty.purpose}
+                          onChange={(e) => setEditingProperty({ ...editingProperty, purpose: e.target.value as PropertyPurpose })}
+                          className="w-full bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-2 text-xs"
+                        >
+                          <option value="Venda">Venda</option>
+                          <option value="Locação">Locação</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-mono text-slate-300 mb-1">TIPO DE IMÓVEL *</label>
+                        <select
+                          value={editingProperty.type}
+                          onChange={(e) => setEditingProperty({ ...editingProperty, type: e.target.value as PropertyType })}
+                          className="w-full bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-2 text-xs"
+                        >
+                          <option value="Apartamento">Apartamento</option>
+                          <option value="Casa">Casa</option>
+                          <option value="Cobertura">Cobertura</option>
+                          <option value="Comercial">Comercial</option>
+                          <option value="Terreno">Terreno</option>
+                          <option value="Outro">Outro</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-mono text-slate-300 mb-1">TÍTULO DO ANÚNCIO *</label>
+                        <input
+                          type="text"
+                          required
+                          value={editingProperty.title}
+                          onChange={(e) => setEditingProperty({ ...editingProperty, title: e.target.value })}
+                          className="w-full bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-2 text-xs font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-mono text-slate-300 mb-1">SUBTÍTULO</label>
+                        <input
+                          type="text"
+                          value={editingProperty.subtitle || ''}
+                          onChange={(e) => setEditingProperty({ ...editingProperty, subtitle: e.target.value })}
+                          placeholder="Ex: Mansão suspensa com vista panorâmica"
+                          className="w-full bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-2 text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Categorias */}
+                    <div>
+                      <label className="block text-[11px] font-mono text-slate-300 mb-1.5">CATEGORIAS DE PESQUISA</label>
+                      <div className="flex flex-wrap gap-2">
+                        {(['residencial', 'comercial', 'lancamento', 'alto-padrao'] as const).map((cat) => {
+                          const isChecked = editingProperty.category?.includes(cat);
+                          return (
+                            <button
+                              key={cat}
+                              type="button"
+                              onClick={() => {
+                                const current = editingProperty.category || [];
+                                const next = isChecked ? current.filter((c) => c !== cat) : [...current, cat];
+                                setEditingProperty({ ...editingProperty, category: next });
+                              }}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-all cursor-pointer flex items-center gap-1.5 ${
+                                isChecked
+                                  ? 'bg-[#0B163B] text-[#E5C378] border border-[#D4AF37]/50 font-bold'
+                                  : 'bg-[#050B1A] text-slate-400 border border-white/10 hover:text-white'
+                              }`}
+                            >
+                              {isChecked ? <CheckSquare className="w-3.5 h-3.5 text-[#D4AF37]" /> : <Square className="w-3.5 h-3.5" />}
+                              <span className="capitalize">{cat.replace('-', ' ')}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Localização */}
+                    <div className="p-4 rounded-2xl bg-[#0B163B]/60 border border-[#D4AF37]/25 space-y-3">
+                      <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-[#E5C378]">
+                        <MapPin className="w-3.5 h-3.5 text-[#D4AF37]" />
+                        <span>LOCALIZAÇÃO COMPLETA</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-mono text-slate-300 mb-1">PAÍS *</label>
+                          <select
+                            value={editingProperty.country}
+                            onChange={(e) => setEditingProperty({ ...editingProperty, country: e.target.value as Country })}
+                            className="w-full bg-[#050B1A] border border-white/15 text-white rounded-xl px-3 py-2 text-xs"
+                          >
+                            <option value="Brasil">Brasil</option>
+                            <option value="Paraguai">Paraguai</option>
+                            <option value="Estados Unidos">Estados Unidos</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-mono text-slate-300 mb-1">CIDADE *</label>
+                          <input
+                            type="text"
+                            required
+                            value={editingProperty.city}
+                            onChange={(e) => setEditingProperty({ ...editingProperty, city: e.target.value })}
+                            className="w-full bg-[#050B1A] border border-white/15 text-white rounded-xl px-3 py-2 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-mono text-slate-300 mb-1">BAIRRO *</label>
+                          <input
+                            type="text"
+                            required
+                            value={editingProperty.neighborhood}
+                            onChange={(e) => setEditingProperty({ ...editingProperty, neighborhood: e.target.value })}
+                            className="w-full bg-[#050B1A] border border-white/15 text-white rounded-xl px-3 py-2 text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="sm:col-span-2">
+                          <label className="block text-[11px] font-mono text-slate-300 mb-1">ENDEREÇO / LOGRADOURO</label>
+                          <input
+                            type="text"
+                            value={editingProperty.address || ''}
+                            onChange={(e) => setEditingProperty({ ...editingProperty, address: e.target.value })}
+                            placeholder="Ex: Av. Batel, 1550"
+                            className="w-full bg-[#050B1A] border border-white/15 text-white rounded-xl px-3 py-2 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-mono text-slate-300 mb-1">CEP</label>
+                          <input
+                            type="text"
+                            value={editingProperty.zipCode || ''}
+                            onChange={(e) => setEditingProperty({ ...editingProperty, zipCode: e.target.value })}
+                            placeholder="Ex: 80420-090"
+                            className="w-full bg-[#050B1A] border border-white/15 text-white rounded-xl px-3 py-2 text-xs font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Descrição */}
+                    <div>
+                      <label className="block text-[11px] font-mono text-slate-300 mb-1">DESCRIÇÃO DO ANÚNCIO (INDEXADA NO GOOGLE & IA)</label>
+                      <textarea
+                        rows={5}
+                        value={editingProperty.description}
+                        onChange={(e) => setEditingProperty({ ...editingProperty, description: e.target.value })}
+                        className="w-full bg-[#0B163B] border border-white/15 text-white rounded-xl p-3 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 2: VALORES & CONDOMÍNIO */}
+                {editActiveTab === 'valores' && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-mono text-[#E5C378] mb-1">PREÇO PRINCIPAL EXIBIDO *</label>
+                        <input
+                          type="text"
+                          required
+                          value={editingProperty.priceFormatted}
+                          onChange={(e) => setEditingProperty({ ...editingProperty, priceFormatted: e.target.value })}
+                          placeholder="Ex: R$ 3.850.000 ou US$ 680.000"
+                          className="w-full bg-[#0B163B] border border-[#D4AF37]/40 text-white rounded-xl px-3 py-2 text-xs font-mono font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-mono text-slate-300 mb-1">VALOR DE VENDA</label>
+                        <input
+                          type="text"
+                          value={editingProperty.salePrice || ''}
+                          onChange={(e) => setEditingProperty({ ...editingProperty, salePrice: e.target.value })}
+                          placeholder="Ex: R$ 3.850.000"
+                          className="w-full bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-2 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-mono text-slate-300 mb-1">VALOR DE LOCAÇÃO</label>
+                        <input
+                          type="text"
+                          value={editingProperty.rentPrice || ''}
+                          onChange={(e) => setEditingProperty({ ...editingProperty, rentPrice: e.target.value })}
+                          placeholder="Ex: R$ 12.000 / mês"
+                          className="w-full bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-2 text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-mono text-slate-300 mb-1">IPTU</label>
+                        <input
+                          type="text"
+                          value={editingProperty.iptu || ''}
+                          onChange={(e) => setEditingProperty({ ...editingProperty, iptu: e.target.value })}
+                          placeholder="Ex: R$ 5.200 / ano ou R$ 450/mês"
+                          className="w-full bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-2 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-mono text-slate-300 mb-1">NOME DO CONDOMÍNIO / EDIFÍCIO</label>
+                        <input
+                          type="text"
+                          value={editingProperty.condoName || ''}
+                          onChange={(e) => setEditingProperty({ ...editingProperty, condoName: e.target.value })}
+                          placeholder="Ex: Edifício Torre de Batel"
+                          className="w-full bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-2 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-mono text-slate-300 mb-1">TAXA DO CONDOMÍNIO</label>
+                        <input
+                          type="text"
+                          value={editingProperty.condoFee || ''}
+                          onChange={(e) => setEditingProperty({ ...editingProperty, condoFee: e.target.value })}
+                          placeholder="Ex: R$ 1.850 / mês"
+                          className="w-full bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-2 text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-mono text-slate-300 mb-1">NOTA DE PREÇO / CONDIÇÕES DE PAGAMENTO</label>
+                      <input
+                        type="text"
+                        value={editingProperty.priceNote || ''}
+                        onChange={(e) => setEditingProperty({ ...editingProperty, priceNote: e.target.value })}
+                        placeholder="Ex: Estuda permuta por imóvel de menor valor em Curitiba ou parcelamento direto"
+                        className="w-full bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-2 text-xs"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 3: METRAGEM & CÔMODOS */}
+                {editActiveTab === 'specs' && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-mono text-slate-300 mb-1">METRAGEM (M²)</label>
+                        <input
+                          type="number"
+                          value={editingProperty.areaM2}
+                          onChange={(e) => setEditingProperty({ ...editingProperty, areaM2: Number(e.target.value) })}
+                          className="w-full bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-2 text-xs font-mono font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-mono text-slate-300 mb-1">DORMITÓRIOS</label>
+                        <input
+                          type="number"
+                          value={editingProperty.bedrooms}
+                          onChange={(e) => setEditingProperty({ ...editingProperty, bedrooms: Number(e.target.value) })}
+                          className="w-full bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-2 text-xs font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-mono text-slate-300 mb-1">SUÍTES</label>
+                        <input
+                          type="number"
+                          value={editingProperty.suites}
+                          onChange={(e) => setEditingProperty({ ...editingProperty, suites: Number(e.target.value) })}
+                          className="w-full bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-2 text-xs font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-mono text-slate-300 mb-1">BANHEIROS</label>
+                        <input
+                          type="number"
+                          value={editingProperty.bathrooms}
+                          onChange={(e) => setEditingProperty({ ...editingProperty, bathrooms: Number(e.target.value) })}
+                          className="w-full bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-2 text-xs font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-mono text-slate-300 mb-1">VAGAS GARAGEM</label>
+                        <input
+                          type="number"
+                          value={editingProperty.parkingSpots}
+                          onChange={(e) => setEditingProperty({ ...editingProperty, parkingSpots: Number(e.target.value) })}
+                          className="w-full bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-2 text-xs font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Destaques */}
+                    <div>
+                      <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                        DESTAQUES & ACABAMENTOS (separados por vírgula)
+                      </label>
+                      <input
+                        type="text"
+                        value={(editingProperty.highlights || []).join(', ')}
+                        onChange={(e) => {
+                          const items = e.target.value.split(',').map((s) => s.trim()).filter(Boolean);
+                          setEditingProperty({ ...editingProperty, highlights: items });
+                        }}
+                        placeholder="Ex: Piso aquecido, Varanda gourmet, Elevador privativo"
+                        className="w-full bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-2 text-xs"
+                      />
+                    </div>
+
+                    {/* Comodidades */}
+                    <div>
+                      <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                        INFRAESTRUTURA & COMODIDADES (separadas por vírgula)
+                      </label>
+                      <input
+                        type="text"
+                        value={(editingProperty.amenities || []).join(', ')}
+                        onChange={(e) => {
+                          const items = e.target.value.split(',').map((s) => s.trim()).filter(Boolean);
+                          setEditingProperty({ ...editingProperty, amenities: items });
+                        }}
+                        placeholder="Ex: Portaria 24h, Piscina aquecida, Academia, Gerador"
+                        className="w-full bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-2 text-xs"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 4: MÍDIAS, DESTAQUES & GALERIA DE FOTOS */}
+                {editActiveTab === 'midia' && (
+                  <div className="space-y-5">
+                    {/* Destaques Toggles */}
+                    <div className="p-4 rounded-2xl bg-[#0B163B]/70 border border-[#D4AF37]/35 space-y-3">
+                      <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#E5C378] block">
+                        Destaques e Visibilidade Especial
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label className="flex items-start gap-2.5 p-3 rounded-xl bg-[#050B1A] border border-[#D4AF37]/30 cursor-pointer hover:border-[#D4AF37]">
+                          <input
+                            type="checkbox"
+                            checked={editingProperty.featured || false}
+                            onChange={(e) => setEditingProperty({ ...editingProperty, featured: e.target.checked })}
+                            className="mt-0.5 rounded text-[#D4AF37] focus:ring-[#D4AF37] bg-[#070F26] border-white/20 w-4 h-4 cursor-pointer"
+                          />
+                          <div>
+                            <span className="text-xs font-bold text-white flex items-center gap-1">
+                              <Star className="w-3.5 h-3.5 fill-[#D4AF37] text-[#D4AF37]" />
+                              <span>Imóvel em Destaque Geral</span>
+                            </span>
+                            <span className="text-[10px] text-slate-400 block mt-0.5">
+                              Exibe o selo dourado "EM DESTAQUE" no topo do catálogo e nos resultados prioritários.
+                            </span>
+                          </div>
+                        </label>
+
+                        <label className="flex items-start gap-2.5 p-3 rounded-xl bg-[#050B1A] border border-[#D4AF37]/30 cursor-pointer hover:border-[#D4AF37]">
+                          <input
+                            type="checkbox"
+                            checked={editingProperty.featuredInQuickSuggestions || false}
+                            onChange={(e) => setEditingProperty({ ...editingProperty, featuredInQuickSuggestions: e.target.checked })}
+                            className="mt-0.5 rounded text-[#D4AF37] focus:ring-[#D4AF37] bg-[#070F26] border-white/20 w-4 h-4 cursor-pointer"
+                          />
+                          <div>
+                            <span className="text-xs font-bold text-white flex items-center gap-1">
+                              <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                              <span>Em Destaque nas Sugestões Rápidas</span>
+                            </span>
+                            <span className="text-[10px] text-slate-400 block mt-0.5">
+                              Aparece como atalho clicável diretamente no filtro de sugestões rápidas.
+                            </span>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Vídeo do YouTube */}
+                    <div className="p-4 rounded-2xl bg-[#0B163B]/70 border border-[#D4AF37]/30 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded bg-red-600/30 text-red-500 flex items-center justify-center">
+                          <Play className="w-3.5 h-3.5 fill-red-500" />
+                        </div>
+                        <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#E5C378]">
+                          Vídeo Tour no YouTube
+                        </span>
+                      </div>
+
+                      <div>
+                        <input
+                          type="text"
+                          value={editingProperty.youtubeUrl || ''}
+                          onChange={(e) => setEditingProperty({ ...editingProperty, youtubeUrl: e.target.value })}
+                          placeholder="Ex: https://www.youtube.com/watch?v=sU149-6T2fQ ou https://youtu.be/..."
+                          className="w-full bg-[#050B1A] border border-[#D4AF37]/35 text-white rounded-xl px-3.5 py-2 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                        />
+                        <span className="text-[10px] text-slate-400 mt-1 block">
+                          Ao salvar com a URL, o anúncio ganha a aba "Vídeo Tour" e o selo vermelho de tour virtual.
+                        </span>
+                      </div>
+
+                      {editingProperty.youtubeUrl && isValidYouTubeUrl(editingProperty.youtubeUrl) && (
+                        <div className="pt-2">
+                          <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1 mb-1.5">
+                            <CheckCircle className="w-3 h-3" /> Vídeo verificado com sucesso:
+                          </span>
+                          <div className="relative aspect-[16/9] max-w-sm rounded-xl overflow-hidden border border-[#D4AF37]/40 shadow-lg bg-black">
+                            <iframe
+                              src={getYouTubeEmbedUrl(editingProperty.youtubeUrl) || ''}
+                              title="Preview"
+                              className="w-full h-full border-0"
+                              allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Tour Virtual 360° (Matterport, Kuula, CloudPano, etc.) */}
+                    <div className="p-4 rounded-2xl bg-[#0B163B]/70 border border-cyan-500/35 space-y-3">
+                      <div className="flex items-center justify-between pb-1 border-b border-white/10">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-md bg-cyan-600/30 text-cyan-400 border border-cyan-400/40 flex items-center justify-center">
+                            <Compass className="w-3.5 h-3.5 text-cyan-300 animate-spin" style={{ animationDuration: '10s' }} />
+                          </div>
+                          <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-cyan-300">
+                            Tour Virtual 360° Interativo (Matterport, Kuula, CloudPano, etc.)
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-mono text-cyan-400/80">
+                          {editingProperty.virtualTour360Url ? detect360Provider(editingProperty.virtualTour360Url) : 'Opcional'}
+                        </span>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                          LINK DO TOUR VIRTUAL 360° (MATTERPORT, KUULA, CLOUDPANO, ETC.)
+                        </label>
+                        <input
+                          type="text"
+                          value={editingProperty.virtualTour360Url || ''}
+                          onChange={(e) => setEditingProperty({ ...editingProperty, virtualTour360Url: e.target.value })}
+                          placeholder="Ex: https://my.matterport.com/show/?m=... ou https://kuula.co/share/..."
+                          className="w-full bg-[#050B1A] border border-cyan-500/40 text-white rounded-xl px-3.5 py-2 text-xs focus:ring-1 focus:ring-cyan-400 font-mono"
+                        />
+                        <span className="text-[10px] text-slate-400 mt-1 block">
+                          Compatível com Matterport 3D, Kuula 360°, CloudPano, Momento360, YouTube 360° e links de tours imersivos. O anúncio receberá o selo TOUR 360° e visualizador interativo em tela cheia.
+                        </span>
+                      </div>
+
+                      {editingProperty.virtualTour360Url && isValid360Url(editingProperty.virtualTour360Url) && (
+                        <div className="pt-2">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[10px] font-mono text-cyan-300 flex items-center gap-1">
+                              <CheckCircle className="w-3 h-3 text-cyan-400" /> Tour 360° detectado ({detect360Provider(editingProperty.virtualTour360Url)}):
+                            </span>
+                            <a
+                              href={editingProperty.virtualTour360Url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] font-mono text-[#ECC97E] hover:underline flex items-center gap-1"
+                            >
+                              <span>Testar em nova aba</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </div>
+                          <div className="relative aspect-[16/9] max-w-sm rounded-xl overflow-hidden border border-cyan-500/50 shadow-lg bg-black">
+                            <iframe
+                              src={get360EmbedUrl(editingProperty.virtualTour360Url) || ''}
+                              title="Preview 360"
+                              className="w-full h-full border-0"
+                              allow="accelerometer; autoplay; gyroscope; magnetometer; xr-spatial-tracking; fullscreen"
+                              allowFullScreen
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Galeria de Fotos */}
+                    <div className="p-4 rounded-2xl bg-[#0B163B]/70 border border-[#D4AF37]/30 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <ImageIcon className="w-4 h-4 text-[#D4AF37]" />
+                          <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#E5C378]">
+                            Galeria de Fotos do Imóvel ({editingProperty.images?.length || 0} fotos)
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Add Photo by URL or Upload */}
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                        <div className="sm:col-span-8 flex gap-2">
+                          <input
+                            type="text"
+                            value={editUrlInput}
+                            onChange={(e) => setEditUrlInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleEditAddUrl();
+                              }
+                            }}
+                            placeholder="Adicionar foto por URL (https://...)"
+                            className="w-full bg-[#050B1A] border border-white/20 text-white rounded-xl px-3 py-2 text-xs"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleEditAddUrl}
+                            className="px-3 py-2 rounded-xl bg-[#0B163B] text-[#E5C378] border border-[#D4AF37]/40 text-xs font-mono font-bold hover:bg-[#12235E] transition-colors shrink-0 cursor-pointer"
+                          >
+                            + URL
+                          </button>
+                        </div>
+
+                        <div className="sm:col-span-4">
+                          <button
+                            type="button"
+                            onClick={() => editFileInputRef.current?.click()}
+                            className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-[#D4AF37]/20 to-[#ECC97E]/20 text-[#ECC97E] border border-[#D4AF37]/50 text-xs font-mono font-semibold flex items-center justify-center gap-2 hover:bg-[#D4AF37]/30 transition-all cursor-pointer"
+                          >
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>Upload Arquivo</span>
+                          </button>
+                          <input
+                            ref={editFileInputRef}
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => handleEditFileUpload(e.target.files)}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Photo Grid Preview */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                        {(editingProperty.images || []).map((img, idx) => (
+                          <div
+                            key={idx}
+                            className="relative group rounded-xl overflow-hidden border border-white/15 bg-black/40 aspect-[4/3]"
+                          >
+                            <img src={img} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" />
+                            {idx === 0 && (
+                              <span className="absolute top-1.5 left-1.5 bg-[#D4AF37] text-[#050B1A] text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shadow">
+                                CAPA PRINCIPAL
+                              </span>
+                            )}
+                            <div className="absolute inset-0 bg-[#050B1A]/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 p-2">
+                              {idx !== 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditSetPrimaryPhoto(idx)}
+                                  className="px-2 py-1 bg-[#D4AF37] text-[#050B1A] text-[10px] font-mono font-bold rounded cursor-pointer"
+                                  title="Definir esta foto como a capa principal"
+                                >
+                                  Capa
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleEditRemovePhoto(idx)}
+                                className="p-1.5 bg-red-600/80 text-white hover:bg-red-600 rounded cursor-pointer"
+                                title="Remover foto"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 5: DADOS SIGILOSOS DO PROPRIETÁRIO & CORRETOR */}
+                {editActiveTab === 'proprietario' && (
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-2xl bg-amber-950/30 border border-amber-500/40 text-amber-200 text-xs flex items-start gap-2.5">
+                      <Lock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <strong className="block font-mono text-amber-300 uppercase tracking-wider text-[11px]">
+                          Área Exclusiva de Acesso Administrativo
+                        </strong>
+                        <span>
+                          Estes dados nunca são exibidos no site público nem expostos para visitantes. Apenas o administrador autenticado com a senha restrita tem visualização e permissão de alteração.
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-[#0B163B]/70 border border-[#D4AF37]/30 space-y-3">
+                      <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#E5C378] block">
+                        Dados do Proprietário
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-mono text-slate-300 mb-1">NOME DO PROPRIETÁRIO</label>
+                          <input
+                            type="text"
+                            value={editingProperty.ownerName || ''}
+                            onChange={(e) => setEditingProperty({ ...editingProperty, ownerName: e.target.value })}
+                            className="w-full bg-[#050B1A] border border-white/15 text-white rounded-xl px-3 py-2 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-mono text-slate-300 mb-1">TELEFONE / WHATSAPP</label>
+                          <input
+                            type="text"
+                            value={editingProperty.ownerPhone || ''}
+                            onChange={(e) => setEditingProperty({ ...editingProperty, ownerPhone: e.target.value })}
+                            className="w-full bg-[#050B1A] border border-white/15 text-emerald-400 font-mono rounded-xl px-3 py-2 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-mono text-slate-300 mb-1">E-MAIL</label>
+                          <input
+                            type="email"
+                            value={editingProperty.ownerEmail || ''}
+                            onChange={(e) => setEditingProperty({ ...editingProperty, ownerEmail: e.target.value })}
+                            className="w-full bg-[#050B1A] border border-white/15 text-white rounded-xl px-3 py-2 text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-mono text-slate-300 mb-1">CPF / RUC / DOCUMENTO</label>
+                          <input
+                            type="text"
+                            value={editingProperty.ownerDocument || ''}
+                            onChange={(e) => setEditingProperty({ ...editingProperty, ownerDocument: e.target.value })}
+                            className="w-full bg-[#050B1A] border border-white/15 text-white rounded-xl px-3 py-2 text-xs font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-mono text-slate-300 mb-1">VALOR MÍNIMO DE NEGOCIAÇÃO</label>
+                          <input
+                            type="text"
+                            value={editingProperty.ownerMinNegotiationValue || ''}
+                            onChange={(e) => setEditingProperty({ ...editingProperty, ownerMinNegotiationValue: e.target.value })}
+                            placeholder="Ex: Não aceita proposta abaixo de R$ 3.500.000"
+                            className="w-full bg-[#050B1A] border border-white/15 text-[#E5C378] rounded-xl px-3 py-2 text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-mono text-slate-300 mb-1">DADOS BANCÁRIOS / CHAVE PIX</label>
+                        <input
+                          type="text"
+                          value={editingProperty.ownerBankDetails || ''}
+                          onChange={(e) => setEditingProperty({ ...editingProperty, ownerBankDetails: e.target.value })}
+                          placeholder="Ex: Chave PIX: 4199999999 ou Banco Itaú, Ag 1234, C/C 56789-0"
+                          className="w-full bg-[#050B1A] border border-white/15 text-white rounded-xl px-3 py-2 text-xs font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Corretor & Notas Internas */}
+                    <div className="p-4 rounded-2xl bg-[#0B163B]/70 border border-[#D4AF37]/30 space-y-3">
+                      <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#E5C378] block">
+                        Corretor Responsável & Comissão
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-mono text-slate-300 mb-1">CORRETOR</label>
+                          <input
+                            type="text"
+                            value={editingProperty.realtorName || ''}
+                            onChange={(e) => setEditingProperty({ ...editingProperty, realtorName: e.target.value })}
+                            className="w-full bg-[#050B1A] border border-white/15 text-white rounded-xl px-3 py-2 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-mono text-slate-300 mb-1">CRECI</label>
+                          <input
+                            type="text"
+                            value={editingProperty.realtorCreci || ''}
+                            onChange={(e) => setEditingProperty({ ...editingProperty, realtorCreci: e.target.value })}
+                            className="w-full bg-[#050B1A] border border-white/15 text-white rounded-xl px-3 py-2 text-xs font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-mono text-slate-300 mb-1">COMISSÃO COMBINADA</label>
+                          <input
+                            type="text"
+                            value={editingProperty.realtorCommission || ''}
+                            onChange={(e) => setEditingProperty({ ...editingProperty, realtorCommission: e.target.value })}
+                            placeholder="Ex: 6% integral"
+                            className="w-full bg-[#050B1A] border border-white/15 text-[#E5C378] rounded-xl px-3 py-2 text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                          ANOTAÇÕES INTERNAS ADMINISTRATIVAS / HISTÓRICO
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={editingProperty.adminNotes || ''}
+                          onChange={(e) => setEditingProperty({ ...editingProperty, adminNotes: e.target.value })}
+                          placeholder="Observações confidenciais sobre chaves na portaria, visitas agendadas, negociações em andamento..."
+                          className="w-full bg-[#050B1A] border border-white/15 text-white rounded-xl p-3 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Footer Controls */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-white/10">
+                  <div className="flex items-center gap-2 text-[10px] font-mono text-emerald-400">
+                    <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>Sincronizado automaticamente com Google Search, ChatGPT, Perplexity & Gemini</span>
+                  </div>
+
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setEditingProperty(null)}
+                      className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSavingEdit}
+                      className="tech-btn-primary inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50"
+                    >
+                      <Save className="w-4 h-4 text-[#050B1A]" />
+                      <span>{isSavingEdit ? 'Salvando...' : 'Salvar Todas as Alterações'}</span>
+                    </button>
+                  </div>
                 </div>
               </form>
             </div>

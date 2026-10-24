@@ -37,6 +37,9 @@ export interface Property {
   bathrooms: number;
   parkingSpots?: number;
   featured: boolean;
+  featuredInQuickSuggestions?: boolean; // Exibir em destaque nas sugestões rápidas de pesquisa
+  youtubeUrl?: string; // Link de vídeo do YouTube (Tour Virtual do Imóvel)
+  virtualTour360Url?: string; // Link de Tour Virtual 360° (Matterport, Kuula, CloudPano, etc.)
   isNewLaunch?: boolean;
   isHighEnd?: boolean;
   images: string[];
@@ -68,6 +71,8 @@ export interface PropertyFilters {
   location: string;
   category: PropertyCategory;
   priceRange: 'Todos' | 'ate-1m' | '1m-3m' | '3m-5m' | 'acima-5m';
+  onlyFeatured?: boolean; // Filtro de apenas imóveis em destaque
+  hasVirtualTour360?: boolean; // Filtro de imóveis com Tour Virtual 360°
 }
 
 export interface LeadSubmission {

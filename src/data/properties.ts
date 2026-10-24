@@ -28,6 +28,9 @@ export const PROPERTIES: Property[] = [
     bathrooms: 6,
     parkingSpots: 5,
     featured: true,
+    featuredInQuickSuggestions: true,
+    youtubeUrl: 'https://www.youtube.com/watch?v=FjG2c3Nf9yE',
+    virtualTour360Url: 'https://my.matterport.com/show/?m=JGPnGdaPdio',
     isHighEnd: true,
     images: [
       'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1400&q=80',
@@ -82,6 +85,9 @@ export const PROPERTIES: Property[] = [
     bathrooms: 5,
     parkingSpots: 4,
     featured: true,
+    featuredInQuickSuggestions: true,
+    youtubeUrl: 'https://www.youtube.com/watch?v=Xn8L2u_K7j0',
+    virtualTour360Url: 'https://kuula.co/share/collection/7lK8z',
     isHighEnd: true,
     images: [
       'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1400&q=80',

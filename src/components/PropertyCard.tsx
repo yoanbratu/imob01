@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageCircle, ArrowUpRight, MapPin } from 'lucide-react';
+import { MessageCircle, ArrowUpRight, MapPin, Star, Play, Compass } from 'lucide-react';
 import { Property } from '../types/property';
 import { getPropertyWhatsAppLink } from '../utils/whatsapp';
 import { TechImage } from './TechImage';
@@ -17,7 +17,11 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, onSelect }
   );
 
   return (
-    <div className="group flex flex-col bg-[#070F26] rounded-2xl overflow-hidden border border-[#D4AF37]/20 hover:border-[#D4AF37]/60 shadow-[0_4px_20px_rgba(0,0,0,0.4)] hover:shadow-[0_12px_35px_rgba(212,175,55,0.15)] transition-all duration-300">
+    <div className={`group flex flex-col bg-[#070F26] rounded-2xl overflow-hidden border transition-all duration-300 ${
+      property.featured
+        ? 'border-[#D4AF37]/60 shadow-[0_4px_25px_rgba(212,175,55,0.22)] hover:border-[#D4AF37]'
+        : 'border-[#D4AF37]/20 hover:border-[#D4AF37]/60 shadow-[0_4px_20px_rgba(0,0,0,0.4)]'
+    }`}>
       {/* Modern Technological Image Component */}
       <TechImage
         src={property.images[0]}
@@ -27,6 +31,28 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, onSelect }
         code={property.code}
         onClick={() => onSelect(property)}
       >
+        {/* Top Feature & Video & 360 Badges */}
+        <div className="absolute top-2.5 right-2.5 flex flex-col items-end gap-1.5 z-20">
+          {property.featured && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-mono font-extrabold uppercase tracking-wider bg-gradient-to-r from-[#ECC97E] to-[#D4AF37] text-[#050B1A] shadow-[0_0_15px_rgba(212,175,55,0.5)]">
+              <Star className="w-3 h-3 fill-[#050B1A]" />
+              <span>EM DESTAQUE</span>
+            </span>
+          )}
+          {property.virtualTour360Url && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider bg-cyan-950/90 text-cyan-300 backdrop-blur-md border border-cyan-400/60 shadow-[0_0_12px_rgba(6,182,212,0.4)]">
+              <Compass className="w-2.5 h-2.5 text-cyan-400" />
+              <span>TOUR 360°</span>
+            </span>
+          )}
+          {property.youtubeUrl && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider bg-red-600/90 text-white backdrop-blur-md border border-red-400/40 shadow-md">
+              <Play className="w-2.5 h-2.5 fill-white" />
+              <span>VÍDEO TOUR</span>
+            </span>
+          )}
+        </div>
+
         {/* Quick bottom-overlay specs over photo */}
         <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white text-xs drop-shadow z-10 pointer-events-none">
           <div className="flex items-center gap-1.5 font-medium">

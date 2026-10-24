@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
+        xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
+  <!-- Homepage & Main Real Estate Portal -->
+  <url>
+    <loc>https://ais-pre-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <!-- Curated Featured Real Estate Listings -->
+  <url>
+    <loc>https://ais-pre-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#imoveis</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <!-- Curitiba Real Estate & Batel Listings -->
+  <url>
+    <loc>https://ais-pre-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#curitiba-batel</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <!-- USA Portfolio: Miami Brickell & Orlando Lake Nona -->
+  <url>
+    <loc>https://ais-pre-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#eua-miami-orlando</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <!-- Paraguay Portfolio: Asunción Santa Teresa & Paraná Country Club -->
+  <url>
+    <loc>https://ais-pre-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#paraguai-asuncion</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <!-- Property Management & Rent Services -->
+  <url>
+    <loc>https://ais-pre-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#servicos</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <!-- Institutional Contact & Consultation -->
+  <url>
+    <loc>https://ais-pre-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#contato</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+</urlset>

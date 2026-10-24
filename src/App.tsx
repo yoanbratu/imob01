@@ -22,6 +22,8 @@ import {
   saveProperty,
   fetchLeads,
 } from './services/propertyService';
+import { injectOrUpdateJSONLD } from './utils/seoStructuredData';
+import { SemanticCatalogIndex } from './components/SemanticCatalogIndex';
 
 const INITIAL_FILTERS: PropertyFilters = {
   searchQuery: '',
@@ -81,6 +83,13 @@ export default function App() {
       if (unsubscribe) unsubscribe();
     };
   }, []);
+
+  // Automatically generate and inject Schema.org JSON-LD for Google, ChatGPT, Perplexity & AI engines
+  useEffect(() => {
+    if (properties.length > 0) {
+      injectOrUpdateJSONLD(properties);
+    }
+  }, [properties]);
 
   const refreshData = async () => {
     const updatedProps = await fetchProperties();
@@ -198,6 +207,16 @@ export default function App() {
         }
       }
 
+      // 7. Only Featured Filter
+      if (filters.onlyFeatured && !property.featured) {
+        return false;
+      }
+
+      // 8. Virtual Tour 360 Filter
+      if (filters.hasVirtualTour360 && !property.virtualTour360Url) {
+        return false;
+      }
+
       return true;
     });
   }, [properties, filters]);
@@ -251,6 +270,12 @@ export default function App() {
 
         {/* Lead Capture Contact Section */}
         <ContactSection />
+
+        {/* Semantic Catalog Index for Google Search and AI Web Crawlers */}
+        <SemanticCatalogIndex
+          properties={properties}
+          onSelectProperty={setSelectedProperty}
+        />
       </main>
 
       {/* Institutional Footer */}

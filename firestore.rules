@@ -40,6 +40,9 @@ service cloud.firestore {
         (!('ownerDocument' in data) || (data.ownerDocument is string && data.ownerDocument.size() <= 100)) &&
         (!('ownerBankDetails' in data) || (data.ownerBankDetails is string && data.ownerBankDetails.size() <= 300)) &&
         (!('realtorName' in data) || (data.realtorName is string && data.realtorName.size() <= 150)) &&
+        (!('youtubeUrl' in data) || (data.youtubeUrl is string && data.youtubeUrl.size() <= 500)) &&
+        (!('virtualTour360Url' in data) || (data.virtualTour360Url is string && data.virtualTour360Url.size() <= 1000)) &&
+        (!('featuredInQuickSuggestions' in data) || (data.featuredInQuickSuggestions is bool)) &&
         (!('adminNotes' in data) || (data.adminNotes is string && data.adminNotes.size() <= 5000));
     }
 

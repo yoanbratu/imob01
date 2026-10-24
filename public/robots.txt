@@ -1,0 +1,55 @@
+# Robots.txt for Bratu Imobiliária e Administradora
+# Optimized for Google Search and AI Knowledge Engines (ChatGPT, Perplexity, Claude, Gemini, Copilot)
+
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api/private
+
+# OpenAI ChatGPT Crawlers (Search & User Browsing)
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+# Google Search & Gemini Grounding
+User-agent: Googlebot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Googlebot-Image
+Allow: /
+
+User-agent: Googlebot-Video
+Allow: /
+
+# Perplexity AI Search Crawler
+User-agent: PerplexityBot
+Allow: /
+
+# Anthropic Claude Search Crawler
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+# Microsoft Bing & Copilot
+User-agent: Bingbot
+Allow: /
+
+User-agent: msnbot
+Allow: /
+
+# Apple Search & Siri
+User-agent: Applebot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+# Canonical Sitemap
+Sitemap: https://ais-pre-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/sitemap.xml
