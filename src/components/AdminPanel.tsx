@@ -45,6 +45,7 @@ import { updateAdminPassword } from '../utils/security';
 import { isValidYouTubeUrl, getYouTubeEmbedUrl } from '../utils/youtube';
 import { isValid360Url, get360EmbedUrl, detect360Provider, parse360Tour, is360ImageSource } from '../utils/virtualTour360';
 import { Panorama360Viewer } from './Panorama360Viewer';
+import { compressImage, compress360Panorama } from '../utils/imageCompression';
 
 interface AdminPanelProps {
   properties: Property[];
@@ -77,23 +78,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const tour360FileInputRef = useRef<HTMLInputElement>(null);
   const [urlInput, setUrlInput] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [isCompressingPhotos, setIsCompressingPhotos] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSavingNew, setIsSavingNew] = useState(false);
 
   // Handlers for 360 panoramic photo upload (New Property)
-  const handleTour360Upload = (files: FileList | null) => {
+  const handleTour360Upload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const file = files[0];
     if (!file.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      if (result) {
-        setNewProp((prev) => ({
-          ...prev,
-          virtualTour360Image: result,
-        }));
-      }
-    };
-    reader.readAsDataURL(file);
+    setIsCompressingPhotos(true);
+    setSaveError(null);
+    try {
+      const compressedDataUrl = await compress360Panorama(file);
+      setNewProp((prev) => ({
+        ...prev,
+        virtualTour360Image: compressedDataUrl,
+      }));
+    } catch (err: any) {
+      console.error('Erro ao comprimir imagem 360°:', err);
+      setSaveError(err.message || 'Falha ao processar foto panorâmica 360°.');
+    } finally {
+      setIsCompressingPhotos(false);
+    }
   };
 
   // Password change management state
@@ -167,38 +174,45 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const editTour360FileInputRef = useRef<HTMLInputElement>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [editSuccessMessage, setEditSuccessMessage] = useState<string | null>(null);
+  const [editErrorMessage, setEditErrorMessage] = useState<string | null>(null);
 
-  const handleEditTour360Upload = (files: FileList | null) => {
+  const handleEditTour360Upload = async (files: FileList | null) => {
     if (!files || files.length === 0 || !editingProperty) return;
     const file = files[0];
     if (!file.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      if (result) {
-        setEditingProperty((prev) =>
-          prev ? { ...prev, virtualTour360Image: result } : null
-        );
-      }
-    };
-    reader.readAsDataURL(file);
+    setIsCompressingPhotos(true);
+    setEditErrorMessage(null);
+    try {
+      const compressedDataUrl = await compress360Panorama(file);
+      setEditingProperty((prev) =>
+        prev ? { ...prev, virtualTour360Image: compressedDataUrl } : null
+      );
+    } catch (err: any) {
+      console.error('Erro na foto 360 na edição:', err);
+      setEditErrorMessage(err.message || 'Erro ao processar imagem 360°.');
+    } finally {
+      setIsCompressingPhotos(false);
+    }
   };
 
-  const handleEditFileUpload = (files: FileList | null) => {
+  const handleEditFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0 || !editingProperty) return;
-    Array.from(files).forEach((file) => {
-      if (!file.type.startsWith('image/')) return;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const dataUrl = e.target?.result as string;
-        if (dataUrl) {
-          setEditingProperty((prev) =>
-            prev ? { ...prev, images: [...(prev.images || []), dataUrl] } : null
-          );
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+    setIsCompressingPhotos(true);
+    setEditErrorMessage(null);
+    try {
+      const validFiles = Array.from(files).filter((f) => f.type.startsWith('image/'));
+      for (const file of validFiles) {
+        const compressedDataUrl = await compressImage(file);
+        setEditingProperty((prev) =>
+          prev ? { ...prev, images: [...(prev.images || []), compressedDataUrl] } : null
+        );
+      }
+    } catch (err: any) {
+      console.error('Erro ao comprimir fotos na edição:', err);
+      setEditErrorMessage(err.message || 'Erro ao comprimir fotos selecionadas.');
+    } finally {
+      setIsCompressingPhotos(false);
+    }
   };
 
   const handleEditAddUrl = () => {
@@ -252,6 +266,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     e.preventDefault();
     if (!editingProperty) return;
     setIsSavingEdit(true);
+    setEditErrorMessage(null);
     try {
       await saveProperty(editingProperty);
       setEditSuccessMessage('Imóvel atualizado com sucesso no banco de dados e sincronizado para Google/IA!');
@@ -260,30 +275,33 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         setEditSuccessMessage(null);
         setEditingProperty(null);
       }, 1200);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving property edit:', err);
-      alert('Erro ao atualizar dados do imóvel.');
+      setEditErrorMessage(`Erro ao salvar alterações no banco: ${err.message || 'Verifique sua conexão.'}`);
     } finally {
       setIsSavingEdit(false);
     }
   };
 
-  const handleFileUpload = (files: FileList | null) => {
+  const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    Array.from(files).forEach((file) => {
-      if (!file.type.startsWith('image/')) return;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const dataUrl = e.target?.result as string;
-        if (dataUrl) {
-          setNewProp((prev) => ({
-            ...prev,
-            images: [...(prev.images || []), dataUrl],
-          }));
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+    setIsCompressingPhotos(true);
+    setSaveError(null);
+    try {
+      const validFiles = Array.from(files).filter((f) => f.type.startsWith('image/'));
+      for (const file of validFiles) {
+        const compressedDataUrl = await compressImage(file);
+        setNewProp((prev) => ({
+          ...prev,
+          images: [...(prev.images || []), compressedDataUrl],
+        }));
+      }
+    } catch (err: any) {
+      console.error('Erro ao comprimir fotos:', err);
+      setSaveError(err.message || 'Erro ao otimizar fotos selecionadas.');
+    } finally {
+      setIsCompressingPhotos(false);
+    }
   };
 
   const handleAddUrl = () => {
@@ -312,24 +330,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     });
   };
 
-  const handleExistingPropertyPhotoUpload = (prop: Property, files: FileList | null) => {
+  const handleExistingPropertyPhotoUpload = async (prop: Property, files: FileList | null) => {
     if (!files || files.length === 0) return;
-    Array.from(files).forEach((file) => {
-      if (!file.type.startsWith('image/')) return;
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const dataUrl = e.target?.result as string;
-        if (dataUrl) {
-          const updated = {
-            ...prop,
-            images: [...prop.images, dataUrl],
-          };
-          await saveProperty(updated);
-          onRefreshData();
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+    try {
+      const validFiles = Array.from(files).filter((f) => f.type.startsWith('image/'));
+      const newImages = [...(prop.images || [])];
+      for (const file of validFiles) {
+        const compressed = await compressImage(file);
+        newImages.push(compressed);
+      }
+      await saveProperty({ ...prop, images: newImages });
+      onRefreshData();
+    } catch (err: any) {
+      console.error('Erro ao adicionar foto no imóvel:', err);
+      alert(`Erro ao adicionar foto: ${err.message || 'Arquivo muito grande ou formato inválido.'}`);
+    }
   };
 
   if (!isOpen) return null;
@@ -368,20 +383,77 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleCreateProperty = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newProp.title || !newProp.priceFormatted) {
-      alert('Por favor, preencha os campos obrigatórios.');
+    setSaveError(null);
+
+    if (!newProp.title?.trim() || !newProp.priceFormatted?.trim()) {
+      setSaveError('Por favor, preencha o Título e o Preço Principal do anúncio.');
       return;
     }
 
-    const propId = `brt-${Date.now()}`;
-    const propertyToSave: Property = {
-      ...(newProp as Property),
-      id: propId,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    setIsSavingNew(true);
 
     try {
+      const propId = `brt-${Date.now()}`;
+      const defaultState =
+        newProp.country === 'Paraguai'
+          ? 'Distrito Capital'
+          : newProp.country === 'Estados Unidos'
+          ? 'FL'
+          : 'PR';
+
+      const propertyToSave: Property = {
+        id: propId,
+        code: (newProp.code || `BRT-${Math.floor(1000 + Math.random() * 9000)}`).trim(),
+        title: (newProp.title || 'Imóvel Exclusivo').trim(),
+        subtitle: (newProp.subtitle || '').trim(),
+        purpose: newProp.purpose || 'Venda',
+        type: newProp.type || 'Apartamento',
+        category: newProp.category && newProp.category.length > 0 ? newProp.category : ['residencial'],
+        country: newProp.country || 'Brasil',
+        city: (newProp.city || 'Curitiba').trim(),
+        neighborhood: (newProp.neighborhood || '').trim(),
+        stateOrDept: (newProp.stateOrDept || defaultState).trim(),
+        address: (newProp.address || '').trim(),
+        zipCode: (newProp.zipCode || '').trim(),
+        priceFormatted: (newProp.priceFormatted || 'Sob Consulta').trim(),
+        salePrice: (newProp.salePrice || '').trim(),
+        rentPrice: (newProp.rentPrice || '').trim(),
+        iptu: (newProp.iptu || '').trim(),
+        condoName: (newProp.condoName || '').trim(),
+        condoFee: (newProp.condoFee || '').trim(),
+        priceNote: (newProp.priceNote || '').trim(),
+        areaM2: Number(newProp.areaM2) || 0,
+        bedrooms: newProp.bedrooms !== undefined ? Number(newProp.bedrooms) : 0,
+        suites: newProp.suites !== undefined ? Number(newProp.suites) : 0,
+        bathrooms: newProp.bathrooms !== undefined ? Number(newProp.bathrooms) : 0,
+        parkingSpots: newProp.parkingSpots !== undefined ? Number(newProp.parkingSpots) : 0,
+        featured: !!newProp.featured,
+        featuredInQuickSuggestions: !!newProp.featuredInQuickSuggestions,
+        youtubeUrl: (newProp.youtubeUrl || '').trim(),
+        virtualTour360Url: (newProp.virtualTour360Url || '').trim(),
+        virtualTour360Image: (newProp.virtualTour360Image || '').trim(),
+        images: newProp.images && newProp.images.length > 0 ? newProp.images : [
+          'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
+        ],
+        description: (newProp.description || '').trim(),
+        highlights: newProp.highlights || ['Piso em porcelanato', 'Acabamentos nobres', 'Localização privilegiada'],
+        amenities: newProp.amenities || ['Segurança 24h', 'Garagem'],
+        ownerName: (newProp.ownerName || '').trim(),
+        ownerPhone: (newProp.ownerPhone || '').trim(),
+        ownerEmail: (newProp.ownerEmail || '').trim(),
+        ownerDocument: (newProp.ownerDocument || '').trim(),
+        ownerBankDetails: (newProp.ownerBankDetails || '').trim(),
+        ownerMinNegotiationValue: (newProp.ownerMinNegotiationValue || '').trim(),
+        realtorName: (newProp.realtorName || 'Alexandre Bratu').trim(),
+        realtorCreci: (newProp.realtorCreci || 'CRECI-PR 32.410').trim(),
+        realtorPhone: (newProp.realtorPhone || COMPANY_INFO.phoneDisplay).trim(),
+        realtorEmail: (newProp.realtorEmail || COMPANY_INFO.email).trim(),
+        realtorCommission: (newProp.realtorCommission || '6%').trim(),
+        adminNotes: (newProp.adminNotes || '').trim(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
       await saveProperty(propertyToSave);
       setCreateSuccess(true);
       onRefreshData();
@@ -389,9 +461,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         setCreateSuccess(false);
         setActiveTab('properties');
       }, 1500);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error creating property:', err);
-      alert('Erro ao salvar no banco de dados.');
+      setSaveError(`Erro ao salvar no banco de dados: ${err.message || 'Verifique seus dados ou fotos.'}`);
+    } finally {
+      setIsSavingNew(false);
     }
   };
 
@@ -916,6 +990,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <div className="mb-6 p-4 rounded-2xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-200 text-xs flex items-center gap-3">
                   <CheckCircle className="w-5 h-5 text-emerald-400" />
                   <span>Imóvel cadastrado com sucesso no banco de dados Firestore! Redirecionando...</span>
+                </div>
+              )}
+
+              {saveError && (
+                <div className="mb-6 p-4 rounded-2xl bg-red-950/90 border border-red-500/50 text-red-200 text-xs flex items-center justify-between gap-3 shadow-lg">
+                  <div className="flex items-center gap-2.5">
+                    <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
+                    <span>{saveError}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSaveError(null)}
+                    className="text-red-300 hover:text-white text-xs font-mono p-1"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
+              {isCompressingPhotos && (
+                <div className="mb-6 p-3.5 rounded-2xl bg-cyan-950/80 border border-cyan-400/40 text-cyan-200 text-xs flex items-center gap-2.5 animate-pulse">
+                  <div className="w-4 h-4 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin shrink-0" />
+                  <span>Otimizando e comprimindo fotos selecionadas para gravação rápida no banco de dados...</span>
                 </div>
               )}
 
@@ -1640,10 +1737,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                   <button
                     type="submit"
-                    className="inline-flex items-center gap-2 px-7 py-2.5 rounded-xl bg-gradient-to-r from-[#ECC97E] via-[#D4AF37] to-[#B8934E] text-[#050B1A] text-xs font-bold hover:brightness-110 transition-all shadow-[0_0_20px_rgba(212,175,55,0.3)] cursor-pointer"
+                    disabled={isSavingNew || isCompressingPhotos}
+                    className="inline-flex items-center gap-2 px-7 py-2.5 rounded-xl bg-gradient-to-r from-[#ECC97E] via-[#D4AF37] to-[#B8934E] text-[#050B1A] text-xs font-bold hover:brightness-110 transition-all shadow-[0_0_20px_rgba(212,175,55,0.3)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Save className="w-4 h-4" />
-                    <span>Salvar Imóvel no Banco de Dados</span>
+                    {isSavingNew ? (
+                      <>
+                        <div className="w-4 h-4 rounded-full border-2 border-[#050B1A] border-t-transparent animate-spin" />
+                        <span>Salvando no Firestore...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        <span>Salvar Imóvel no Banco de Dados</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </form>
@@ -1943,6 +2050,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <div className="p-3.5 rounded-2xl bg-emerald-950/90 border border-emerald-500/60 text-emerald-300 text-xs font-mono flex items-center gap-2.5 animate-fadeIn">
                     <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
                     <span>{editSuccessMessage}</span>
+                  </div>
+                )}
+
+                {editErrorMessage && (
+                  <div className="p-3.5 rounded-2xl bg-red-950/90 border border-red-500/60 text-red-200 text-xs font-mono flex items-center justify-between gap-2.5 shadow-lg">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
+                      <span>{editErrorMessage}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditErrorMessage(null)}
+                      className="text-red-300 hover:text-white p-1 text-xs"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+
+                {isCompressingPhotos && (
+                  <div className="p-3 rounded-2xl bg-cyan-950/80 border border-cyan-400/40 text-cyan-200 text-xs flex items-center gap-2.5 animate-pulse">
+                    <div className="w-4 h-4 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin shrink-0" />
+                    <span>Otimizando fotos...</span>
                   </div>
                 )}
 

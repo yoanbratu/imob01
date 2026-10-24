@@ -44,6 +44,7 @@
         "ownerEmail": { "type": "string" },
         "ownerDocument": { "type": "string" },
         "ownerBankDetails": { "type": "string" },
+        "ownerMinNegotiationValue": { "type": "string" },
         "realtorName": { "type": "string" },
         "realtorCreci": { "type": "string" },
         "realtorPhone": { "type": "string" },

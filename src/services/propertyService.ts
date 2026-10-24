@@ -198,29 +198,116 @@ export function subscribeToProperties(callback: (properties: Property[]) => void
   );
 }
 
+/**
+ * Sanitiza o objeto antes de persistir no Firestore:
+ * 1. Remove qualquer propriedade com valor 'undefined' (que o Firebase rejeita com erro fatal).
+ * 2. Garante tipos numéricos corretos para metragem e cômodos.
+ * 3. Preenche valores padrão de segurança para campos obrigatórios do esquema.
+ */
+function sanitizePropertyPayload(property: Partial<Property>): Record<string, any> {
+  const sanitized: Record<string, any> = {};
+
+  for (const [key, value] of Object.entries(property)) {
+    if (value !== undefined) {
+      sanitized[key] = value;
+    }
+  }
+
+  // Garantir tipos numéricos
+  if (sanitized.areaM2 !== undefined) {
+    sanitized.areaM2 = Number(sanitized.areaM2) || 0;
+  }
+  if (sanitized.bathrooms !== undefined) {
+    sanitized.bathrooms = Number(sanitized.bathrooms) || 0;
+  }
+  if (sanitized.bedrooms !== undefined) {
+    sanitized.bedrooms = Number(sanitized.bedrooms) || 0;
+  }
+  if (sanitized.suites !== undefined) {
+    sanitized.suites = Number(sanitized.suites) || 0;
+  }
+  if (sanitized.parkingSpots !== undefined) {
+    sanitized.parkingSpots = Number(sanitized.parkingSpots) || 0;
+  }
+
+  // Campos centrais obrigatórios com fallback seguro
+  if (!sanitized.code || typeof sanitized.code !== 'string') {
+    sanitized.code = `BRT-${Math.floor(1000 + Math.random() * 9000)}`;
+  }
+  if (!sanitized.title || typeof sanitized.title !== 'string') {
+    sanitized.title = 'Imóvel Exclusivo Bratu';
+  }
+  if (!sanitized.purpose) {
+    sanitized.purpose = 'Venda';
+  }
+  if (!sanitized.type) {
+    sanitized.type = 'Apartamento';
+  }
+  if (!sanitized.country) {
+    sanitized.country = 'Brasil';
+  }
+  if (!sanitized.city) {
+    sanitized.city = 'Curitiba';
+  }
+  if (!sanitized.priceFormatted) {
+    sanitized.priceFormatted = 'Sob Consulta';
+  }
+  if (!sanitized.stateOrDept) {
+    sanitized.stateOrDept = sanitized.country === 'Paraguai' ? 'Distrito Capital' : sanitized.country === 'Estados Unidos' ? 'FL' : 'PR';
+  }
+  if (!sanitized.images || !Array.isArray(sanitized.images) || sanitized.images.length === 0) {
+    sanitized.images = [
+      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
+    ];
+  }
+
+  return sanitized;
+}
+
 export async function saveProperty(property: Property): Promise<void> {
-  const docRef = doc(db, PROPERTIES_COLLECTION, property.id);
-  await setDoc(
-    docRef,
-    {
-      ...property,
-      updatedAt: new Date().toISOString(),
-    },
-    { merge: true }
-  );
+  try {
+    const docRef = doc(db, PROPERTIES_COLLECTION, property.id);
+    const sanitizedData = sanitizePropertyPayload(property);
+    await setDoc(
+      docRef,
+      {
+        ...sanitizedData,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  } catch (error: any) {
+    console.error('Erro ao salvar imóvel no Firestore:', error);
+    const msg = error?.message || 'Erro desconhecido ao salvar imóvel.';
+    throw new Error(msg);
+  }
 }
 
 export async function deleteProperty(propertyId: string): Promise<void> {
-  const docRef = doc(db, PROPERTIES_COLLECTION, propertyId);
-  await deleteDoc(docRef);
+  try {
+    const docRef = doc(db, PROPERTIES_COLLECTION, propertyId);
+    await deleteDoc(docRef);
+  } catch (error: any) {
+    console.error('Erro ao deletar imóvel do Firestore:', error);
+    throw new Error(error?.message || 'Erro ao deletar imóvel.');
+  }
 }
 
 export async function updateProperty(propertyId: string, updates: Partial<Property>): Promise<void> {
-  const docRef = doc(db, PROPERTIES_COLLECTION, propertyId);
-  await updateDoc(docRef, {
-    ...updates,
-    updatedAt: new Date().toISOString(),
-  });
+  try {
+    const docRef = doc(db, PROPERTIES_COLLECTION, propertyId);
+    const cleanedUpdates: Record<string, any> = {};
+    for (const [key, val] of Object.entries(updates)) {
+      if (val !== undefined) cleanedUpdates[key] = val;
+    }
+    await updateDoc(docRef, {
+      ...cleanedUpdates,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    console.error('Erro ao atualizar imóvel no Firestore:', error);
+    throw new Error(error?.message || 'Erro ao atualizar imóvel.');
+  }
 }
 
 export async function saveLead(lead: Omit<LeadSubmission, 'id'>): Promise<string> {

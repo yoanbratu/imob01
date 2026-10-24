@@ -17,34 +17,42 @@ service cloud.firestore {
 
     // Property payload validation blueprint
     function isValidProperty(data) {
-      return data.keys().hasAll(['code', 'title', 'purpose', 'type', 'country', 'city', 'priceFormatted', 'areaM2']) &&
-        data.code is string && data.code.size() <= 64 &&
-        data.title is string && data.title.size() <= 256 &&
-        data.purpose in ['Venda', 'Locação'] &&
-        data.type is string && data.type.size() <= 64 &&
-        data.country in ['Brasil', 'Estados Unidos', 'Paraguai'] &&
-        data.city is string && data.city.size() <= 128 &&
-        data.priceFormatted is string && data.priceFormatted.size() <= 128 &&
-        data.areaM2 is number && data.areaM2 >= 0 &&
-        (!('condoName' in data) || (data.condoName is string && data.condoName.size() <= 200)) &&
-        (!('condoFee' in data) || (data.condoFee is string && data.condoFee.size() <= 120)) &&
-        (!('iptu' in data) || (data.iptu is string && data.iptu.size() <= 120)) &&
-        (!('salePrice' in data) || (data.salePrice is string && data.salePrice.size() <= 120)) &&
-        (!('rentPrice' in data) || (data.rentPrice is string && data.rentPrice.size() <= 120)) &&
-        (!('neighborhood' in data) || (data.neighborhood is string && data.neighborhood.size() <= 150)) &&
-        (!('address' in data) || (data.address is string && data.address.size() <= 300)) &&
-        (!('zipCode' in data) || (data.zipCode is string && data.zipCode.size() <= 50)) &&
-        (!('ownerName' in data) || (data.ownerName is string && data.ownerName.size() <= 200)) &&
-        (!('ownerPhone' in data) || (data.ownerPhone is string && data.ownerPhone.size() <= 60)) &&
+      return data.keys().hasAll(['code', 'title', 'priceFormatted']) &&
+        data.code is string && data.code.size() <= 128 &&
+        data.title is string && data.title.size() <= 500 &&
+        data.priceFormatted is string && data.priceFormatted.size() <= 150 &&
+        (!('purpose' in data) || (data.purpose is string && data.purpose.size() <= 80)) &&
+        (!('type' in data) || (data.type is string && data.type.size() <= 100)) &&
+        (!('country' in data) || (data.country is string && data.country.size() <= 100)) &&
+        (!('city' in data) || (data.city is string && data.city.size() <= 150)) &&
+        (!('stateOrDept' in data) || (data.stateOrDept is string && data.stateOrDept.size() <= 100)) &&
+        (!('areaM2' in data) || (data.areaM2 is number || data.areaM2 is string)) &&
+        (!('condoName' in data) || (data.condoName is string && data.condoName.size() <= 300)) &&
+        (!('condoFee' in data) || (data.condoFee is string && data.condoFee.size() <= 150)) &&
+        (!('iptu' in data) || (data.iptu is string && data.iptu.size() <= 150)) &&
+        (!('salePrice' in data) || (data.salePrice is string && data.salePrice.size() <= 150)) &&
+        (!('rentPrice' in data) || (data.rentPrice is string && data.rentPrice.size() <= 150)) &&
+        (!('neighborhood' in data) || (data.neighborhood is string && data.neighborhood.size() <= 200)) &&
+        (!('address' in data) || (data.address is string && data.address.size() <= 500)) &&
+        (!('zipCode' in data) || (data.zipCode is string && data.zipCode.size() <= 60)) &&
+        (!('ownerName' in data) || (data.ownerName is string && data.ownerName.size() <= 250)) &&
+        (!('ownerPhone' in data) || (data.ownerPhone is string && data.ownerPhone.size() <= 100)) &&
         (!('ownerEmail' in data) || (data.ownerEmail is string && data.ownerEmail.size() <= 150)) &&
-        (!('ownerDocument' in data) || (data.ownerDocument is string && data.ownerDocument.size() <= 100)) &&
-        (!('ownerBankDetails' in data) || (data.ownerBankDetails is string && data.ownerBankDetails.size() <= 300)) &&
-        (!('realtorName' in data) || (data.realtorName is string && data.realtorName.size() <= 150)) &&
+        (!('ownerDocument' in data) || (data.ownerDocument is string && data.ownerDocument.size() <= 200)) &&
+        (!('ownerBankDetails' in data) || (data.ownerBankDetails is string && data.ownerBankDetails.size() <= 2500)) &&
+        (!('ownerMinNegotiationValue' in data) || (data.ownerMinNegotiationValue is string && data.ownerMinNegotiationValue.size() <= 500)) &&
+        (!('realtorName' in data) || (data.realtorName is string && data.realtorName.size() <= 200)) &&
+        (!('realtorCreci' in data) || (data.realtorCreci is string && data.realtorCreci.size() <= 100)) &&
+        (!('realtorPhone' in data) || (data.realtorPhone is string && data.realtorPhone.size() <= 100)) &&
+        (!('realtorEmail' in data) || (data.realtorEmail is string && data.realtorEmail.size() <= 150)) &&
+        (!('realtorCommission' in data) || (data.realtorCommission is string && data.realtorCommission.size() <= 150)) &&
         (!('youtubeUrl' in data) || (data.youtubeUrl is string && data.youtubeUrl.size() <= 500)) &&
         (!('virtualTour360Url' in data) || (data.virtualTour360Url is string && data.virtualTour360Url.size() <= 1000)) &&
         (!('virtualTour360Image' in data) || (data.virtualTour360Image is string)) &&
+        (!('featured' in data) || (data.featured is bool)) &&
         (!('featuredInQuickSuggestions' in data) || (data.featuredInQuickSuggestions is bool)) &&
-        (!('adminNotes' in data) || (data.adminNotes is string && data.adminNotes.size() <= 5000));
+        (!('images' in data) || (data.images is list && data.images.size() <= 50)) &&
+        (!('adminNotes' in data) || (data.adminNotes is string && data.adminNotes.size() <= 10000));
     }
 
     // Lead payload validation blueprint
