@@ -129,6 +129,30 @@
         "updatedAt": { "type": "string" }
       },
       "required": ["name"]
+    },
+    "HomepageSegment": {
+      "title": "HomepageSegment",
+      "description": "Configurações e dados visuais dos segmentos da página inicial (fotos, títulos, textos e destaques).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "segmentTag": { "type": "string" },
+        "title": { "type": "string" },
+        "badge": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "imageBadge": { "type": "string" },
+        "description": { "type": "string" },
+        "features": { "type": "array" },
+        "ctaText": { "type": "string" },
+        "category": { "type": "string" },
+        "footerLabel": { "type": "string" },
+        "techEffect": { "type": "string" },
+        "headerTag": { "type": "string" },
+        "headerTitle": { "type": "string" },
+        "headerDescription": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["title", "imageUrl"]
     }
   },
   "firestore": {
@@ -151,6 +175,10 @@
     "/condominiums/{condominiumId}": {
       "schema": { "$ref": "#/entities/Condominium" },
       "description": "Lista de condomínios e edifícios cadastrados para preenchimento de taxas e especificações."
+    },
+    "/homepage_segments/{segmentId}": {
+      "schema": { "$ref": "#/entities/HomepageSegment" },
+      "description": "Segmentos 01 e 02 configuráveis na página de abertura com efeitos tecnológicos e fotos customizadas."
     }
   }
 }

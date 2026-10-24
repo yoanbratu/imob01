@@ -135,5 +135,112 @@ export interface Condominium {
   updatedAt?: string;
 }
 
+export type TechEffectType = 'holo-gold' | 'cyber-lidar' | 'blueprint' | 'matrix';
 
+export interface HomepageSegment {
+  id: string; // 'segment_01' | 'segment_02'
+  segmentTag: string; // ex: 'SEGMENTO 01'
+  title: string; // ex: 'Imóveis Residenciais'
+  badge: string; // ex: 'ALTO PADRÃO'
+  imageUrl: string;
+  imageBadge: string; // ex: 'RESIDENCIAL · LUXO AUTORAL'
+  description: string;
+  features: string[];
+  ctaText: string;
+  category: PropertyCategory;
+  footerLabel: string;
+  techEffect?: TechEffectType;
+  updatedAt?: string;
+}
 
+export interface HomepageSegmentsConfig {
+  headerTag: string;
+  headerTitle: string;
+  headerDescription: string;
+  segment1: HomepageSegment;
+  segment2: HomepageSegment;
+  updatedAt?: string;
+}
+
+export const CURATED_TECH_PHOTOS = [
+  {
+    name: 'Residência High-End Vidro & Céu',
+    category: 'residencial',
+    url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1400&q=80',
+    description: 'Mansão contemporânea com iluminação linear e integração com natureza',
+  },
+  {
+    name: 'Mansão Cyber-Minimalista',
+    category: 'residencial',
+    url: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1400&q=80',
+    description: 'Arquitetura autoral com piscina espelhada e linhas geométricas',
+  },
+  {
+    name: 'Penthouse Noturna Panorâmica',
+    category: 'residencial',
+    url: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1400&q=80',
+    description: 'Cobertura com vista de 360 graus e iluminação high-tech',
+  },
+  {
+    name: 'Edifício Corporativo Triple A',
+    category: 'comercial',
+    url: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1400&q=80',
+    description: 'Fachada em pele de vidro espelhado com acabamento corporativo premium',
+  },
+  {
+    name: 'Torre Empresarial Futurista',
+    category: 'comercial',
+    url: 'https://images.unsplash.com/photo-1577495508048-b635879837f1?auto=format&fit=crop&w=1400&q=80',
+    description: 'Complexo corporativo com linhas de engenharia modernas e iluminação noturna',
+  },
+  {
+    name: 'Centro Financeiro & Lajes High-Tech',
+    category: 'comercial',
+    url: 'https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=1400&q=80',
+    description: 'Arranha-céu com tecnologia sustentável e infraestrutura para multinacionais',
+  },
+];
+
+export const INITIAL_HOMEPAGE_SEGMENTS: HomepageSegmentsConfig = {
+  headerTag: 'SEGMENTOS DE ATUAÇÃO ESPECIALIZADA',
+  headerTitle: 'Imóveis Comerciais & Residenciais',
+  headerDescription: 'Atendimento consultivo sob medida com equipes dedicadas para o mercado residencial de alto padrão e para o setor corporativo e comercial.',
+  segment1: {
+    id: 'segment_01',
+    segmentTag: 'SEGMENTO 01',
+    title: 'Imóveis Residenciais',
+    badge: 'ALTO PADRÃO',
+    imageUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
+    imageBadge: 'RESIDENCIAL · LUXO AUTORAL 4K',
+    description: 'Curadoria refinada de casas e mansões em condomínios fechados, coberturas panorâmicas e apartamentos de luxo nos endereços mais nobres do Brasil e do Paraguai.',
+    features: [
+      'Mansões em Condomínios Fechados',
+      'Coberturas & Penthouses Exclusivas',
+      'Apartamentos Decorados e Mobiliados',
+      'Lançamentos na Planta Frente Mar',
+    ],
+    ctaText: 'Explorar Imóveis Residenciais',
+    category: 'residencial',
+    footerLabel: 'Venda & Locação',
+    techEffect: 'holo-gold',
+  },
+  segment2: {
+    id: 'segment_02',
+    segmentTag: 'SEGMENTO 02',
+    title: 'Imóveis Comerciais',
+    badge: 'CORPORATIVO',
+    imageUrl: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80',
+    imageBadge: 'COMERCIAL · CORPORATE TRIPLE A',
+    description: 'Soluções estratégicas para empresas, consultorias e investidores patrimoniais. Lajes corporativas, conjuntos executivos e prédios comerciais com alta taxa de ocupação e rentabilidade.',
+    features: [
+      'Lajes Corporativas Triple A',
+      'Salas Comerciais em Centros Financeiros',
+      'Ativos com Contratos de Renda Ativos',
+      'Imóveis no World Trade Center & Santa Teresa',
+    ],
+    ctaText: 'Explorar Imóveis Comerciais',
+    category: 'comercial',
+    footerLabel: 'Venda & Locação',
+    techEffect: 'cyber-lidar',
+  },
+};

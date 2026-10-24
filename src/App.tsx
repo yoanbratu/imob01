@@ -15,12 +15,14 @@ import { SellPropertyModal } from './components/SellPropertyModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { AdminPanel } from './components/AdminPanel';
 import { validateAdminSession, clearAdminSession } from './utils/security';
-import { Property, PropertyFilters, LeadSubmission } from './types/property';
+import { Property, PropertyFilters, LeadSubmission, HomepageSegmentsConfig, INITIAL_HOMEPAGE_SEGMENTS } from './types/property';
 import {
   fetchProperties,
   subscribeToProperties,
   saveProperty,
   fetchLeads,
+  fetchHomepageSegments,
+  subscribeToHomepageSegments,
 } from './services/propertyService';
 import { injectOrUpdateJSONLD } from './utils/seoStructuredData';
 import { SemanticCatalogIndex } from './components/SemanticCatalogIndex';
@@ -37,6 +39,7 @@ const INITIAL_FILTERS: PropertyFilters = {
 export default function App() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [leads, setLeads] = useState<LeadSubmission[]>([]);
+  const [homepageSegments, setHomepageSegments] = useState<HomepageSegmentsConfig>(INITIAL_HOMEPAGE_SEGMENTS);
   const [filters, setFilters] = useState<PropertyFilters>(INITIAL_FILTERS);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [isSellModalOpen, setIsSellModalOpen] = useState(false);
@@ -47,6 +50,7 @@ export default function App() {
   });
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
+  const [adminInitialTab, setAdminInitialTab] = useState<'properties' | 'new' | 'owners' | 'condos' | 'realtors' | 'leads' | 'segments' | 'security'>('properties');
 
   // Periodically check session expiry
   useEffect(() => {
@@ -61,26 +65,35 @@ export default function App() {
     return () => clearInterval(timer);
   }, [isAdmin]);
 
-  // Load properties from Firestore and set up subscription
+  // Load properties and homepage segments from Firestore and set up subscriptions
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
+    let unsubscribeProps: (() => void) | undefined;
+    let unsubscribeSegments: (() => void) | undefined;
 
     async function loadData() {
       const initialProps = await fetchProperties();
       setProperties(initialProps);
 
-      unsubscribe = subscribeToProperties((updatedList) => {
+      unsubscribeProps = subscribeToProperties((updatedList) => {
         setProperties(updatedList);
       });
 
       const initialLeads = await fetchLeads();
       setLeads(initialLeads);
+
+      const initialSegments = await fetchHomepageSegments();
+      setHomepageSegments(initialSegments);
+
+      unsubscribeSegments = subscribeToHomepageSegments((updatedSegments) => {
+        setHomepageSegments(updatedSegments);
+      });
     }
 
     loadData();
 
     return () => {
-      if (unsubscribe) unsubscribe();
+      if (unsubscribeProps) unsubscribeProps();
+      if (unsubscribeSegments) unsubscribeSegments();
     };
   }, []);
 
@@ -96,6 +109,8 @@ export default function App() {
     setProperties(updatedProps);
     const updatedLeads = await fetchLeads();
     setLeads(updatedLeads);
+    const updatedSegments = await fetchHomepageSegments();
+    setHomepageSegments(updatedSegments);
   };
 
   const handleAdminLoginSuccess = () => {
@@ -243,6 +258,12 @@ export default function App() {
         {/* Commercial & Residential Specialized Pillars Showcase */}
         <SegmentShowcase
           onSelectCategory={(cat) => handleFilterChange({ category: cat })}
+          config={homepageSegments}
+          isAdmin={isAdmin}
+          onOpenAdminSegments={() => {
+            setAdminInitialTab('segments');
+            handleOpenAdminTrigger();
+          }}
         />
 
         {/* Featured Properties Grid & Categories */}
@@ -313,6 +334,7 @@ export default function App() {
         onClose={() => setIsAdminPanelOpen(false)}
         onLogout={handleAdminLogout}
         onRefreshData={refreshData}
+        initialTab={adminInitialTab}
       />
     </div>
   );

@@ -161,3 +161,25 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #D4AF37;
 }
+
+/* Technological LIDAR Scanline & Laser sweep animation */
+@keyframes techLidarScan {
+  0% {
+    transform: translateY(-80%);
+    opacity: 0.2;
+  }
+  15% {
+    opacity: 0.95;
+  }
+  50% {
+    transform: translateY(85%);
+    opacity: 0.95;
+  }
+  85% {
+    opacity: 0.95;
+  }
+  100% {
+    transform: translateY(-80%);
+    opacity: 0.2;
+  }
+}

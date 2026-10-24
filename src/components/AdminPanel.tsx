@@ -41,8 +41,26 @@ import {
   CheckSquare,
   Square,
   Compass,
+  Cpu,
+  Layers,
+  Sliders,
+  Eye,
 } from 'lucide-react';
-import { Property, PropertyType, PropertyPurpose, Country, LeadSubmission, Realtor, PropertyOwner, Condominium } from '../types/property';
+import {
+  Property,
+  PropertyType,
+  PropertyPurpose,
+  Country,
+  LeadSubmission,
+  Realtor,
+  PropertyOwner,
+  Condominium,
+  HomepageSegment,
+  HomepageSegmentsConfig,
+  INITIAL_HOMEPAGE_SEGMENTS,
+  CURATED_TECH_PHOTOS,
+  TechEffectType,
+} from '../types/property';
 import {
   saveProperty,
   updateProperty,
@@ -62,6 +80,9 @@ import {
   deleteCondominium,
   subscribeToCondominiums,
   INITIAL_CONDOMINIUMS,
+  fetchHomepageSegments,
+  saveHomepageSegments,
+  subscribeToHomepageSegments,
 } from '../services/propertyService';
 import { COMPANY_INFO } from '../utils/whatsapp';
 import { updateAdminPassword } from '../utils/security';
@@ -69,6 +90,7 @@ import { isValidYouTubeUrl, getYouTubeEmbedUrl } from '../utils/youtube';
 import { isValid360Url, get360EmbedUrl, detect360Provider, parse360Tour, is360ImageSource } from '../utils/virtualTour360';
 import { Panorama360Viewer } from './Panorama360Viewer';
 import { compressImage, compress360Panorama } from '../utils/imageCompression';
+import { TechImage } from './TechImage';
 
 interface AdminPanelProps {
   properties: Property[];
@@ -77,6 +99,7 @@ interface AdminPanelProps {
   onClose: () => void;
   onLogout: () => void;
   onRefreshData: () => void;
+  initialTab?: 'properties' | 'new' | 'owners' | 'condos' | 'realtors' | 'leads' | 'segments' | 'security';
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -86,10 +109,33 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onClose,
   onLogout,
   onRefreshData,
+  initialTab,
 }) => {
-  const [activeTab, setActiveTab] = useState<'properties' | 'new' | 'owners' | 'condos' | 'realtors' | 'leads' | 'security'>('properties');
+  const [activeTab, setActiveTab] = useState<'properties' | 'new' | 'owners' | 'condos' | 'realtors' | 'leads' | 'segments' | 'security'>(initialTab || 'properties');
   const [searchFilter, setSearchFilter] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'residencial' | 'comercial'>('all');
+
+  // Homepage Segments 01 & 02 State & Listener
+  const [segmentsConfig, setSegmentsConfig] = useState<HomepageSegmentsConfig>(INITIAL_HOMEPAGE_SEGMENTS);
+  const [isSavingSegments, setIsSavingSegments] = useState(false);
+  const [segmentsFeedback, setSegmentsFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [activeSegmentTab, setActiveSegmentTab] = useState<'seg1' | 'seg2' | 'header'>('seg1');
+  const [newFeature1, setNewFeature1] = useState('');
+  const [newFeature2, setNewFeature2] = useState('');
+  const [isCompressingSegmentPhoto, setIsCompressingSegmentPhoto] = useState(false);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToHomepageSegments((data) => {
+      setSegmentsConfig(data);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Realtors (Corretores) State & Listener
   const [realtors, setRealtors] = useState<Realtor[]>(INITIAL_REALTORS);
@@ -824,6 +870,102 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
+  // Segment Photo & Content Handlers
+  const handleSegmentPhotoUpload = async (segKey: 'segment1' | 'segment2', files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    if (!file.type.startsWith('image/')) return;
+    setIsCompressingSegmentPhoto(true);
+    setSegmentsFeedback(null);
+    try {
+      const compressedDataUrl = await compressImage(file, 1280, 800, 0.82);
+      setSegmentsConfig((prev) => ({
+        ...prev,
+        [segKey]: {
+          ...prev[segKey],
+          imageUrl: compressedDataUrl,
+        },
+      }));
+      setSegmentsFeedback({
+        type: 'success',
+        message: `Foto do ${segKey === 'segment1' ? 'Segmento 01' : 'Segmento 02'} carregada e otimizada! Clique em "Salvar Alterações" para confirmar.`,
+      });
+    } catch (err: any) {
+      console.error('Erro ao comprimir imagem do segmento:', err);
+      setSegmentsFeedback({ type: 'error', message: err.message || 'Falha ao processar foto.' });
+    } finally {
+      setIsCompressingSegmentPhoto(false);
+    }
+  };
+
+  const handleSelectCuratedPhoto = (segKey: 'segment1' | 'segment2', url: string) => {
+    setSegmentsConfig((prev) => ({
+      ...prev,
+      [segKey]: {
+        ...prev[segKey],
+        imageUrl: url,
+      },
+    }));
+    setSegmentsFeedback({
+      type: 'success',
+      message: `Preset de foto aplicado ao ${segKey === 'segment1' ? 'Segmento 01' : 'Segmento 02'}! Clique em "Salvar Alterações" para persistir.`,
+    });
+  };
+
+  const handleAddFeatureToSegment = (segKey: 'segment1' | 'segment2', text: string) => {
+    if (!text.trim()) return;
+    setSegmentsConfig((prev) => ({
+      ...prev,
+      [segKey]: {
+        ...prev[segKey],
+        features: [...(prev[segKey].features || []), text.trim()],
+      },
+    }));
+    if (segKey === 'segment1') setNewFeature1('');
+    if (segKey === 'segment2') setNewFeature2('');
+  };
+
+  const handleRemoveFeatureFromSegment = (segKey: 'segment1' | 'segment2', index: number) => {
+    setSegmentsConfig((prev) => ({
+      ...prev,
+      [segKey]: {
+        ...prev[segKey],
+        features: (prev[segKey].features || []).filter((_, i) => i !== index),
+      },
+    }));
+  };
+
+  const handleSaveSegments = async () => {
+    setIsSavingSegments(true);
+    setSegmentsFeedback(null);
+    try {
+      await saveHomepageSegments(segmentsConfig);
+      setSegmentsFeedback({
+        type: 'success',
+        message: 'Segmentos 01 e 02 atualizados com sucesso no banco de dados Firestore!',
+      });
+      setTimeout(() => setSegmentsFeedback(null), 4000);
+    } catch (err: any) {
+      console.error('Erro ao salvar segmentos:', err);
+      setSegmentsFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao salvar segmentos.',
+      });
+    } finally {
+      setIsSavingSegments(false);
+    }
+  };
+
+  const handleResetSegmentsToDefault = () => {
+    if (confirm('Tem certeza que deseja restaurar as fotos, textos e efeitos tecnológicos originais dos Segmentos 01 e 02?')) {
+      setSegmentsConfig(INITIAL_HOMEPAGE_SEGMENTS);
+      setSegmentsFeedback({
+        type: 'success',
+        message: 'Valores padrão restaurados! Clique em "Salvar Alterações" para gravar.',
+      });
+    }
+  };
+
   const filteredProperties = properties.filter((p) => {
     const matchesSearch =
       p.title.toLowerCase().includes(searchFilter.toLowerCase()) ||
@@ -953,6 +1095,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           >
             <Inbox className="w-4 h-4" />
             <span>Propostas & Contatos Recebidos ({leads.length})</span>
+          </button>
+
+          {/* New Tab: Segmentos 01 & 02 da Página Inicial */}
+          <button
+            onClick={() => setActiveTab('segments')}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+              activeTab === 'segments'
+                ? 'tech-btn-primary'
+                : 'tech-btn-secondary text-slate-300'
+            }`}
+          >
+            <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+            <span>Segmentos 01 & 02 (Página Inicial)</span>
           </button>
 
           <button
@@ -3067,6 +3222,849 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <div className="text-center py-12 bg-[#070F26] rounded-2xl border border-white/10 p-8">
                 <Inbox className="w-10 h-10 text-slate-500 mx-auto mb-2" />
                 <p className="text-sm text-slate-400">Nenhuma proposta ou lead registrado no momento.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB: HOMEPAGE SPECIALIZED SEGMENTS (01 & 02) */}
+        {activeTab === 'segments' && (
+          <div className="py-6 flex-1 max-w-6xl mx-auto w-full space-y-8 animate-in fade-in duration-200">
+            {/* Top Action Header */}
+            <div className="flex flex-wrap items-center justify-between gap-4 pb-5 border-b border-[#D4AF37]/25">
+              <div>
+                <div className="inline-flex items-center gap-2 text-xs font-mono font-semibold tracking-wider uppercase text-[#D4AF37] mb-1 px-3 py-0.5 rounded-full bg-[#070F26] border border-[#D4AF37]/35">
+                  <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
+                  <span>CUSTOMIZAÇÃO VISUAL & FOTOS TECNOLÓGICAS</span>
+                </div>
+                <h3 className="text-2xl font-extrabold text-white">
+                  Edição dos Segmentos 01 & 02 (Página Inicial)
+                </h3>
+                <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                  Troque fotos, configure efeitos modernos (Holo-Gold, Cyber-Lidar, Blueprint, Matrix), títulos, badges, descrições e tópicos exibidos na vitrine de abertura do site.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleResetSegmentsToDefault}
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-[#0B163B] border border-white/10 hover:border-white/25 transition-all cursor-pointer"
+                >
+                  Restaurar Padrões
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveSegments}
+                  disabled={isSavingSegments || isCompressingSegmentPhoto}
+                  className="tech-btn-primary inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-[#050B1A] transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4 text-[#050B1A]" />
+                  <span>{isSavingSegments ? 'Salvando no Firestore...' : 'Salvar Alterações'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Notification Banner */}
+            {segmentsFeedback && (
+              <div
+                className={`p-4 rounded-2xl border text-xs flex items-center justify-between gap-3 animate-in fade-in ${
+                  segmentsFeedback.type === 'success'
+                    ? 'bg-emerald-950/80 border-emerald-500/50 text-emerald-200'
+                    : 'bg-red-950/80 border-red-500/50 text-red-200'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  {segmentsFeedback.type === 'success' ? (
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                  )}
+                  <span className="font-medium">{segmentsFeedback.message}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSegmentsFeedback(null)}
+                  className="text-slate-400 hover:text-white cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Sub-Tabs: Segmento 01 | Segmento 02 | Cabeçalho Geral */}
+            <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-[#081233] border border-white/10 max-w-lg">
+              <button
+                type="button"
+                onClick={() => setActiveSegmentTab('seg1')}
+                className={`flex-1 py-2 text-xs font-mono font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  activeSegmentTab === 'seg1'
+                    ? 'bg-[#D4AF37] text-[#050B1A] shadow-md'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                <Home className="w-3.5 h-3.5" />
+                <span>Segmento 01 (Residencial)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveSegmentTab('seg2')}
+                className={`flex-1 py-2 text-xs font-mono font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  activeSegmentTab === 'seg2'
+                    ? 'bg-[#D4AF37] text-[#050B1A] shadow-md'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                <Briefcase className="w-3.5 h-3.5" />
+                <span>Segmento 02 (Comercial)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveSegmentTab('header')}
+                className={`px-3 py-2 text-xs font-mono font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  activeSegmentTab === 'header'
+                    ? 'bg-[#D4AF37] text-[#050B1A] shadow-md'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+                title="Configurar introdução da seção"
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                <span>Cabeçalho</span>
+              </button>
+            </div>
+
+            {/* TAB: CABEÇALHO GERAL */}
+            {activeSegmentTab === 'header' && (
+              <div className="bg-[#070F26] p-6 rounded-3xl border border-[#D4AF37]/35 space-y-4 shadow-xl">
+                <h4 className="text-base font-bold text-white flex items-center gap-2 pb-2 border-b border-white/10">
+                  <Sliders className="w-4 h-4 text-[#D4AF37]" />
+                  <span>Textos do Cabeçalho da Seção de Segmentos</span>
+                </h4>
+
+                <div>
+                  <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                    TAG SUPERIOR / RÓTULO (BOX)
+                  </label>
+                  <input
+                    type="text"
+                    value={segmentsConfig.headerTag || ''}
+                    onChange={(e) => setSegmentsConfig({ ...segmentsConfig, headerTag: e.target.value })}
+                    placeholder="Ex: SEGMENTOS DE ATUAÇÃO ESPECIALIZADA"
+                    className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-[#E5C378] font-mono rounded-xl px-3.5 py-2.5 text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                    TÍTULO PRINCIPAL DA SEÇÃO
+                  </label>
+                  <input
+                    type="text"
+                    value={segmentsConfig.headerTitle || ''}
+                    onChange={(e) => setSegmentsConfig({ ...segmentsConfig, headerTitle: e.target.value })}
+                    placeholder="Ex: Imóveis Comerciais & Residenciais"
+                    className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white font-bold rounded-xl px-3.5 py-2.5 text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                    DESCRIÇÃO INTRODUTÓRIA
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={segmentsConfig.headerDescription || ''}
+                    onChange={(e) => setSegmentsConfig({ ...segmentsConfig, headerDescription: e.target.value })}
+                    placeholder="Atendimento consultivo sob medida com equipes dedicadas..."
+                    className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-slate-200 rounded-xl p-3 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* TAB: SEGMENTO 01 (RESIDENCIAL) */}
+            {activeSegmentTab === 'seg1' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Left Column: Visual Preview & Photo Management (5 cols) */}
+                <div className="lg:col-span-5 space-y-6">
+                  {/* Live Visual Preview Card */}
+                  <div className="bg-[#070F26] p-5 rounded-3xl border border-[#D4AF37]/40 shadow-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-[#E5C378] font-bold flex items-center gap-1.5">
+                        <Eye className="w-3.5 h-3.5 text-[#D4AF37]" />
+                        <span>Pré-Visualização em Tempo Real</span>
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        Efeito: {(segmentsConfig.segment1.techEffect || 'holo-gold').toUpperCase()}
+                      </span>
+                    </div>
+
+                    <div className="rounded-2xl overflow-hidden border border-[#D4AF37]/30 shadow-lg">
+                      <TechImage
+                        src={segmentsConfig.segment1.imageUrl}
+                        alt={segmentsConfig.segment1.title}
+                        aspectClass="aspect-[16/10]"
+                        badge={segmentsConfig.segment1.imageBadge || 'RESIDENCIAL · LUXO AUTORAL'}
+                        techEffect={segmentsConfig.segment1.techEffect || 'holo-gold'}
+                        allowEffectToggle={true}
+                        showTechHud={true}
+                      />
+                    </div>
+
+                    <p className="text-[11px] text-slate-400 italic text-center">
+                      Hover sobre a imagem para ver o feixe laser 3D e retículas HUD em ação!
+                    </p>
+                  </div>
+
+                  {/* Photo Upload & URL Configuration */}
+                  <div className="bg-[#070F26] p-5 rounded-3xl border border-[#D4AF37]/30 space-y-4">
+                    <h5 className="text-xs font-mono font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                      <ImageIcon className="w-3.5 h-3.5 text-[#D4AF37]" />
+                      <span>Trocar Foto do Segmento 01</span>
+                    </h5>
+
+                    {/* Direct Image URL */}
+                    <div>
+                      <label className="block text-[10px] font-mono text-slate-300 mb-1">
+                        URL DA IMAGEM (WEB / CDN / UNSPLASH)
+                      </label>
+                      <input
+                        type="url"
+                        value={segmentsConfig.segment1.imageUrl}
+                        onChange={(e) =>
+                          setSegmentsConfig({
+                            ...segmentsConfig,
+                            segment1: { ...segmentsConfig.segment1, imageUrl: e.target.value },
+                          })
+                        }
+                        placeholder="https://..."
+                        className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3 py-2 text-xs font-mono"
+                      />
+                    </div>
+
+                    {/* File Upload Button */}
+                    <div>
+                      <label className="block text-[10px] font-mono text-slate-300 mb-1">
+                        OU ENVIE UMA FOTO DO SEU APARELHO
+                      </label>
+                      <label className="flex items-center justify-center gap-2 w-full p-3 bg-[#0B163B] hover:bg-[#12235E] border-2 border-dashed border-[#D4AF37]/40 hover:border-[#D4AF37] rounded-xl text-xs font-mono text-[#E5C378] cursor-pointer transition-colors">
+                        <Upload className="w-4 h-4 text-[#D4AF37]" />
+                        <span>
+                          {isCompressingSegmentPhoto ? 'Comprimindo foto...' : 'Escolher Foto do Computador / Celular'}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleSegmentPhotoUpload('segment1', e.target.files)}
+                        />
+                      </label>
+                      <span className="text-[10px] text-slate-400 block mt-1">
+                        Otimização automática com compressão de alta qualidade compatível com banco de dados.
+                      </span>
+                    </div>
+
+                    {/* Curated Presets High-Tech Gallery */}
+                    <div className="pt-2 border-t border-white/10">
+                      <span className="block text-[10px] font-mono uppercase tracking-wider text-[#E5C378] font-bold mb-2">
+                        Galeria de Presets Tecnológicos 4K
+                      </span>
+                      <div className="grid grid-cols-2 gap-2">
+                        {CURATED_TECH_PHOTOS.filter((p) => p.category === 'residencial').map((photo, i) => (
+                          <div
+                            key={i}
+                            onClick={() => handleSelectCuratedPhoto('segment1', photo.url)}
+                            className={`p-2 rounded-xl bg-[#0B163B] hover:bg-[#12235E] border transition-all cursor-pointer group ${
+                              segmentsConfig.segment1.imageUrl === photo.url
+                                ? 'border-[#D4AF37] ring-1 ring-[#D4AF37]'
+                                : 'border-white/10 hover:border-[#D4AF37]/60'
+                            }`}
+                          >
+                            <img
+                              src={photo.url}
+                              alt={photo.name}
+                              className="w-full h-14 object-cover rounded-lg mb-1"
+                            />
+                            <span className="text-[10px] font-bold text-white block truncate group-hover:text-[#E5C378]">
+                              {photo.name}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Badge da Foto */}
+                    <div>
+                      <label className="block text-[10px] font-mono text-slate-300 mb-1">
+                        BADGE TECNOLÓGICO SOBRE A FOTO
+                      </label>
+                      <input
+                        type="text"
+                        value={segmentsConfig.segment1.imageBadge || ''}
+                        onChange={(e) =>
+                          setSegmentsConfig({
+                            ...segmentsConfig,
+                            segment1: { ...segmentsConfig.segment1, imageBadge: e.target.value },
+                          })
+                        }
+                        placeholder="Ex: RESIDENCIAL · LUXO AUTORAL 4K"
+                        className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white font-mono rounded-xl px-3 py-2 text-xs"
+                      />
+                    </div>
+
+                    {/* Efeito Visual Tecnológico */}
+                    <div>
+                      <label className="block text-[10px] font-mono text-slate-300 mb-1.5">
+                        EFEITO VISUAL TECNOLÓGICO DA FOTO
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { id: 'holo-gold', name: 'Holo-Gold', desc: 'Varredura Ouro & Luxo' },
+                          { id: 'cyber-lidar', name: 'Cyber-LIDAR', desc: 'Neon Cyan & Matriz 3D' },
+                          { id: 'blueprint', name: 'Blueprint 3D', desc: 'Grid Engenharia BIM' },
+                          { id: 'matrix', name: 'Neo-Matrix', desc: 'Fósforo Digital Verde' },
+                        ].map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() =>
+                              setSegmentsConfig({
+                                ...segmentsConfig,
+                                segment1: {
+                                  ...segmentsConfig.segment1,
+                                  techEffect: m.id as TechEffectType,
+                                },
+                              })
+                            }
+                            className={`p-2 rounded-xl text-left border transition-all cursor-pointer ${
+                              segmentsConfig.segment1.techEffect === m.id
+                                ? 'bg-[#0B163B] border-[#D4AF37] ring-1 ring-[#D4AF37]'
+                                : 'bg-[#050B1A] border-white/10 hover:border-white/30'
+                            }`}
+                          >
+                            <span className="text-[11px] font-bold text-white block">{m.name}</span>
+                            <span className="text-[9px] text-slate-400 block">{m.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column: Titles, Descriptions, Features and Links (7 cols) */}
+                <div className="lg:col-span-7 bg-[#070F26] p-6 rounded-3xl border border-[#D4AF37]/35 space-y-4 shadow-xl">
+                  <h4 className="text-base font-bold text-white flex items-center gap-2 pb-2 border-b border-white/10">
+                    <Edit className="w-4 h-4 text-[#D4AF37]" />
+                    <span>Conteúdo & Textos do Segmento 01 (Residencial)</span>
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                        TAG DO SEGMENTO
+                      </label>
+                      <input
+                        type="text"
+                        value={segmentsConfig.segment1.segmentTag || ''}
+                        onChange={(e) =>
+                          setSegmentsConfig({
+                            ...segmentsConfig,
+                            segment1: { ...segmentsConfig.segment1, segmentTag: e.target.value },
+                          })
+                        }
+                        placeholder="SEGMENTO 01"
+                        className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-[#E5C378] font-mono rounded-xl px-3 py-2 text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                        BADGE DE CATEGORIA
+                      </label>
+                      <input
+                        type="text"
+                        value={segmentsConfig.segment1.badge || ''}
+                        onChange={(e) =>
+                          setSegmentsConfig({
+                            ...segmentsConfig,
+                            segment1: { ...segmentsConfig.segment1, badge: e.target.value },
+                          })
+                        }
+                        placeholder="ALTO PADRÃO"
+                        className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white font-mono rounded-xl px-3 py-2 text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      TÍTULO DO SEGMENTO *
+                    </label>
+                    <input
+                      type="text"
+                      value={segmentsConfig.segment1.title || ''}
+                      onChange={(e) =>
+                        setSegmentsConfig({
+                          ...segmentsConfig,
+                          segment1: { ...segmentsConfig.segment1, title: e.target.value },
+                        })
+                      }
+                      placeholder="Imóveis Residenciais"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white font-bold rounded-xl px-3.5 py-2.5 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      DESCRIÇÃO COMPLETA
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={segmentsConfig.segment1.description || ''}
+                      onChange={(e) =>
+                        setSegmentsConfig({
+                          ...segmentsConfig,
+                          segment1: { ...segmentsConfig.segment1, description: e.target.value },
+                        })
+                      }
+                      placeholder="Curadoria refinada de casas e mansões em condomínios fechados..."
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-slate-200 rounded-xl p-3 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                    />
+                  </div>
+
+                  {/* Features / Destaques Checkmark List */}
+                  <div>
+                    <label className="block text-[11px] font-mono text-[#E5C378] mb-1.5 font-bold">
+                      DESTAQUES & BENEFÍCIOS (ITENS COM CHECK)
+                    </label>
+                    <div className="space-y-2 mb-3">
+                      {(segmentsConfig.segment1.features || []).map((feat, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between gap-2 p-2 rounded-xl bg-[#0B163B] border border-white/10 text-xs"
+                        >
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
+                            <span className="text-white">{feat}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFeatureFromSegment('segment1', idx)}
+                            className="p-1 rounded text-red-400 hover:text-red-300 hover:bg-white/5 cursor-pointer"
+                            title="Remover este item"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newFeature1}
+                        onChange={(e) => setNewFeature1(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddFeatureToSegment('segment1', newFeature1);
+                          }
+                        }}
+                        placeholder="Ex: Penthouses com Piscina Aquecida Privativa..."
+                        className="flex-1 bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleAddFeatureToSegment('segment1', newFeature1)}
+                        className="px-4 py-2 bg-[#0B163B] hover:bg-[#12235E] border border-[#D4AF37]/40 text-[#ECC97E] text-xs font-semibold rounded-xl cursor-pointer"
+                      >
+                        + Adicionar
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                    <div>
+                      <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                        TEXTO DO BOTÃO (CTA)
+                      </label>
+                      <input
+                        type="text"
+                        value={segmentsConfig.segment1.ctaText || ''}
+                        onChange={(e) =>
+                          setSegmentsConfig({
+                            ...segmentsConfig,
+                            segment1: { ...segmentsConfig.segment1, ctaText: e.target.value },
+                          })
+                        }
+                        placeholder="Explorar Imóveis Residenciais"
+                        className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3 py-2 text-xs font-semibold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                        ETIQUETA INFERIOR (FOOTER LABEL)
+                      </label>
+                      <input
+                        type="text"
+                        value={segmentsConfig.segment1.footerLabel || ''}
+                        onChange={(e) =>
+                          setSegmentsConfig({
+                            ...segmentsConfig,
+                            segment1: { ...segmentsConfig.segment1, footerLabel: e.target.value },
+                          })
+                        }
+                        placeholder="Venda & Locação"
+                        className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-slate-300 rounded-xl px-3 py-2 text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: SEGMENTO 02 (COMERCIAL) */}
+            {activeSegmentTab === 'seg2' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Left Column: Visual Preview & Photo Management (5 cols) */}
+                <div className="lg:col-span-5 space-y-6">
+                  {/* Live Visual Preview Card */}
+                  <div className="bg-[#070F26] p-5 rounded-3xl border border-[#D4AF37]/40 shadow-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-[#E5C378] font-bold flex items-center gap-1.5">
+                        <Eye className="w-3.5 h-3.5 text-[#D4AF37]" />
+                        <span>Pré-Visualização em Tempo Real</span>
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        Efeito: {(segmentsConfig.segment2.techEffect || 'cyber-lidar').toUpperCase()}
+                      </span>
+                    </div>
+
+                    <div className="rounded-2xl overflow-hidden border border-[#D4AF37]/30 shadow-lg">
+                      <TechImage
+                        src={segmentsConfig.segment2.imageUrl}
+                        alt={segmentsConfig.segment2.title}
+                        aspectClass="aspect-[16/10]"
+                        badge={segmentsConfig.segment2.imageBadge || 'COMERCIAL · CORPORATE TRIPLE A'}
+                        techEffect={segmentsConfig.segment2.techEffect || 'cyber-lidar'}
+                        allowEffectToggle={true}
+                        showTechHud={true}
+                      />
+                    </div>
+
+                    <p className="text-[11px] text-slate-400 italic text-center">
+                      Hover sobre a imagem para ver o feixe laser 3D e retículas HUD em ação!
+                    </p>
+                  </div>
+
+                  {/* Photo Upload & URL Configuration */}
+                  <div className="bg-[#070F26] p-5 rounded-3xl border border-[#D4AF37]/30 space-y-4">
+                    <h5 className="text-xs font-mono font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                      <ImageIcon className="w-3.5 h-3.5 text-[#D4AF37]" />
+                      <span>Trocar Foto do Segmento 02</span>
+                    </h5>
+
+                    {/* Direct Image URL */}
+                    <div>
+                      <label className="block text-[10px] font-mono text-slate-300 mb-1">
+                        URL DA IMAGEM (WEB / CDN / UNSPLASH)
+                      </label>
+                      <input
+                        type="url"
+                        value={segmentsConfig.segment2.imageUrl}
+                        onChange={(e) =>
+                          setSegmentsConfig({
+                            ...segmentsConfig,
+                            segment2: { ...segmentsConfig.segment2, imageUrl: e.target.value },
+                          })
+                        }
+                        placeholder="https://..."
+                        className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3 py-2 text-xs font-mono"
+                      />
+                    </div>
+
+                    {/* File Upload Button */}
+                    <div>
+                      <label className="block text-[10px] font-mono text-slate-300 mb-1">
+                        OU ENVIE UMA FOTO DO SEU APARELHO
+                      </label>
+                      <label className="flex items-center justify-center gap-2 w-full p-3 bg-[#0B163B] hover:bg-[#12235E] border-2 border-dashed border-[#D4AF37]/40 hover:border-[#D4AF37] rounded-xl text-xs font-mono text-[#E5C378] cursor-pointer transition-colors">
+                        <Upload className="w-4 h-4 text-[#D4AF37]" />
+                        <span>
+                          {isCompressingSegmentPhoto ? 'Comprimindo foto...' : 'Escolher Foto do Computador / Celular'}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleSegmentPhotoUpload('segment2', e.target.files)}
+                        />
+                      </label>
+                      <span className="text-[10px] text-slate-400 block mt-1">
+                        Otimização automática com compressão de alta qualidade compatível com banco de dados.
+                      </span>
+                    </div>
+
+                    {/* Curated Presets High-Tech Gallery */}
+                    <div className="pt-2 border-t border-white/10">
+                      <span className="block text-[10px] font-mono uppercase tracking-wider text-[#E5C378] font-bold mb-2">
+                        Galeria de Presets Tecnológicos 4K
+                      </span>
+                      <div className="grid grid-cols-2 gap-2">
+                        {CURATED_TECH_PHOTOS.filter((p) => p.category === 'comercial').map((photo, i) => (
+                          <div
+                            key={i}
+                            onClick={() => handleSelectCuratedPhoto('segment2', photo.url)}
+                            className={`p-2 rounded-xl bg-[#0B163B] hover:bg-[#12235E] border transition-all cursor-pointer group ${
+                              segmentsConfig.segment2.imageUrl === photo.url
+                                ? 'border-[#D4AF37] ring-1 ring-[#D4AF37]'
+                                : 'border-white/10 hover:border-[#D4AF37]/60'
+                            }`}
+                          >
+                            <img
+                              src={photo.url}
+                              alt={photo.name}
+                              className="w-full h-14 object-cover rounded-lg mb-1"
+                            />
+                            <span className="text-[10px] font-bold text-white block truncate group-hover:text-[#E5C378]">
+                              {photo.name}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Badge da Foto */}
+                    <div>
+                      <label className="block text-[10px] font-mono text-slate-300 mb-1">
+                        BADGE TECNOLÓGICO SOBRE A FOTO
+                      </label>
+                      <input
+                        type="text"
+                        value={segmentsConfig.segment2.imageBadge || ''}
+                        onChange={(e) =>
+                          setSegmentsConfig({
+                            ...segmentsConfig,
+                            segment2: { ...segmentsConfig.segment2, imageBadge: e.target.value },
+                          })
+                        }
+                        placeholder="Ex: COMERCIAL · CORPORATE TRIPLE A"
+                        className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white font-mono rounded-xl px-3 py-2 text-xs"
+                      />
+                    </div>
+
+                    {/* Efeito Visual Tecnológico */}
+                    <div>
+                      <label className="block text-[10px] font-mono text-slate-300 mb-1.5">
+                        EFEITO VISUAL TECNOLÓGICO DA FOTO
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { id: 'cyber-lidar', name: 'Cyber-LIDAR', desc: 'Neon Cyan & Matriz 3D' },
+                          { id: 'holo-gold', name: 'Holo-Gold', desc: 'Varredura Ouro & Luxo' },
+                          { id: 'blueprint', name: 'Blueprint 3D', desc: 'Grid Engenharia BIM' },
+                          { id: 'matrix', name: 'Neo-Matrix', desc: 'Fósforo Digital Verde' },
+                        ].map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() =>
+                              setSegmentsConfig({
+                                ...segmentsConfig,
+                                segment2: {
+                                  ...segmentsConfig.segment2,
+                                  techEffect: m.id as TechEffectType,
+                                },
+                              })
+                            }
+                            className={`p-2 rounded-xl text-left border transition-all cursor-pointer ${
+                              segmentsConfig.segment2.techEffect === m.id
+                                ? 'bg-[#0B163B] border-[#D4AF37] ring-1 ring-[#D4AF37]'
+                                : 'bg-[#050B1A] border-white/10 hover:border-white/30'
+                            }`}
+                          >
+                            <span className="text-[11px] font-bold text-white block">{m.name}</span>
+                            <span className="text-[9px] text-slate-400 block">{m.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column: Titles, Descriptions, Features and Links (7 cols) */}
+                <div className="lg:col-span-7 bg-[#070F26] p-6 rounded-3xl border border-[#D4AF37]/35 space-y-4 shadow-xl">
+                  <h4 className="text-base font-bold text-white flex items-center gap-2 pb-2 border-b border-white/10">
+                    <Edit className="w-4 h-4 text-[#D4AF37]" />
+                    <span>Conteúdo & Textos do Segmento 02 (Comercial)</span>
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                        TAG DO SEGMENTO
+                      </label>
+                      <input
+                        type="text"
+                        value={segmentsConfig.segment2.segmentTag || ''}
+                        onChange={(e) =>
+                          setSegmentsConfig({
+                            ...segmentsConfig,
+                            segment2: { ...segmentsConfig.segment2, segmentTag: e.target.value },
+                          })
+                        }
+                        placeholder="SEGMENTO 02"
+                        className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-[#E5C378] font-mono rounded-xl px-3 py-2 text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                        BADGE DE CATEGORIA
+                      </label>
+                      <input
+                        type="text"
+                        value={segmentsConfig.segment2.badge || ''}
+                        onChange={(e) =>
+                          setSegmentsConfig({
+                            ...segmentsConfig,
+                            segment2: { ...segmentsConfig.segment2, badge: e.target.value },
+                          })
+                        }
+                        placeholder="CORPORATIVO"
+                        className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white font-mono rounded-xl px-3 py-2 text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      TÍTULO DO SEGMENTO *
+                    </label>
+                    <input
+                      type="text"
+                      value={segmentsConfig.segment2.title || ''}
+                      onChange={(e) =>
+                        setSegmentsConfig({
+                          ...segmentsConfig,
+                          segment2: { ...segmentsConfig.segment2, title: e.target.value },
+                        })
+                      }
+                      placeholder="Imóveis Comerciais"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white font-bold rounded-xl px-3.5 py-2.5 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      DESCRIÇÃO COMPLETA
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={segmentsConfig.segment2.description || ''}
+                      onChange={(e) =>
+                        setSegmentsConfig({
+                          ...segmentsConfig,
+                          segment2: { ...segmentsConfig.segment2, description: e.target.value },
+                        })
+                      }
+                      placeholder="Soluções estratégicas para empresas, consultorias e investidores..."
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-slate-200 rounded-xl p-3 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                    />
+                  </div>
+
+                  {/* Features / Destaques Checkmark List */}
+                  <div>
+                    <label className="block text-[11px] font-mono text-[#E5C378] mb-1.5 font-bold">
+                      DESTAQUES & BENEFÍCIOS (ITENS COM CHECK)
+                    </label>
+                    <div className="space-y-2 mb-3">
+                      {(segmentsConfig.segment2.features || []).map((feat, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between gap-2 p-2 rounded-xl bg-[#0B163B] border border-white/10 text-xs"
+                        >
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
+                            <span className="text-white">{feat}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFeatureFromSegment('segment2', idx)}
+                            className="p-1 rounded text-red-400 hover:text-red-300 hover:bg-white/5 cursor-pointer"
+                            title="Remover este item"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newFeature2}
+                        onChange={(e) => setNewFeature2(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddFeatureToSegment('segment2', newFeature2);
+                          }
+                        }}
+                        placeholder="Ex: Prédios Comerciais com Certificação LEED..."
+                        className="flex-1 bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleAddFeatureToSegment('segment2', newFeature2)}
+                        className="px-4 py-2 bg-[#0B163B] hover:bg-[#12235E] border border-[#D4AF37]/40 text-[#ECC97E] text-xs font-semibold rounded-xl cursor-pointer"
+                      >
+                        + Adicionar
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                    <div>
+                      <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                        TEXTO DO BOTÃO (CTA)
+                      </label>
+                      <input
+                        type="text"
+                        value={segmentsConfig.segment2.ctaText || ''}
+                        onChange={(e) =>
+                          setSegmentsConfig({
+                            ...segmentsConfig,
+                            segment2: { ...segmentsConfig.segment2, ctaText: e.target.value },
+                          })
+                        }
+                        placeholder="Explorar Imóveis Comerciais"
+                        className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3 py-2 text-xs font-semibold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                        ETIQUETA INFERIOR (FOOTER LABEL)
+                      </label>
+                      <input
+                        type="text"
+                        value={segmentsConfig.segment2.footerLabel || ''}
+                        onChange={(e) =>
+                          setSegmentsConfig({
+                            ...segmentsConfig,
+                            segment2: { ...segmentsConfig.segment2, footerLabel: e.target.value },
+                          })
+                        }
+                        placeholder="Venda & Locação"
+                        className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-slate-300 rounded-xl px-3 py-2 text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>

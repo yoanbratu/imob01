@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   setDoc,
   updateDoc,
@@ -10,7 +11,16 @@ import {
   orderBy,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Property, LeadSubmission, Realtor, PropertyOwner, Condominium } from '../types/property';
+import {
+  Property,
+  LeadSubmission,
+  Realtor,
+  PropertyOwner,
+  Condominium,
+  HomepageSegment,
+  HomepageSegmentsConfig,
+  INITIAL_HOMEPAGE_SEGMENTS,
+} from '../types/property';
 import { PROPERTIES as INITIAL_PROPERTIES } from '../data/properties';
 
 const PROPERTIES_COLLECTION = 'properties';
@@ -819,5 +829,113 @@ export async function deleteCondominium(condoId: string): Promise<void> {
   }
 }
 
+// ==========================================
+// SEGMENTOS DA PÁGINA INICIAL (SHOWCASE 01 & 02)
+// ==========================================
 
+const HOMEPAGE_SEGMENTS_COLLECTION = 'homepage_segments';
+const SHOWCASE_DOC_ID = 'showcase';
 
+export async function fetchHomepageSegments(): Promise<HomepageSegmentsConfig> {
+  try {
+    const docRef = doc(db, HOMEPAGE_SEGMENTS_COLLECTION, SHOWCASE_DOC_ID);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const data = snap.data() as any;
+      return {
+        headerTag: data.headerTag || INITIAL_HOMEPAGE_SEGMENTS.headerTag,
+        headerTitle: data.headerTitle || INITIAL_HOMEPAGE_SEGMENTS.headerTitle,
+        headerDescription: data.headerDescription || INITIAL_HOMEPAGE_SEGMENTS.headerDescription,
+        segment1: {
+          ...INITIAL_HOMEPAGE_SEGMENTS.segment1,
+          ...(data.segment1 || {}),
+        },
+        segment2: {
+          ...INITIAL_HOMEPAGE_SEGMENTS.segment2,
+          ...(data.segment2 || {}),
+        },
+      };
+    }
+    return INITIAL_HOMEPAGE_SEGMENTS;
+  } catch (err) {
+    console.warn('Erro ao carregar segmentos da página inicial do Firestore, usando padrão:', err);
+    return INITIAL_HOMEPAGE_SEGMENTS;
+  }
+}
+
+export function subscribeToHomepageSegments(callback: (config: HomepageSegmentsConfig) => void): () => void {
+  const docRef = doc(db, HOMEPAGE_SEGMENTS_COLLECTION, SHOWCASE_DOC_ID);
+  return onSnapshot(
+    docRef,
+    (snap) => {
+      if (snap.exists()) {
+        const data = snap.data() as any;
+        callback({
+          headerTag: data.headerTag || INITIAL_HOMEPAGE_SEGMENTS.headerTag,
+          headerTitle: data.headerTitle || INITIAL_HOMEPAGE_SEGMENTS.headerTitle,
+          headerDescription: data.headerDescription || INITIAL_HOMEPAGE_SEGMENTS.headerDescription,
+          segment1: {
+            ...INITIAL_HOMEPAGE_SEGMENTS.segment1,
+            ...(data.segment1 || {}),
+          },
+          segment2: {
+            ...INITIAL_HOMEPAGE_SEGMENTS.segment2,
+            ...(data.segment2 || {}),
+          },
+        });
+      } else {
+        callback(INITIAL_HOMEPAGE_SEGMENTS);
+      }
+    },
+    (err) => {
+      console.warn('Snapshot error para segmentos da página inicial, usando padrão:', err);
+      callback(INITIAL_HOMEPAGE_SEGMENTS);
+    }
+  );
+}
+
+export async function saveHomepageSegments(config: HomepageSegmentsConfig): Promise<void> {
+  try {
+    const docRef = doc(db, HOMEPAGE_SEGMENTS_COLLECTION, SHOWCASE_DOC_ID);
+    const payload = {
+      title: config.headerTitle || 'Segmentos de Atuação Especializada',
+      imageUrl: config.segment1.imageUrl || INITIAL_HOMEPAGE_SEGMENTS.segment1.imageUrl,
+      headerTag: config.headerTag || '',
+      headerTitle: config.headerTitle || '',
+      headerDescription: config.headerDescription || '',
+      segment1: {
+        id: 'segment_01',
+        segmentTag: config.segment1.segmentTag || 'SEGMENTO 01',
+        title: config.segment1.title || '',
+        badge: config.segment1.badge || '',
+        imageUrl: config.segment1.imageUrl || '',
+        imageBadge: config.segment1.imageBadge || '',
+        description: config.segment1.description || '',
+        features: Array.isArray(config.segment1.features) ? config.segment1.features : [],
+        ctaText: config.segment1.ctaText || '',
+        category: config.segment1.category || 'residencial',
+        footerLabel: config.segment1.footerLabel || '',
+        techEffect: config.segment1.techEffect || 'holo-gold',
+      },
+      segment2: {
+        id: 'segment_02',
+        segmentTag: config.segment2.segmentTag || 'SEGMENTO 02',
+        title: config.segment2.title || '',
+        badge: config.segment2.badge || '',
+        imageUrl: config.segment2.imageUrl || '',
+        imageBadge: config.segment2.imageBadge || '',
+        description: config.segment2.description || '',
+        features: Array.isArray(config.segment2.features) ? config.segment2.features : [],
+        ctaText: config.segment2.ctaText || '',
+        category: config.segment2.category || 'comercial',
+        footerLabel: config.segment2.footerLabel || '',
+        techEffect: config.segment2.techEffect || 'cyber-lidar',
+      },
+      updatedAt: new Date().toISOString(),
+    };
+    await setDoc(docRef, payload, { merge: true });
+  } catch (err: any) {
+    console.error('Erro ao salvar segmentos no Firestore:', err);
+    throw new Error(err?.message || 'Falha ao salvar segmentos da página inicial.');
+  }
+}
