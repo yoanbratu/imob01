@@ -33,6 +33,7 @@ import { getPropertyWhatsAppLink, COMPANY_INFO } from '../utils/whatsapp';
 import { getYouTubeEmbedUrl } from '../utils/youtube';
 import { parse360Tour } from '../utils/virtualTour360';
 import { PropertyMap } from './PropertyMap';
+import { Panorama360Viewer } from './Panorama360Viewer';
 
 interface PropertyModalProps {
   property: Property | null;
@@ -54,7 +55,7 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [noteSaved, setNoteSaved] = useState(false);
 
-  const parsed360 = parse360Tour(property?.virtualTour360Url);
+  const parsed360 = parse360Tour(property?.virtualTour360Url, property?.virtualTour360Image);
 
   useEffect(() => {
     setActiveImageIndex(0);
@@ -137,7 +138,7 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
                 <span>📷 Fotos do Imóvel ({property.images.length})</span>
               </button>
 
-              {property.virtualTour360Url && parsed360.isValid && parsed360.embedUrl && (
+              {(property.virtualTour360Url || property.virtualTour360Image) && parsed360.isValid && (
                 <button
                   type="button"
                   onClick={() => setActiveMediaTab('tour360')}
@@ -170,45 +171,55 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
           )}
 
           {/* Main Media Display: 360 Virtual Tour, Video Player or Photo Gallery */}
-          {activeMediaTab === 'tour360' && parsed360.isValid && parsed360.embedUrl ? (
-            <div className="relative aspect-[16/10] sm:aspect-[16/9] min-h-[420px] w-full bg-black overflow-hidden flex flex-col items-center justify-center border-b border-[#D4AF37]/20">
-              <iframe
-                src={parsed360.embedUrl}
-                title={`Tour Virtual 360° - ${property.title}`}
-                className="w-full h-full min-h-[420px] border-0"
-                allow="accelerometer; autoplay; gyroscope; magnetometer; xr-spatial-tracking; fullscreen"
-                allowFullScreen
-              />
-
-              {/* Floating 360 Provider HUD Tag */}
-              <div className="absolute top-3 left-3 flex items-center gap-2 pointer-events-auto">
-                <span className="bg-[#050B1A]/90 backdrop-blur-md px-3 py-1 rounded-xl text-[11px] font-mono text-cyan-300 border border-cyan-500/40 flex items-center gap-1.5 shadow-lg">
-                  <Compass className="w-3.5 h-3.5 text-cyan-400 animate-spin" style={{ animationDuration: '10s' }} />
-                  <span>{parsed360.provider} · 360° Interativo</span>
-                </span>
+          {activeMediaTab === 'tour360' && parsed360.isValid ? (
+            parsed360.mode === 'panorama' && parsed360.imageSource ? (
+              <div className="relative aspect-[16/10] sm:aspect-[16/9] min-h-[440px] w-full bg-black overflow-hidden flex flex-col items-center justify-center border-b border-[#D4AF37]/20">
+                <Panorama360Viewer
+                  imageSource={parsed360.imageSource}
+                  title={property.title}
+                  className="w-full h-full min-h-[440px]"
+                />
               </div>
+            ) : parsed360.embedUrl ? (
+              <div className="relative aspect-[16/10] sm:aspect-[16/9] min-h-[420px] w-full bg-black overflow-hidden flex flex-col items-center justify-center border-b border-[#D4AF37]/20">
+                <iframe
+                  src={parsed360.embedUrl}
+                  title={`Tour Virtual 360° - ${property.title}`}
+                  className="w-full h-full min-h-[420px] border-0"
+                  allow="accelerometer; autoplay; gyroscope; magnetometer; xr-spatial-tracking; fullscreen"
+                  allowFullScreen
+                />
 
-              {/* Floating Fullscreen / External Trigger */}
-              <div className="absolute top-3 right-16 flex items-center gap-2 pointer-events-auto">
-                <a
-                  href={parsed360.originalUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-[#050B1A]/90 hover:bg-[#0B163B] backdrop-blur-md px-3 py-1 rounded-xl text-[11px] font-mono text-white border border-white/20 hover:border-cyan-400 transition-colors flex items-center gap-1.5 shadow-lg"
-                  title="Abrir em tela cheia na plataforma original"
-                >
-                  <ExternalLink className="w-3.5 h-3.5 text-cyan-300" />
-                  <span>Tela Cheia</span>
-                </a>
-              </div>
+                {/* Floating 360 Provider HUD Tag */}
+                <div className="absolute top-3 left-3 flex items-center gap-2 pointer-events-auto">
+                  <span className="bg-[#050B1A]/90 backdrop-blur-md px-3 py-1 rounded-xl text-[11px] font-mono text-cyan-300 border border-cyan-500/40 flex items-center gap-1.5 shadow-lg">
+                    <Compass className="w-3.5 h-3.5 text-cyan-400 animate-spin" style={{ animationDuration: '10s' }} />
+                    <span>{parsed360.provider} · 360° Interativo</span>
+                  </span>
+                </div>
 
-              {/* Navigation Hint */}
-              <div className="absolute bottom-2 inset-x-2 flex justify-center pointer-events-none">
-                <span className="bg-[#050B1A]/85 backdrop-blur-md px-3 py-0.5 rounded-full text-[10px] font-mono text-cyan-200 border border-cyan-500/30 shadow">
-                  Arraste com o mouse ou toque para girar 360° e explore os ambientes
-                </span>
+                {/* Floating Fullscreen / External Trigger */}
+                <div className="absolute top-3 right-16 flex items-center gap-2 pointer-events-auto">
+                  <a
+                    href={parsed360.originalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-[#050B1A]/90 hover:bg-[#0B163B] backdrop-blur-md px-3 py-1 rounded-xl text-[11px] font-mono text-white border border-white/20 hover:border-cyan-400 transition-colors flex items-center gap-1.5 shadow-lg"
+                    title="Abrir em tela cheia na plataforma original"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-cyan-300" />
+                    <span>Tela Cheia</span>
+                  </a>
+                </div>
+
+                {/* Navigation Hint */}
+                <div className="absolute bottom-2 inset-x-2 flex justify-center pointer-events-none">
+                  <span className="bg-[#050B1A]/85 backdrop-blur-md px-3 py-0.5 rounded-full text-[10px] font-mono text-cyan-200 border border-cyan-500/30 shadow">
+                    Arraste com o mouse ou toque para girar 360° e explore os ambientes
+                  </span>
+                </div>
               </div>
-            </div>
+            ) : null
           ) : activeMediaTab === 'video' && embedUrl ? (
             <div className="relative aspect-[16/9] w-full bg-black overflow-hidden flex items-center justify-center">
               <iframe
@@ -244,7 +255,7 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
                     <Star className="w-3 h-3 fill-[#050B1A]" /> EM DESTAQUE
                   </span>
                 )}
-                {property.virtualTour360Url && parsed360.isValid && (
+                {(property.virtualTour360Url || property.virtualTour360Image) && parsed360.isValid && (
                   <button
                     type="button"
                     onClick={() => setActiveMediaTab('tour360')}
@@ -391,7 +402,7 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
             </div>
 
             {/* TOUR VIRTUAL 360° BANNER IMERSIVO SE DISPONÍVEL */}
-            {property.virtualTour360Url && parsed360.isValid && parsed360.embedUrl && (
+            {(property.virtualTour360Url || property.virtualTour360Image) && parsed360.isValid && (
               <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-[#041d33] via-[#081f42] to-[#071330] border border-cyan-400/40 shadow-[0_8px_30px_rgba(6,182,212,0.18)] flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-3.5">
                   <div className="w-12 h-12 rounded-2xl bg-cyan-950/80 border border-cyan-400/50 flex items-center justify-center text-cyan-300 shadow-md shrink-0">
@@ -403,14 +414,14 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
                         Experiência Imersiva · {parsed360.provider}
                       </span>
                       <span className="bg-cyan-500/20 text-cyan-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded border border-cyan-400/30">
-                        360° INTERATIVO
+                        {parsed360.mode === 'panorama' ? 'FOTO 360° ESFÉRICA' : '360° INTERATIVO'}
                       </span>
                     </div>
                     <h4 className="text-sm sm:text-base font-bold text-white mt-0.5">
                       Tour Virtual 360° Disponível
                     </h4>
                     <p className="text-xs text-slate-300 font-sans mt-0.5">
-                      Caminhe pelos ambientes em 3D, analise a vista e navegue com total imersão.
+                      Caminhe pelos ambientes em 3D, analise a vista e navegue com total imersão e giro livre.
                     </p>
                   </div>
                 </div>
@@ -430,15 +441,17 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
                     <span>Navegar no Tour 360°</span>
                   </button>
 
-                  <a
-                    href={parsed360.originalUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-2.5 rounded-xl bg-[#050B1A] hover:bg-[#0B163B] border border-cyan-500/40 text-cyan-300 hover:text-white transition-colors cursor-pointer"
-                    title="Abrir em tela cheia na plataforma original"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                  </a>
+                  {parsed360.originalUrl && parsed360.originalUrl.startsWith('http') && (
+                    <a
+                      href={parsed360.originalUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2.5 rounded-xl bg-[#050B1A] hover:bg-[#0B163B] border border-cyan-500/40 text-cyan-300 hover:text-white transition-colors cursor-pointer"
+                      title="Abrir em nova aba"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  )}
                 </div>
               </div>
             )}

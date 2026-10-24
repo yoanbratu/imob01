@@ -42,6 +42,7 @@ service cloud.firestore {
         (!('realtorName' in data) || (data.realtorName is string && data.realtorName.size() <= 150)) &&
         (!('youtubeUrl' in data) || (data.youtubeUrl is string && data.youtubeUrl.size() <= 500)) &&
         (!('virtualTour360Url' in data) || (data.virtualTour360Url is string && data.virtualTour360Url.size() <= 1000)) &&
+        (!('virtualTour360Image' in data) || (data.virtualTour360Image is string)) &&
         (!('featuredInQuickSuggestions' in data) || (data.featuredInQuickSuggestions is bool)) &&
         (!('adminNotes' in data) || (data.adminNotes is string && data.adminNotes.size() <= 5000));
     }

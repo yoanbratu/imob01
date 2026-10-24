@@ -39,7 +39,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, onSelect }
               <span>EM DESTAQUE</span>
             </span>
           )}
-          {property.virtualTour360Url && (
+          {(property.virtualTour360Url || property.virtualTour360Image) && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider bg-cyan-950/90 text-cyan-300 backdrop-blur-md border border-cyan-400/60 shadow-[0_0_12px_rgba(6,182,212,0.4)]">
               <Compass className="w-2.5 h-2.5 text-cyan-400" />
               <span>TOUR 360°</span>

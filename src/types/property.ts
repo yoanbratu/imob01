@@ -40,6 +40,7 @@ export interface Property {
   featuredInQuickSuggestions?: boolean; // Exibir em destaque nas sugestões rápidas de pesquisa
   youtubeUrl?: string; // Link de vídeo do YouTube (Tour Virtual do Imóvel)
   virtualTour360Url?: string; // Link de Tour Virtual 360° (Matterport, Kuula, CloudPano, etc.)
+  virtualTour360Image?: string; // Foto/arquivo de imagem panorâmica 360° enviada por upload
   isNewLaunch?: boolean;
   isHighEnd?: boolean;
   images: string[];

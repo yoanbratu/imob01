@@ -43,7 +43,8 @@ import { saveProperty, updateProperty, deleteProperty } from '../services/proper
 import { COMPANY_INFO } from '../utils/whatsapp';
 import { updateAdminPassword } from '../utils/security';
 import { isValidYouTubeUrl, getYouTubeEmbedUrl } from '../utils/youtube';
-import { isValid360Url, get360EmbedUrl, detect360Provider } from '../utils/virtualTour360';
+import { isValid360Url, get360EmbedUrl, detect360Provider, parse360Tour, is360ImageSource } from '../utils/virtualTour360';
+import { Panorama360Viewer } from './Panorama360Viewer';
 
 interface AdminPanelProps {
   properties: Property[];
@@ -73,8 +74,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   // File upload state for new property
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const tour360FileInputRef = useRef<HTMLInputElement>(null);
   const [urlInput, setUrlInput] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+
+  // Handlers for 360 panoramic photo upload (New Property)
+  const handleTour360Upload = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      if (result) {
+        setNewProp((prev) => ({
+          ...prev,
+          virtualTour360Image: result,
+        }));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Password change management state
   const [currPassword, setCurrPassword] = useState('');
@@ -115,6 +135,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     featuredInQuickSuggestions: true,
     youtubeUrl: '',
     virtualTour360Url: '',
+    virtualTour360Image: '',
     images: [
       'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
     ],
@@ -143,8 +164,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [editActiveTab, setEditActiveTab] = useState<'info' | 'valores' | 'specs' | 'midia' | 'proprietario'>('info');
   const [editUrlInput, setEditUrlInput] = useState('');
   const editFileInputRef = useRef<HTMLInputElement>(null);
+  const editTour360FileInputRef = useRef<HTMLInputElement>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [editSuccessMessage, setEditSuccessMessage] = useState<string | null>(null);
+
+  const handleEditTour360Upload = (files: FileList | null) => {
+    if (!files || files.length === 0 || !editingProperty) return;
+    const file = files[0];
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      if (result) {
+        setEditingProperty((prev) =>
+          prev ? { ...prev, virtualTour360Image: result } : null
+        );
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleEditFileUpload = (files: FileList | null) => {
     if (!files || files.length === 0 || !editingProperty) return;
@@ -1119,25 +1157,87 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     )}
                   </div>
 
-                  {/* TOUR VIRTUAL 360° (MATTERPORT, KUULA, CLOUDPANO, ETC.) */}
-                  <div className="mb-4 p-4 rounded-2xl bg-[#0B163B]/80 border border-cyan-500/35 space-y-3">
+                  {/* TOUR VIRTUAL 360° (UPLOAD DE FOTO PANORÂMICA OU LINK MATTERPORT/KUULA/CLOUDPANO) */}
+                  <div className="mb-4 p-4 sm:p-5 rounded-2xl bg-[#0B163B]/85 border border-cyan-500/40 space-y-4 shadow-xl">
                     <div className="flex items-center justify-between pb-2 border-b border-white/10">
                       <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-md bg-cyan-600/25 text-cyan-400 border border-cyan-400/30 flex items-center justify-center">
-                          <Compass className="w-3.5 h-3.5 text-cyan-300 animate-spin" style={{ animationDuration: '10s' }} />
+                        <div className="w-7 h-7 rounded-lg bg-cyan-600/30 text-cyan-300 border border-cyan-400/40 flex items-center justify-center">
+                          <Compass className="w-4 h-4 text-cyan-300 animate-spin" style={{ animationDuration: '10s' }} />
                         </div>
-                        <span className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-300">
-                          Tour Virtual 360° Interativo (Matterport, Kuula, CloudPano, etc.)
-                        </span>
+                        <div>
+                          <span className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-300 block">
+                            Tour Virtual 360° Imersivo (Foto Panorâmica ou Link Externo)
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            Envie o arquivo de imagem 360° do seu aparelho ou insira um link de plataforma 3D.
+                          </span>
+                        </div>
                       </div>
-                      <span className="text-[10px] font-mono text-cyan-400/80">
-                        {newProp.virtualTour360Url ? detect360Provider(newProp.virtualTour360Url) : 'Opcional'}
+                      <span className="text-[10px] font-mono text-cyan-400/90 bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 rounded-full">
+                        {newProp.virtualTour360Image ? 'Foto 360° Carregada' : newProp.virtualTour360Url ? detect360Provider(newProp.virtualTour360Url) : 'Opcional'}
                       </span>
                     </div>
 
-                    <div>
-                      <label className="block text-[11px] font-mono text-slate-300 mb-1">
-                        LINK DO TOUR VIRTUAL 360° (MATTERPORT, KUULA, ETC.)
+                    {/* OPÇÃO 1: Upload direto de Arquivo de Foto Panorâmica 360° */}
+                    <div className="p-3.5 rounded-xl bg-[#070F26] border border-cyan-500/30 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-mono font-bold text-cyan-200 flex items-center gap-1.5">
+                          <Upload className="w-3.5 h-3.5 text-cyan-400" />
+                          <span>OPÇÃO 1: ENVIAR ARQUIVO DE IMAGEM 360° DO SEU DISPOSITIVO</span>
+                        </label>
+                        <span className="text-[10px] font-mono text-slate-400">JPG, PNG, WEBP equirretangular</span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => tour360FileInputRef.current?.click()}
+                          className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-mono font-bold shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all cursor-pointer flex items-center gap-2"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>{newProp.virtualTour360Image ? 'Trocar Foto Panorâmica 360°' : 'Selecionar Arquivo de Imagem 360°'}</span>
+                        </button>
+
+                        <input
+                          ref={tour360FileInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleTour360Upload(e.target.files)}
+                        />
+
+                        {newProp.virtualTour360Image && (
+                          <button
+                            type="button"
+                            onClick={() => setNewProp((prev) => ({ ...prev, virtualTour360Image: '' }))}
+                            className="px-3 py-2 rounded-xl bg-red-950/80 hover:bg-red-900 border border-red-500/40 text-red-200 text-xs font-mono flex items-center gap-1.5 cursor-pointer transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Remover Foto 360°</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Interactive Three.js Preview of Uploaded 360 Panorama */}
+                      {newProp.virtualTour360Image && (
+                        <div className="pt-2">
+                          <span className="text-[10px] font-mono text-cyan-300 flex items-center gap-1 mb-1.5">
+                            <CheckCircle className="w-3 h-3 text-cyan-400" /> Pré-visualização Interativa Three.js 360° (Arraste para testar a visão):
+                          </span>
+                          <div className="relative aspect-[16/9] max-w-md rounded-xl overflow-hidden border border-cyan-400/50 shadow-xl bg-black">
+                            <Panorama360Viewer
+                              imageSource={newProp.virtualTour360Image}
+                              className="w-full h-full min-h-[200px]"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* OPÇÃO 2: Link de Tour Virtual 360° Externo */}
+                    <div className="p-3.5 rounded-xl bg-[#070F26] border border-cyan-500/25 space-y-2">
+                      <label className="block text-[11px] font-mono font-bold text-cyan-200">
+                        OPÇÃO 2: OU INSERIR LINK DO TOUR VIRTUAL 360° (MATTERPORT, KUULA, CLOUDPANO, ETC.)
                       </label>
                       <input
                         type="text"
@@ -1146,39 +1246,46 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         placeholder="Ex: https://my.matterport.com/show/?m=... ou https://kuula.co/share/..."
                         className="w-full bg-[#050B1A] border border-cyan-500/40 text-white rounded-xl px-3.5 py-2 text-xs focus:ring-1 focus:ring-cyan-400 font-mono"
                       />
-                      <span className="text-[10px] text-slate-400 mt-1 block">
-                        Insira a URL de um tour virtual 360° do Matterport 3D, Kuula, CloudPano, Momento360 ou YouTube 360°. O imóvel receberá o selo TOUR 360° e aba de navegação imersiva.
+                      <span className="text-[10px] text-slate-400 block">
+                        Suporta Matterport 3D, Kuula 360°, CloudPano, Momento360, YouTube 360° ou link direto de foto panorâmica.
                       </span>
-                    </div>
 
-                    {/* Live Preview if valid URL */}
-                    {newProp.virtualTour360Url && isValid360Url(newProp.virtualTour360Url) && (
-                      <div className="pt-2">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[10px] font-mono text-cyan-300 flex items-center gap-1">
-                            <CheckCircle className="w-3 h-3 text-cyan-400" /> Tour 360° detectado ({detect360Provider(newProp.virtualTour360Url)}):
-                          </span>
-                          <a
-                            href={newProp.virtualTour360Url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[10px] font-mono text-[#ECC97E] hover:underline flex items-center gap-1"
-                          >
-                            <span>Testar em nova aba</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
+                      {/* Live Preview if valid URL and no uploaded image */}
+                      {newProp.virtualTour360Url && isValid360Url(newProp.virtualTour360Url) && !newProp.virtualTour360Image && (
+                        <div className="pt-2">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10px] font-mono text-cyan-300 flex items-center gap-1">
+                              <CheckCircle className="w-3 h-3 text-cyan-400" /> Tour 360° detectado ({detect360Provider(newProp.virtualTour360Url)}):
+                            </span>
+                            <a
+                              href={newProp.virtualTour360Url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] font-mono text-[#ECC97E] hover:underline flex items-center gap-1"
+                            >
+                              <span>Testar em nova aba</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </div>
+                          <div className="relative aspect-[16/9] max-w-sm rounded-xl overflow-hidden border border-cyan-500/50 shadow-lg bg-black">
+                            {is360ImageSource(newProp.virtualTour360Url) ? (
+                              <Panorama360Viewer
+                                imageSource={newProp.virtualTour360Url}
+                                className="w-full h-full min-h-[200px]"
+                              />
+                            ) : (
+                              <iframe
+                                src={get360EmbedUrl(newProp.virtualTour360Url) || ''}
+                                title="Preview Tour 360"
+                                className="w-full h-full border-0"
+                                allow="accelerometer; autoplay; gyroscope; magnetometer; xr-spatial-tracking; fullscreen"
+                                allowFullScreen
+                              />
+                            )}
+                          </div>
                         </div>
-                        <div className="relative aspect-[16/9] max-w-sm rounded-xl overflow-hidden border border-cyan-500/50 shadow-lg bg-black">
-                          <iframe
-                            src={get360EmbedUrl(newProp.virtualTour360Url) || ''}
-                            title="Preview Tour 360"
-                            className="w-full h-full border-0"
-                            allow="accelerometer; autoplay; gyroscope; magnetometer; xr-spatial-tracking; fullscreen"
-                            allowFullScreen
-                          />
-                        </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
 
                   {/* Location & Specs: País, Cidade, Bairro, M2, Endereço, CEP */}
@@ -2271,25 +2378,87 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       )}
                     </div>
 
-                    {/* Tour Virtual 360° (Matterport, Kuula, CloudPano, etc.) */}
-                    <div className="p-4 rounded-2xl bg-[#0B163B]/70 border border-cyan-500/35 space-y-3">
-                      <div className="flex items-center justify-between pb-1 border-b border-white/10">
+                    {/* Tour Virtual 360° (Upload de Foto Panorâmica ou Link Externo) */}
+                    <div className="p-4 sm:p-5 rounded-2xl bg-[#0B163B]/80 border border-cyan-500/40 space-y-4 shadow-xl">
+                      <div className="flex items-center justify-between pb-2 border-b border-white/10">
                         <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-md bg-cyan-600/30 text-cyan-400 border border-cyan-400/40 flex items-center justify-center">
-                            <Compass className="w-3.5 h-3.5 text-cyan-300 animate-spin" style={{ animationDuration: '10s' }} />
+                          <div className="w-7 h-7 rounded-lg bg-cyan-600/30 text-cyan-300 border border-cyan-400/40 flex items-center justify-center">
+                            <Compass className="w-4 h-4 text-cyan-300 animate-spin" style={{ animationDuration: '10s' }} />
                           </div>
-                          <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-cyan-300">
-                            Tour Virtual 360° Interativo (Matterport, Kuula, CloudPano, etc.)
-                          </span>
+                          <div>
+                            <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-cyan-300 block">
+                              Tour Virtual 360° Imersivo (Foto Panorâmica ou Link Externo)
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              Faça upload do arquivo da foto 360° do imóvel ou cole a URL de uma plataforma 3D.
+                            </span>
+                          </div>
                         </div>
-                        <span className="text-[10px] font-mono text-cyan-400/80">
-                          {editingProperty.virtualTour360Url ? detect360Provider(editingProperty.virtualTour360Url) : 'Opcional'}
+                        <span className="text-[10px] font-mono text-cyan-400/90 bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 rounded-full">
+                          {editingProperty.virtualTour360Image ? 'Foto 360° Carregada' : editingProperty.virtualTour360Url ? detect360Provider(editingProperty.virtualTour360Url) : 'Opcional'}
                         </span>
                       </div>
 
-                      <div>
-                        <label className="block text-[11px] font-mono text-slate-300 mb-1">
-                          LINK DO TOUR VIRTUAL 360° (MATTERPORT, KUULA, CLOUDPANO, ETC.)
+                      {/* OPÇÃO 1: Upload direto de Arquivo de Foto Panorâmica 360° */}
+                      <div className="p-3.5 rounded-xl bg-[#070F26] border border-cyan-500/30 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-mono font-bold text-cyan-200 flex items-center gap-1.5">
+                            <Upload className="w-3.5 h-3.5 text-cyan-400" />
+                            <span>OPÇÃO 1: ENVIAR ARQUIVO DE IMAGEM 360° DO SEU DISPOSITIVO</span>
+                          </label>
+                          <span className="text-[10px] font-mono text-slate-400">JPG, PNG, WEBP equirretangular</span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => editTour360FileInputRef.current?.click()}
+                            className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-mono font-bold shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all cursor-pointer flex items-center gap-2"
+                          >
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>{editingProperty.virtualTour360Image ? 'Trocar Foto Panorâmica 360°' : 'Selecionar Arquivo de Imagem 360°'}</span>
+                          </button>
+
+                          <input
+                            ref={editTour360FileInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => handleEditTour360Upload(e.target.files)}
+                          />
+
+                          {editingProperty.virtualTour360Image && (
+                            <button
+                              type="button"
+                              onClick={() => setEditingProperty((prev) => (prev ? { ...prev, virtualTour360Image: '' } : null))}
+                              className="px-3 py-2 rounded-xl bg-red-950/80 hover:bg-red-900 border border-red-500/40 text-red-200 text-xs font-mono flex items-center gap-1.5 cursor-pointer transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Remover Foto 360°</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Interactive Three.js Preview of Uploaded 360 Panorama */}
+                        {editingProperty.virtualTour360Image && (
+                          <div className="pt-2">
+                            <span className="text-[10px] font-mono text-cyan-300 flex items-center gap-1 mb-1.5">
+                              <CheckCircle className="w-3 h-3 text-cyan-400" /> Pré-visualização Interativa Three.js 360° (Arraste para testar a visão):
+                            </span>
+                            <div className="relative aspect-[16/9] max-w-md rounded-xl overflow-hidden border border-cyan-400/50 shadow-xl bg-black">
+                              <Panorama360Viewer
+                                imageSource={editingProperty.virtualTour360Image}
+                                className="w-full h-full min-h-[200px]"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* OPÇÃO 2: Link de Tour Virtual 360° Externo */}
+                      <div className="p-3.5 rounded-xl bg-[#070F26] border border-cyan-500/25 space-y-2">
+                        <label className="block text-[11px] font-mono font-bold text-cyan-200">
+                          OPÇÃO 2: OU INSERIR LINK DO TOUR VIRTUAL 360° (MATTERPORT, KUULA, CLOUDPANO, ETC.)
                         </label>
                         <input
                           type="text"
@@ -2298,38 +2467,46 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           placeholder="Ex: https://my.matterport.com/show/?m=... ou https://kuula.co/share/..."
                           className="w-full bg-[#050B1A] border border-cyan-500/40 text-white rounded-xl px-3.5 py-2 text-xs focus:ring-1 focus:ring-cyan-400 font-mono"
                         />
-                        <span className="text-[10px] text-slate-400 mt-1 block">
-                          Compatível com Matterport 3D, Kuula 360°, CloudPano, Momento360, YouTube 360° e links de tours imersivos. O anúncio receberá o selo TOUR 360° e visualizador interativo em tela cheia.
+                        <span className="text-[10px] text-slate-400 block">
+                          Compatível com Matterport 3D, Kuula 360°, CloudPano, Momento360, YouTube 360° ou link de imagem 360°.
                         </span>
-                      </div>
 
-                      {editingProperty.virtualTour360Url && isValid360Url(editingProperty.virtualTour360Url) && (
-                        <div className="pt-2">
-                          <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-[10px] font-mono text-cyan-300 flex items-center gap-1">
-                              <CheckCircle className="w-3 h-3 text-cyan-400" /> Tour 360° detectado ({detect360Provider(editingProperty.virtualTour360Url)}):
-                            </span>
-                            <a
-                              href={editingProperty.virtualTour360Url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-[10px] font-mono text-[#ECC97E] hover:underline flex items-center gap-1"
-                            >
-                              <span>Testar em nova aba</span>
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
+                        {/* Live Preview if valid URL and no uploaded image */}
+                        {editingProperty.virtualTour360Url && isValid360Url(editingProperty.virtualTour360Url) && !editingProperty.virtualTour360Image && (
+                          <div className="pt-2">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[10px] font-mono text-cyan-300 flex items-center gap-1">
+                                <CheckCircle className="w-3 h-3 text-cyan-400" /> Tour 360° detectado ({detect360Provider(editingProperty.virtualTour360Url)}):
+                              </span>
+                              <a
+                                href={editingProperty.virtualTour360Url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] font-mono text-[#ECC97E] hover:underline flex items-center gap-1"
+                              >
+                                <span>Testar em nova aba</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </div>
+                            <div className="relative aspect-[16/9] max-w-sm rounded-xl overflow-hidden border border-cyan-500/50 shadow-lg bg-black">
+                              {is360ImageSource(editingProperty.virtualTour360Url) ? (
+                                <Panorama360Viewer
+                                  imageSource={editingProperty.virtualTour360Url}
+                                  className="w-full h-full min-h-[200px]"
+                                />
+                              ) : (
+                                <iframe
+                                  src={get360EmbedUrl(editingProperty.virtualTour360Url) || ''}
+                                  title="Preview 360"
+                                  className="w-full h-full border-0"
+                                  allow="accelerometer; autoplay; gyroscope; magnetometer; xr-spatial-tracking; fullscreen"
+                                  allowFullScreen
+                                />
+                              )}
+                            </div>
                           </div>
-                          <div className="relative aspect-[16/9] max-w-sm rounded-xl overflow-hidden border border-cyan-500/50 shadow-lg bg-black">
-                            <iframe
-                              src={get360EmbedUrl(editingProperty.virtualTour360Url) || ''}
-                              title="Preview 360"
-                              className="w-full h-full border-0"
-                              allow="accelerometer; autoplay; gyroscope; magnetometer; xr-spatial-tracking; fullscreen"
-                              allowFullScreen
-                            />
-                          </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
 
                     {/* Galeria de Fotos */}

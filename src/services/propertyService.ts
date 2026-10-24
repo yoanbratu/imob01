@@ -122,6 +122,7 @@ export async function fetchProperties(): Promise<Property[]> {
         id: docSnap.id,
         ...(initialMatch?.coordinates ? { coordinates: initialMatch.coordinates } : {}),
         ...(initialMatch?.virtualTour360Url ? { virtualTour360Url: initialMatch.virtualTour360Url } : {}),
+        ...(initialMatch?.virtualTour360Image ? { virtualTour360Image: initialMatch.virtualTour360Image } : {}),
         ...data,
       });
     });
@@ -183,6 +184,7 @@ export function subscribeToProperties(callback: (properties: Property[]) => void
           id: d.id,
           ...(initialMatch?.coordinates ? { coordinates: initialMatch.coordinates } : {}),
           ...(initialMatch?.virtualTour360Url ? { virtualTour360Url: initialMatch.virtualTour360Url } : {}),
+          ...(initialMatch?.virtualTour360Image ? { virtualTour360Image: initialMatch.virtualTour360Image } : {}),
           ...data,
         });
       });

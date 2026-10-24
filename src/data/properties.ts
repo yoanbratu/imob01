@@ -88,6 +88,7 @@ export const PROPERTIES: Property[] = [
     featuredInQuickSuggestions: true,
     youtubeUrl: 'https://www.youtube.com/watch?v=Xn8L2u_K7j0',
     virtualTour360Url: 'https://kuula.co/share/collection/7lK8z',
+    virtualTour360Image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=2000&q=80',
     isHighEnd: true,
     images: [
       'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1400&q=80',
