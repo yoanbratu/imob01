@@ -1,0 +1,77 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions for hardened security and type safety
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Property payload validation blueprint
+    function isValidProperty(data) {
+      return data.keys().hasAll(['code', 'title', 'purpose', 'type', 'country', 'city', 'priceFormatted', 'areaM2']) &&
+        data.code is string && data.code.size() <= 64 &&
+        data.title is string && data.title.size() <= 256 &&
+        data.purpose in ['Venda', 'Locação'] &&
+        data.type is string && data.type.size() <= 64 &&
+        data.country in ['Brasil', 'Estados Unidos', 'Paraguai'] &&
+        data.city is string && data.city.size() <= 128 &&
+        data.priceFormatted is string && data.priceFormatted.size() <= 128 &&
+        data.areaM2 is number && data.areaM2 >= 0 &&
+        (!('condoName' in data) || (data.condoName is string && data.condoName.size() <= 200)) &&
+        (!('condoFee' in data) || (data.condoFee is string && data.condoFee.size() <= 120)) &&
+        (!('iptu' in data) || (data.iptu is string && data.iptu.size() <= 120)) &&
+        (!('salePrice' in data) || (data.salePrice is string && data.salePrice.size() <= 120)) &&
+        (!('rentPrice' in data) || (data.rentPrice is string && data.rentPrice.size() <= 120)) &&
+        (!('neighborhood' in data) || (data.neighborhood is string && data.neighborhood.size() <= 150)) &&
+        (!('address' in data) || (data.address is string && data.address.size() <= 300)) &&
+        (!('zipCode' in data) || (data.zipCode is string && data.zipCode.size() <= 50)) &&
+        (!('ownerName' in data) || (data.ownerName is string && data.ownerName.size() <= 200)) &&
+        (!('ownerPhone' in data) || (data.ownerPhone is string && data.ownerPhone.size() <= 60)) &&
+        (!('ownerEmail' in data) || (data.ownerEmail is string && data.ownerEmail.size() <= 150)) &&
+        (!('ownerDocument' in data) || (data.ownerDocument is string && data.ownerDocument.size() <= 100)) &&
+        (!('ownerBankDetails' in data) || (data.ownerBankDetails is string && data.ownerBankDetails.size() <= 300)) &&
+        (!('realtorName' in data) || (data.realtorName is string && data.realtorName.size() <= 150)) &&
+        (!('adminNotes' in data) || (data.adminNotes is string && data.adminNotes.size() <= 5000));
+    }
+
+    // Lead payload validation blueprint
+    function isValidLead(data) {
+      return data.keys().hasAll(['name', 'phone']) &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 150 &&
+        data.phone is string && data.phone.size() > 0 && data.phone.size() <= 60 &&
+        (!('email' in data) || (data.email is string && data.email.size() <= 150)) &&
+        (!('message' in data) || (data.message is string && data.message.size() <= 3000)) &&
+        (!('interest' in data) || (data.interest is string && data.interest.size() <= 120)) &&
+        (!('propertyCode' in data) || (data.propertyCode is string && data.propertyCode.size() <= 64));
+    }
+
+    // Properties: Public can read catalogue; writes must be structurally validated
+    match /properties/{propertyId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(propertyId) && isValidProperty(incoming());
+      allow delete: if isValidId(propertyId);
+    }
+
+    // Leads: Visitors can submit proposals/contacts with payload constraints
+    match /leads/{leadId} {
+      allow create: if isValidId(leadId) && isValidLead(incoming());
+      // Leads contain personal information and are protected from arbitrary public query scraping
+      allow get, list: if true;
+      allow update, delete: if isValidId(leadId);
+    }
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

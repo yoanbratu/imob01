@@ -1,0 +1,6 @@
+{
+  "name": "Bratu Imobiliária e Administradora",
+  "description": "Landing page premium e moderna para a Bratu Imobiliária e Administradora, com imóveis de alto padrão e soluções patrimoniais no Brasil e no Paraguai.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

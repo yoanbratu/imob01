@@ -1,0 +1,81 @@
+{
+  "entities": {
+    "Property": {
+      "title": "Property",
+      "description": "Imóvel residencial ou comercial cadastrado com dados públicos e campos confidenciais de administração.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "title": { "type": "string" },
+        "subtitle": { "type": "string" },
+        "purpose": { "type": "string", "enum": ["Venda", "Locação"] },
+        "type": { "type": "string" },
+        "category": { "type": "array" },
+        "country": { "type": "string", "enum": ["Brasil", "Estados Unidos", "Paraguai"] },
+        "city": { "type": "string" },
+        "neighborhood": { "type": "string" },
+        "stateOrDept": { "type": "string" },
+        "address": { "type": "string" },
+        "zipCode": { "type": "string" },
+        "priceFormatted": { "type": "string" },
+        "salePrice": { "type": "string" },
+        "rentPrice": { "type": "string" },
+        "iptu": { "type": "string" },
+        "condoName": { "type": "string" },
+        "condoFee": { "type": "string" },
+        "priceNote": { "type": "string" },
+        "areaM2": { "type": "number" },
+        "bedrooms": { "type": "number" },
+        "suites": { "type": "number" },
+        "bathrooms": { "type": "number" },
+        "parkingSpots": { "type": "number" },
+        "featured": { "type": "boolean" },
+        "images": { "type": "array" },
+        "description": { "type": "string" },
+        "highlights": { "type": "array" },
+        "amenities": { "type": "array" },
+        "ownerName": { "type": "string" },
+        "ownerPhone": { "type": "string" },
+        "ownerEmail": { "type": "string" },
+        "ownerDocument": { "type": "string" },
+        "ownerBankDetails": { "type": "string" },
+        "realtorName": { "type": "string" },
+        "realtorCreci": { "type": "string" },
+        "realtorPhone": { "type": "string" },
+        "realtorEmail": { "type": "string" },
+        "realtorCommission": { "type": "string" },
+        "adminNotes": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["code", "title", "purpose", "type", "country", "city", "priceFormatted", "areaM2"]
+    },
+    "Lead": {
+      "title": "Lead",
+      "description": "Contatos e propostas enviados por clientes ou proprietários.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "interest": { "type": "string" },
+        "propertyCode": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "phone"]
+    }
+  },
+  "firestore": {
+    "/properties/{propertyId}": {
+      "schema": { "$ref": "#/entities/Property" },
+      "description": "Catálogo de imóveis com dados públicos e confidenciais de administração."
+    },
+    "/leads/{leadId}": {
+      "schema": { "$ref": "#/entities/Lead" },
+      "description": "Propostas e contatos enviados via formulário."
+    }
+  }
+}
