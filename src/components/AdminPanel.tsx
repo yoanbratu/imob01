@@ -96,6 +96,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   });
   const [realtorFeedback, setRealtorFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isSavingRealtor, setIsSavingRealtor] = useState(false);
+  const [isCustomRealtorNew, setIsCustomRealtorNew] = useState(false);
+  const [isCustomRealtorEdit, setIsCustomRealtorEdit] = useState(false);
 
   useEffect(() => {
     const unsubscribe = subscribeToRealtors((data) => {
@@ -1793,62 +1795,107 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </button>
                   </div>
 
-                  {/* Quick Select from Registered Realtors */}
-                  <div className="bg-[#050B1A] p-3.5 rounded-2xl border border-[#D4AF37]/45 mb-4 shadow-sm">
-                    <label className="block text-[11px] font-mono font-bold text-[#E5C378] mb-1.5 flex items-center gap-1.5">
-                      <UserCheck className="w-4 h-4 text-[#D4AF37]" />
-                      SELECIONAR CORRETOR CADASTRADO NA EQUIPE (PREENCHIMENTO AUTOMÁTICO)
-                    </label>
-                    <select
-                      onChange={(e) => {
-                        const selected = realtors.find((r) => r.id === e.target.value);
-                        if (selected) {
-                          setNewProp((prev) => ({
-                            ...prev,
-                            realtorName: selected.name,
-                            realtorCreci: selected.creci,
-                            realtorPhone: selected.phone,
-                            realtorEmail: selected.email,
-                            realtorCommission: selected.defaultCommission || '6%',
-                          }));
-                        }
-                      }}
-                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs font-mono focus:ring-1 focus:ring-[#D4AF37] cursor-pointer"
-                    >
-                      <option value="">-- Escolha um corretor da equipe para preencher automaticamente --</option>
-                      {realtors.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.name} · {r.creci} ({r.specialty || 'Corretor Associado'})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-3">
-                    <div>
-                      <label className="block text-[11px] font-mono text-slate-300 mb-1">NOME DO CORRETOR</label>
-                      <input
-                        type="text"
-                        value={newProp.realtorName || ''}
-                        onChange={(e) => setNewProp({ ...newProp, realtorName: e.target.value })}
-                        placeholder="Ex: Alexandre Bratu"
-                        className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs"
-                      />
+                    {/* 1. NOME DO CORRETOR COM LISTA DE CORRETORES CADASTRADOS */}
+                    <div className="sm:col-span-1">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-mono text-slate-300 font-bold flex items-center gap-1.5">
+                          <UserCheck className="w-3.5 h-3.5 text-[#D4AF37]" />
+                          <span>NOME DO CORRETOR *</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setIsCustomRealtorNew(!isCustomRealtorNew)}
+                          className="text-[10px] font-mono text-[#ECC97E] hover:underline"
+                        >
+                          {isCustomRealtorNew ? '« Escolher da Lista' : '+ Digitar outro'}
+                        </button>
+                      </div>
+
+                      {!isCustomRealtorNew ? (
+                        <select
+                          value={
+                            realtors.some((r) => r.name === newProp.realtorName)
+                              ? realtors.find((r) => r.name === newProp.realtorName)?.id
+                              : ''
+                          }
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === 'custom') {
+                              setIsCustomRealtorNew(true);
+                              return;
+                            }
+                            const selected = realtors.find((r) => r.id === val);
+                            if (selected) {
+                              setNewProp((prev) => ({
+                                ...prev,
+                                realtorName: selected.name,
+                                realtorCreci: selected.creci,
+                                realtorPhone: selected.phone,
+                                realtorEmail: selected.email,
+                                realtorCommission: selected.defaultCommission || '6%',
+                              }));
+                            } else {
+                              setNewProp((prev) => ({
+                                ...prev,
+                                realtorName: '',
+                                realtorCreci: '',
+                              }));
+                            }
+                          }}
+                          className="w-full bg-[#0B163B] border border-[#D4AF37]/50 text-white rounded-xl px-3 py-2 text-xs font-semibold focus:ring-1 focus:ring-[#D4AF37] cursor-pointer"
+                        >
+                          <option value="">-- Selecione o Corretor Cadastrado --</option>
+                          {realtors.map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.name} · {r.creci} ({r.specialty || 'Corretor Associado'})
+                            </option>
+                          ))}
+                          <option value="custom">&#x270E; Digitar outro corretor manualmente...</option>
+                        </select>
+                      ) : (
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={newProp.realtorName || ''}
+                            onChange={(e) => setNewProp({ ...newProp, realtorName: e.target.value })}
+                            placeholder="Digite o nome completo do corretor..."
+                            className="w-full bg-[#0B163B] border border-[#D4AF37]/50 text-white rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                            autoFocus
+                          />
+                        </div>
+                      )}
                     </div>
 
+                    {/* 2. CRECI / REGISTRO PREENCHIDO AUTOMATICAMENTE */}
                     <div>
-                      <label className="block text-[11px] font-mono text-slate-300 mb-1">CRECI / REGISTRO</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-mono text-slate-300 font-bold">
+                          CRECI / REGISTRO *
+                        </label>
+                        {newProp.realtorCreci && (
+                          <span className="text-[10px] font-mono text-emerald-400 font-semibold">
+                            ✓ Preenchido Automaticamente
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="text"
                         value={newProp.realtorCreci || ''}
                         onChange={(e) => setNewProp({ ...newProp, realtorCreci: e.target.value })}
-                        placeholder="CRECI-PR 32.410"
+                        placeholder="CRECI preenchido automaticamente ao selecionar"
                         className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs font-mono"
                       />
                     </div>
 
+                    {/* 3. COMISSÃO ACORDADA */}
                     <div>
-                      <label className="block text-[11px] font-mono text-slate-300 mb-1">COMISSÃO ACORDADA</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-mono text-slate-300 font-bold">COMISSÃO ACORDADA</label>
+                        {newProp.realtorCommission && (
+                          <span className="text-[10px] font-mono text-[#E5C378]">Padrão da equipe</span>
+                        )}
+                      </div>
                       <input
                         type="text"
                         value={newProp.realtorCommission || ''}
@@ -3212,58 +3259,97 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         </span>
                       </div>
 
-                      {/* Selector from Registered Realtors */}
-                      <div className="bg-[#050B1A] p-3 rounded-xl border border-[#D4AF37]/40 shadow-xs">
-                        <label className="block text-[10px] font-mono font-bold text-[#E5C378] mb-1 flex items-center gap-1.5">
-                          <UserCheck className="w-3.5 h-3.5 text-[#D4AF37]" />
-                          SELECIONAR DA EQUIPE DE CORRETORES (PREENCHIMENTO AUTOMÁTICO)
-                        </label>
-                        <select
-                          onChange={(e) => {
-                            const selected = realtors.find((r) => r.id === e.target.value);
-                            if (selected && editingProperty) {
-                              setEditingProperty({
-                                ...editingProperty,
-                                realtorName: selected.name,
-                                realtorCreci: selected.creci,
-                                realtorPhone: selected.phone,
-                                realtorEmail: selected.email,
-                                realtorCommission: selected.defaultCommission || '6%',
-                              });
-                            }
-                          }}
-                          className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-lg px-3 py-1.5 text-xs font-mono focus:ring-1 focus:ring-[#D4AF37] cursor-pointer"
-                        >
-                          <option value="">-- Escolha um corretor para atualizar os dados abaixo --</option>
-                          {realtors.map((r) => (
-                            <option key={r.id} value={r.id}>
-                              {r.name} · {r.creci} ({r.specialty || 'Corretor Associado'})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {/* 1. NOME DO CORRETOR COM SELECT DOS CADASTRADOS */}
                         <div>
-                          <label className="block text-[11px] font-mono text-slate-300 mb-1">CORRETOR</label>
-                          <input
-                            type="text"
-                            value={editingProperty.realtorName || ''}
-                            onChange={(e) => setEditingProperty({ ...editingProperty, realtorName: e.target.value })}
-                            className="w-full bg-[#050B1A] border border-white/15 text-white rounded-xl px-3 py-2 text-xs"
-                          />
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-[11px] font-mono text-slate-300 font-bold flex items-center gap-1">
+                              <UserCheck className="w-3.5 h-3.5 text-[#D4AF37]" />
+                              <span>CORRETOR *</span>
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setIsCustomRealtorEdit(!isCustomRealtorEdit)}
+                              className="text-[10px] font-mono text-[#ECC97E] hover:underline"
+                            >
+                              {isCustomRealtorEdit ? '« Escolher da Lista' : '+ Digitar outro'}
+                            </button>
+                          </div>
+
+                          {!isCustomRealtorEdit ? (
+                            <select
+                              value={
+                                realtors.some((r) => r.name === editingProperty.realtorName)
+                                  ? realtors.find((r) => r.name === editingProperty.realtorName)?.id
+                                  : ''
+                              }
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === 'custom') {
+                                  setIsCustomRealtorEdit(true);
+                                  return;
+                                }
+                                const selected = realtors.find((r) => r.id === val);
+                                if (selected && editingProperty) {
+                                  setEditingProperty({
+                                    ...editingProperty,
+                                    realtorName: selected.name,
+                                    realtorCreci: selected.creci,
+                                    realtorPhone: selected.phone,
+                                    realtorEmail: selected.email,
+                                    realtorCommission: selected.defaultCommission || '6%',
+                                  });
+                                }
+                              }}
+                              className="w-full bg-[#050B1A] border border-[#D4AF37]/50 text-white rounded-xl px-3 py-2 text-xs font-semibold focus:ring-1 focus:ring-[#D4AF37] cursor-pointer"
+                            >
+                              <option value="">-- Selecione o Corretor Cadastrado --</option>
+                              {realtors.map((r) => (
+                                <option key={r.id} value={r.id}>
+                                  {r.name} · {r.creci} ({r.specialty || 'Corretor Associado'})
+                                </option>
+                              ))}
+                              <option value="custom">&#x270E; Digitar outro corretor manualmente...</option>
+                            </select>
+                          ) : (
+                            <input
+                              type="text"
+                              value={editingProperty.realtorName || ''}
+                              onChange={(e) => setEditingProperty({ ...editingProperty, realtorName: e.target.value })}
+                              placeholder="Digite o nome do corretor..."
+                              className="w-full bg-[#050B1A] border border-[#D4AF37]/50 text-white rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                              autoFocus
+                            />
+                          )}
                         </div>
+
+                        {/* 2. CRECI / REGISTRO PREENCHIDO AUTOMATICAMENTE */}
                         <div>
-                          <label className="block text-[11px] font-mono text-slate-300 mb-1">CRECI</label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-[11px] font-mono text-slate-300 font-bold">CRECI / REGISTRO</label>
+                            {editingProperty.realtorCreci && (
+                              <span className="text-[10px] font-mono text-emerald-400 font-semibold">
+                                ✓ Preenchido Automaticamente
+                              </span>
+                            )}
+                          </div>
                           <input
                             type="text"
                             value={editingProperty.realtorCreci || ''}
                             onChange={(e) => setEditingProperty({ ...editingProperty, realtorCreci: e.target.value })}
+                            placeholder="Preenchido ao selecionar corretor"
                             className="w-full bg-[#050B1A] border border-white/15 text-white rounded-xl px-3 py-2 text-xs font-mono"
                           />
                         </div>
+
+                        {/* 3. COMISSÃO */}
                         <div>
-                          <label className="block text-[11px] font-mono text-slate-300 mb-1">COMISSÃO COMBINADA</label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-[11px] font-mono text-slate-300 font-bold">COMISSÃO COMBINADA</label>
+                            {editingProperty.realtorCommission && (
+                              <span className="text-[10px] font-mono text-[#E5C378]">Padrão da equipe</span>
+                            )}
+                          </div>
                           <input
                             type="text"
                             value={editingProperty.realtorCommission || ''}
