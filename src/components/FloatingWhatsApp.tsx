@@ -1,11 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import { MessageCircle, X } from 'lucide-react';
-import { motion, AnimatePresence, Variants } from 'framer-motion';
+import { motion, AnimatePresence, Variants, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { getWhatsAppLink, COMPANY_INFO } from '../utils/whatsapp';
 
 export const FloatingWhatsApp: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
+
+  // 3D Tilt interactive motion values
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+
+  // Smooth spring physics with optimal damping and stiffness for realistic tilt
+  const springConfig = { damping: 22, stiffness: 280, mass: 0.6 };
+  const smoothX = useSpring(mouseX, springConfig);
+  const smoothY = useSpring(mouseY, springConfig);
+
+  // Map normalized coordinates [-0.5, 0.5] to subtle, elegant 3D tilt angles
+  const rotateX = useTransform(smoothY, [-0.5, 0.5], [9, -9]);
+  const rotateY = useTransform(smoothX, [-0.5, 0.5], [-9, 9]);
+
+  // Dynamic light glare effect tracking the cursor
+  const glareBackground = useTransform([smoothX, smoothY], ([latestX, latestY]: any[]) => {
+    const px = (Number(latestX) + 0.5) * 100;
+    const py = (Number(latestY) + 0.5) * 100;
+    return `radial-gradient(circle 140px at ${px}% ${py}%, rgba(212, 175, 55, 0.22), transparent 70%)`;
+  });
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const normX = (e.clientX - rect.left) / rect.width - 0.5;
+    const normY = (e.clientY - rect.top) / rect.height - 0.5;
+    mouseX.set(normX);
+    mouseY.set(normY);
+  };
+
+  const handleMouseLeave = () => {
+    mouseX.set(0);
+    mouseY.set(0);
+  };
 
   useEffect(() => {
     // Reveal button smoothly after page load
@@ -77,70 +111,104 @@ export const FloatingWhatsApp: React.FC = () => {
         isVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
       }`}
     >
-      {/* Tooltip with silky-smooth organic fade-in, scale growth, and staggered child entry */}
+      {/* Tooltip with silky-smooth organic fade-in, scale growth, staggered child entry, and 3D tilt tracking */}
       <AnimatePresence>
         {showTooltip && (
-          <motion.a
-            href={whatsAppLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            variants={tooltipContainerVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            whileHover={{
-              scale: 1.045,
-              x: -5,
-              boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.75), 0 0 25px rgba(212, 175, 55, 0.38)',
-              borderColor: 'rgba(212, 175, 55, 0.75)',
-              transition: {
-                type: 'spring',
-                stiffness: 400,
-                damping: 24,
-              },
-            }}
-            whileTap={{ scale: 0.98 }}
-            className="group relative hidden sm:flex items-center gap-3 bg-gradient-to-r from-[#070F26]/95 via-[#0A163B]/95 to-[#050B1A]/95 backdrop-blur-md text-white text-xs font-mono py-2.5 px-4 rounded-2xl shadow-[0_12px_30px_rgba(0,0,0,0.65)] border border-[#D4AF37]/45 cursor-pointer select-none origin-right no-underline"
-            aria-label={`Abrir WhatsApp no número ${COMPANY_INFO.phoneDisplay}`}
-          >
-            {/* Subtle connecting caret pointing towards the button */}
-            <div className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 bg-[#0A163B] border-t border-r border-[#D4AF37]/45 rotate-45 pointer-events-none group-hover:border-[#D4AF37]/70 transition-colors" />
-
-            {/* Live pulsating status indicator with staggered entry */}
-            <motion.span variants={tooltipItemVariants} className="relative flex h-2 w-2 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-            </motion.span>
-
-            {/* Text content with staggered entry */}
-            <motion.div variants={tooltipItemVariants} className="flex flex-col leading-tight">
-              <span className="text-[10px] font-sans uppercase tracking-wider text-slate-300 font-semibold group-hover:text-white transition-colors">
-                Atendimento Exclusivo
-              </span>
-              <span className="text-[#E5C378] font-bold tracking-wide group-hover:text-[#F3D78A] transition-colors">
-                WhatsApp: {COMPANY_INFO.phoneDisplay}
-              </span>
-            </motion.div>
-
-            {/* Subtle separator */}
-            <motion.div variants={tooltipItemVariants} className="h-4 w-[1px] bg-white/15 mx-0.5" />
-
-            {/* Close button with stopPropagation */}
-            <motion.button
-              variants={tooltipItemVariants}
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setShowTooltip(false);
+          <div className="hidden sm:block" style={{ perspective: 1000 }}>
+            <motion.a
+              href={whatsAppLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              onMouseMove={handleMouseMove}
+              onMouseLeave={handleMouseLeave}
+              style={{
+                rotateX,
+                rotateY,
+                transformStyle: 'preserve-3d',
               }}
-              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-              aria-label="Fechar aviso de WhatsApp"
-              title="Fechar aviso"
+              variants={tooltipContainerVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              whileHover={{
+                scale: 1.045,
+                x: -5,
+                boxShadow: '0 25px 45px -10px rgba(0, 0, 0, 0.8), 0 0 28px rgba(212, 175, 55, 0.42)',
+                borderColor: 'rgba(212, 175, 55, 0.85)',
+                transition: {
+                  type: 'spring',
+                  stiffness: 400,
+                  damping: 24,
+                },
+              }}
+              whileTap={{ scale: 0.98 }}
+              className="group relative flex items-center gap-3 bg-gradient-to-r from-[#070F26]/95 via-[#0A163B]/95 to-[#050B1A]/95 backdrop-blur-md text-white text-xs font-mono py-2.5 px-4 rounded-2xl shadow-[0_12px_30px_rgba(0,0,0,0.65)] border border-[#D4AF37]/45 cursor-pointer select-none origin-right no-underline will-change-transform"
+              aria-label={`Abrir WhatsApp no número ${COMPANY_INFO.phoneDisplay}`}
             >
-              <X className="w-3.5 h-3.5" />
-            </motion.button>
-          </motion.a>
+              {/* Dynamic 3D glare sheen highlight that tracks cursor position */}
+              <motion.div
+                className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                style={{
+                  background: glareBackground,
+                  transform: 'translateZ(1px)',
+                }}
+              />
+
+              {/* Subtle connecting caret pointing towards the button */}
+              <div
+                className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 bg-[#0A163B] border-t border-r border-[#D4AF37]/45 rotate-45 pointer-events-none group-hover:border-[#D4AF37]/70 transition-colors"
+                style={{ transform: 'translateY(-50%) rotate(45deg) translateZ(4px)' }}
+              />
+
+              {/* Live pulsating status indicator with staggered entry and 3D depth */}
+              <motion.span
+                variants={tooltipItemVariants}
+                style={{ transform: 'translateZ(14px)' }}
+                className="relative flex h-2 w-2 shrink-0"
+              >
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+              </motion.span>
+
+              {/* Text content with staggered entry and elevated 3D depth */}
+              <motion.div
+                variants={tooltipItemVariants}
+                style={{ transform: 'translateZ(16px)' }}
+                className="flex flex-col leading-tight"
+              >
+                <span className="text-[10px] font-sans uppercase tracking-wider text-slate-300 font-semibold group-hover:text-white transition-colors">
+                  Atendimento Exclusivo
+                </span>
+                <span className="text-[#E5C378] font-bold tracking-wide group-hover:text-[#F3D78A] transition-colors">
+                  WhatsApp: {COMPANY_INFO.phoneDisplay}
+                </span>
+              </motion.div>
+
+              {/* Subtle separator with 3D elevation */}
+              <motion.div
+                variants={tooltipItemVariants}
+                style={{ transform: 'translateZ(10px)' }}
+                className="h-4 w-[1px] bg-white/15 mx-0.5"
+              />
+
+              {/* Close button with stopPropagation and elevated 3D depth */}
+              <motion.button
+                variants={tooltipItemVariants}
+                style={{ transform: 'translateZ(18px)' }}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowTooltip(false);
+                }}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                aria-label="Fechar aviso de WhatsApp"
+                title="Fechar aviso"
+              >
+                <X className="w-3.5 h-3.5" />
+              </motion.button>
+            </motion.a>
+          </div>
         )}
       </AnimatePresence>
 
