@@ -10,7 +10,7 @@ import {
   orderBy,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Property, LeadSubmission, Realtor } from '../types/property';
+import { Property, LeadSubmission, Realtor, PropertyOwner } from '../types/property';
 import { PROPERTIES as INITIAL_PROPERTIES } from '../data/properties';
 
 const PROPERTIES_COLLECTION = 'properties';
@@ -483,4 +483,162 @@ export async function deleteRealtor(realtorId: string): Promise<void> {
     throw new Error(err?.message || 'Falha ao excluir corretor.');
   }
 }
+
+// ==========================================
+// PROPRIETÁRIOS (OWNERS) MANAGEMENT SERVICES
+// ==========================================
+const OWNERS_COLLECTION = 'owners';
+
+export const INITIAL_OWNERS: PropertyOwner[] = [
+  {
+    id: 'prop-roberto',
+    name: 'Dr. Roberto Silveira da Cunha',
+    phone: '+55 (41) 99123-4567',
+    email: 'roberto.cunha@silveiraadvogados.com.br',
+    document: '184.920.489-02 (CPF)',
+    bankDetails: 'Banco Itaú (341) Ag: 0084 CC: 39482-1 | PIX: 41991234567',
+    minNegotiationValue: 'R$ 7.500.000',
+    notes: 'Imóvel com documentação 100% desembaraçada. Proprietário aceita permuta de até 20% em apartamento no Batel.',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'prop-santateresa',
+    name: 'Inversiones y Desarrollos Santa Teresa S.A.',
+    phone: '+595 981 445 220',
+    email: 'directorio@santateresainversiones.com.py',
+    document: 'RUC 80094820-4',
+    bankDetails: 'Banco Itaú Paraguay | Cta Corriente USD 984029482',
+    minNegotiationValue: 'US$ 600.000',
+    notes: 'Laje corporativa desocupada. Ideal para empresas sob regime Maquila em Asunción.',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'prop-batel',
+    name: 'Grupo Patrimonial Batel Participações Ltda',
+    phone: '+55 (41) 98844-1100',
+    email: 'gestao@batelparticipacoes.com.br',
+    document: '04.829.194/0001-44 (CNPJ)',
+    bankDetails: 'Banco Bradesco (237) Ag: 1202 CC: 88291-0',
+    minNegotiationValue: 'R$ 35.000/mês para contrato mínimo de 36 meses',
+    notes: 'Exige seguro fiança locatícia Porto Seguro ou fiança bancária.',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'prop-brickell',
+    name: 'Brickell Bay Investments LLC (Florida)',
+    phone: '+1 (786) 405-9240',
+    email: 'investments@brickellbayfl.com',
+    document: 'EIN / Tax ID 84-2940291',
+    bankDetails: 'JPMorgan Chase Bank, Miami Brickell Branch | Wire Routing: 021000021',
+    minNegotiationValue: 'US$ 1.390.000 à vista',
+    notes: 'Unidade quitada sem hipoteca (free and clear). Fechamento via Title Company em Miami com escrow.',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'prop-lakenona',
+    name: 'Lake Nona Holdings Group Inc.',
+    phone: '+1 (407) 829-4100',
+    email: 'closing@lakenonagroup.com',
+    document: 'EIN 59-3829104',
+    bankDetails: 'Bank of America | Orlando Orange Ave Branch',
+    minNegotiationValue: 'US$ 2.250.000',
+    notes: 'Mansão de veraneio de alto padrão com licença para short-term rental ativa.',
+    createdAt: new Date().toISOString(),
+  },
+];
+
+export async function fetchOwners(): Promise<PropertyOwner[]> {
+  try {
+    const colRef = collection(db, OWNERS_COLLECTION);
+    const snapshot = await getDocs(colRef);
+
+    if (snapshot.empty) {
+      await seedInitialOwners();
+      return INITIAL_OWNERS;
+    }
+
+    const list: PropertyOwner[] = [];
+    snapshot.forEach((docSnap) => {
+      list.push({ id: docSnap.id, ...(docSnap.data() as any) });
+    });
+    return list.sort((a, b) => a.name.localeCompare(b.name));
+  } catch (err) {
+    console.error('Error fetching owners from Firestore:', err);
+    return INITIAL_OWNERS;
+  }
+}
+
+async function seedInitialOwners() {
+  try {
+    for (const owner of INITIAL_OWNERS) {
+      const docRef = doc(db, OWNERS_COLLECTION, owner.id);
+      await setDoc(docRef, owner);
+    }
+  } catch (err) {
+    console.error('Error seeding initial owners:', err);
+  }
+}
+
+export function subscribeToOwners(callback: (owners: PropertyOwner[]) => void) {
+  const colRef = collection(db, OWNERS_COLLECTION);
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      if (snapshot.empty) {
+        callback(INITIAL_OWNERS);
+        return;
+      }
+      const list: PropertyOwner[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...(docSnap.data() as any) });
+      });
+      callback(list.sort((a, b) => a.name.localeCompare(b.name)));
+    },
+    (err) => {
+      console.error('Firestore owners snapshot error:', err);
+      callback(INITIAL_OWNERS);
+    }
+  );
+}
+
+export async function saveOwner(owner: PropertyOwner): Promise<void> {
+  try {
+    const ownerId = owner.id || `prop-${Date.now()}`;
+    const docRef = doc(db, OWNERS_COLLECTION, ownerId);
+    const payload: PropertyOwner = {
+      id: ownerId,
+      name: (owner.name || '').trim(),
+      phone: (owner.phone || '').trim(),
+      email: (owner.email || '').trim(),
+      document: (owner.document || '').trim(),
+      bankDetails: (owner.bankDetails || '').trim(),
+      minNegotiationValue: (owner.minNegotiationValue || '').trim(),
+      notes: (owner.notes || '').trim(),
+      updatedAt: new Date().toISOString(),
+      createdAt: owner.createdAt || new Date().toISOString(),
+    };
+
+    // Filter out undefined values
+    const cleanedPayload: Record<string, any> = {};
+    for (const [key, val] of Object.entries(payload)) {
+      if (val !== undefined) cleanedPayload[key] = val;
+    }
+
+    await setDoc(docRef, cleanedPayload, { merge: true });
+  } catch (err: any) {
+    console.error('Erro ao salvar proprietário no Firestore:', err);
+    throw new Error(err?.message || 'Falha ao salvar proprietário.');
+  }
+}
+
+export async function deleteOwner(ownerId: string): Promise<void> {
+  try {
+    const docRef = doc(db, OWNERS_COLLECTION, ownerId);
+    await deleteDoc(docRef);
+  } catch (err: any) {
+    console.error('Erro ao excluir proprietário do Firestore:', err);
+    throw new Error(err?.message || 'Falha ao excluir proprietário.');
+  }
+}
+
 

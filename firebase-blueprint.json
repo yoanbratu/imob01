@@ -90,6 +90,24 @@
         "updatedAt": { "type": "string" }
       },
       "required": ["name", "phone"]
+    },
+    "PropertyOwner": {
+      "title": "PropertyOwner",
+      "description": "Proprietários de imóveis com dados de contato, bancários e margem de negociação.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "document": { "type": "string" },
+        "bankDetails": { "type": "string" },
+        "minNegotiationValue": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name", "phone"]
     }
   },
   "firestore": {
@@ -104,6 +122,10 @@
     "/realtors/{realtorId}": {
       "schema": { "$ref": "#/entities/Realtor" },
       "description": "Lista de corretores autorizados cadastrados na imobiliária."
+    },
+    "/owners/{ownerId}": {
+      "schema": { "$ref": "#/entities/PropertyOwner" },
+      "description": "Lista de proprietários cadastrados com informações sigilosas."
     }
   }
 }

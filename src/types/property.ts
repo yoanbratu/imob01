@@ -106,3 +106,17 @@ export interface Realtor {
   updatedAt?: string;
 }
 
+export interface PropertyOwner {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  document?: string; // CPF, CNPJ, RUC, RG ou Tax ID
+  bankDetails?: string; // Banco, Agência, Conta Corrente ou Chave PIX
+  minNegotiationValue?: string; // Margem ou valor mínimo autorizado
+  notes?: string; // Anotações internas e confidenciais
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+

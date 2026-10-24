@@ -41,7 +41,7 @@ export const FloatingWhatsApp: React.FC = () => {
             href={whatsAppLink}
             target="_blank"
             rel="noopener noreferrer"
-            initial={{ opacity: 0, x: 38, scale: 0.93, filter: 'blur(6px)' }}
+            initial={{ opacity: 0, x: 42, scale: 0.82, filter: 'blur(6px)' }}
             animate={{
               opacity: 1,
               x: 0,
@@ -49,11 +49,12 @@ export const FloatingWhatsApp: React.FC = () => {
               filter: 'blur(0px)',
               transition: {
                 // Ultra-soft and organic fade-in
-                opacity: { duration: 0.8, ease: [0.16, 1, 0.3, 1] },
+                opacity: { duration: 0.85, ease: [0.16, 1, 0.3, 1] },
                 // Silky, organic right-to-left slide
-                x: { type: 'spring', stiffness: 120, damping: 17, mass: 0.85 },
-                scale: { type: 'spring', stiffness: 140, damping: 18, mass: 0.8 },
-                filter: { duration: 0.65, ease: 'easeOut' },
+                x: { type: 'spring', stiffness: 110, damping: 16, mass: 0.85 },
+                // Gentle, elegant scaling growth effect from button
+                scale: { type: 'spring', stiffness: 120, damping: 15, mass: 0.8 },
+                filter: { duration: 0.7, ease: 'easeOut' },
               },
             }}
             exit={{

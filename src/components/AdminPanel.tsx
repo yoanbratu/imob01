@@ -42,7 +42,7 @@ import {
   Square,
   Compass,
 } from 'lucide-react';
-import { Property, PropertyType, PropertyPurpose, Country, LeadSubmission, Realtor } from '../types/property';
+import { Property, PropertyType, PropertyPurpose, Country, LeadSubmission, Realtor, PropertyOwner } from '../types/property';
 import {
   saveProperty,
   updateProperty,
@@ -52,6 +52,11 @@ import {
   deleteRealtor,
   subscribeToRealtors,
   INITIAL_REALTORS,
+  fetchOwners,
+  saveOwner,
+  deleteOwner,
+  subscribeToOwners,
+  INITIAL_OWNERS,
 } from '../services/propertyService';
 import { COMPANY_INFO } from '../utils/whatsapp';
 import { updateAdminPassword } from '../utils/security';
@@ -77,7 +82,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onLogout,
   onRefreshData,
 }) => {
-  const [activeTab, setActiveTab] = useState<'properties' | 'new' | 'realtors' | 'leads' | 'security'>('properties');
+  const [activeTab, setActiveTab] = useState<'properties' | 'new' | 'owners' | 'realtors' | 'leads' | 'security'>('properties');
   const [searchFilter, setSearchFilter] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'residencial' | 'comercial'>('all');
 
@@ -102,6 +107,31 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   useEffect(() => {
     const unsubscribe = subscribeToRealtors((data) => {
       setRealtors(data);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Owners (Proprietários) State & Listener
+  const [owners, setOwners] = useState<PropertyOwner[]>(INITIAL_OWNERS);
+  const [isOwnerModalOpen, setIsOwnerModalOpen] = useState(false);
+  const [editingOwner, setEditingOwner] = useState<PropertyOwner | null>(null);
+  const [ownerFormData, setOwnerFormData] = useState<Partial<PropertyOwner>>({
+    name: '',
+    phone: '',
+    email: '',
+    document: '',
+    bankDetails: '',
+    minNegotiationValue: '',
+    notes: '',
+  });
+  const [ownerFeedback, setOwnerFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [isSavingOwner, setIsSavingOwner] = useState(false);
+  const [isCustomOwnerNew, setIsCustomOwnerNew] = useState(false);
+  const [isCustomOwnerEdit, setIsCustomOwnerEdit] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToOwners((data) => {
+      setOwners(data);
     });
     return () => unsubscribe();
   }, []);
@@ -575,6 +605,73 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
+  const handleOpenCreateOwner = () => {
+    setEditingOwner(null);
+    setOwnerFormData({
+      name: '',
+      phone: '',
+      email: '',
+      document: '',
+      bankDetails: '',
+      minNegotiationValue: '',
+      notes: '',
+    });
+    setIsOwnerModalOpen(true);
+  };
+
+  const handleOpenEditOwner = (owner: PropertyOwner) => {
+    setEditingOwner(owner);
+    setOwnerFormData({ ...owner });
+    setIsOwnerModalOpen(true);
+  };
+
+  const handleSaveOwnerForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ownerFormData.name?.trim() || !ownerFormData.phone?.trim()) {
+      setOwnerFeedback({ type: 'error', message: 'Preencha ao menos o Nome e o Telefone/WhatsApp do proprietário.' });
+      return;
+    }
+    setIsSavingOwner(true);
+    try {
+      const idToUse = editingOwner?.id || `proprietario-${Date.now()}`;
+      const ownerToSave: PropertyOwner = {
+        id: idToUse,
+        name: ownerFormData.name.trim(),
+        phone: ownerFormData.phone.trim(),
+        email: (ownerFormData.email || '').trim(),
+        document: (ownerFormData.document || '').trim(),
+        bankDetails: (ownerFormData.bankDetails || '').trim(),
+        minNegotiationValue: (ownerFormData.minNegotiationValue || '').trim(),
+        notes: (ownerFormData.notes || '').trim(),
+        createdAt: editingOwner?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      await saveOwner(ownerToSave);
+      setOwnerFeedback({
+        type: 'success',
+        message: editingOwner ? 'Proprietário atualizado com sucesso no banco de dados!' : 'Novo proprietário cadastrado com sucesso!',
+      });
+      setIsOwnerModalOpen(false);
+      setTimeout(() => setOwnerFeedback(null), 3000);
+    } catch (err: any) {
+      setOwnerFeedback({ type: 'error', message: err?.message || 'Erro ao salvar proprietário.' });
+    } finally {
+      setIsSavingOwner(false);
+    }
+  };
+
+  const handleDeleteOwner = async (ownerId: string, name: string) => {
+    if (confirm(`Tem certeza que deseja excluir o proprietário "${name}" do banco de dados?`)) {
+      try {
+        await deleteOwner(ownerId);
+        setOwnerFeedback({ type: 'success', message: `Proprietário "${name}" excluído com sucesso.` });
+        setTimeout(() => setOwnerFeedback(null), 3000);
+      } catch (err: any) {
+        setOwnerFeedback({ type: 'error', message: err?.message || 'Erro ao excluir proprietário.' });
+      }
+    }
+  };
+
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
@@ -685,6 +782,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           >
             <PlusCircle className="w-4 h-4" />
             <span>Cadastrar Novo Imóvel (Comercial / Residencial)</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('owners')}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+              activeTab === 'owners'
+                ? 'tech-btn-primary'
+                : 'tech-btn-secondary text-slate-300'
+            }`}
+          >
+            <UserCheck className="w-4 h-4" />
+            <span>Proprietários Cadastrados ({owners.length})</span>
           </button>
 
           <button
@@ -1698,33 +1807,108 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                 {/* Section B: DADOS DO PROPRIETÁRIO (EXCLUSIVO ADMINISTRADOR) */}
                 <div className="pt-4">
-                  <div className="flex items-center gap-2 mb-3 pb-1 border-b border-[#D4AF37]/30">
-                    <Lock className="w-4 h-4 text-[#D4AF37]" />
-                    <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-[#E5C378]">
-                      PARTE 2: DADOS DO PROPRIETÁRIO (SOMENTE ADMINISTRADOR VERÁ)
-                    </h4>
+                  <div className="flex items-center justify-between gap-2 mb-3 pb-1 border-b border-[#D4AF37]/30">
+                    <div className="flex items-center gap-2">
+                      <Lock className="w-4 h-4 text-[#D4AF37]" />
+                      <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-[#E5C378]">
+                        PARTE 2: DADOS DO PROPRIETÁRIO (SOMENTE ADMINISTRADOR VERÁ)
+                      </h4>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('owners')}
+                      className="text-[11px] font-mono text-[#ECC97E] hover:text-white flex items-center gap-1 cursor-pointer"
+                    >
+                      <UserCheck className="w-3.5 h-3.5" />
+                      <span>Gerenciar Proprietários ({owners.length})</span>
+                    </button>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                    <div>
-                      <label className="block text-[11px] font-mono text-slate-300 mb-1">NOME DO PROPRIETÁRIO *</label>
-                      <input
-                        type="text"
-                        value={newProp.ownerName || ''}
-                        onChange={(e) => setNewProp({ ...newProp, ownerName: e.target.value })}
-                        placeholder="Ex: Carlos Albuquerque"
-                        className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs"
-                      />
+                    {/* 1. NOME DO PROPRIETÁRIO COM SELETOR DOS CADASTRADOS */}
+                    <div className="sm:col-span-1">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-mono text-slate-300 font-bold flex items-center gap-1.5">
+                          <User className="w-3.5 h-3.5 text-[#D4AF37]" />
+                          <span>NOME DO PROPRIETÁRIO *</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setIsCustomOwnerNew(!isCustomOwnerNew)}
+                          className="text-[10px] font-mono text-[#ECC97E] hover:underline cursor-pointer"
+                        >
+                          {isCustomOwnerNew ? '« Escolher da Lista' : '+ Digitar outro'}
+                        </button>
+                      </div>
+
+                      {!isCustomOwnerNew ? (
+                        <select
+                          value={
+                            owners.some((o) => o.name === newProp.ownerName)
+                              ? owners.find((o) => o.name === newProp.ownerName)?.id
+                              : ''
+                          }
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === 'custom') {
+                              setIsCustomOwnerNew(true);
+                              return;
+                            }
+                            const selected = owners.find((o) => o.id === val);
+                            if (selected) {
+                              setNewProp((prev) => ({
+                                ...prev,
+                                ownerName: selected.name,
+                                ownerPhone: selected.phone || prev.ownerPhone,
+                                ownerEmail: selected.email || prev.ownerEmail,
+                                ownerDocument: selected.document || prev.ownerDocument,
+                                ownerBankDetails: selected.bankDetails || prev.ownerBankDetails,
+                                ownerMinNegotiationValue: selected.minNegotiationValue || prev.ownerMinNegotiationValue,
+                              }));
+                            } else {
+                              setNewProp((prev) => ({
+                                ...prev,
+                                ownerName: '',
+                              }));
+                            }
+                          }}
+                          className="w-full bg-[#0B163B] border border-[#D4AF37]/50 text-white rounded-xl px-3 py-2 text-xs font-semibold focus:ring-1 focus:ring-[#D4AF37] cursor-pointer"
+                        >
+                          <option value="">-- Selecione o Proprietário Cadastrado --</option>
+                          {owners.map((o) => (
+                            <option key={o.id} value={o.id}>
+                              {o.name} {o.document ? `· ${o.document}` : ''}
+                            </option>
+                          ))}
+                          <option value="custom">&#x270E; Digitar outro proprietário manualmente...</option>
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          value={newProp.ownerName || ''}
+                          onChange={(e) => setNewProp({ ...newProp, ownerName: e.target.value })}
+                          placeholder="Digite o nome completo do proprietário..."
+                          className="w-full bg-[#0B163B] border border-[#D4AF37]/50 text-white rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                          autoFocus
+                        />
+                      )}
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-mono text-slate-300 mb-1">TELEFONE / WHATSAPP *</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-mono text-slate-300 font-bold">TELEFONE / WHATSAPP *</label>
+                        {owners.some((o) => o.name === newProp.ownerName) && (
+                          <span className="text-[10px] font-mono text-emerald-400 font-semibold">
+                            ✓ Preenchido Automaticamente
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="text"
                         value={newProp.ownerPhone || ''}
                         onChange={(e) => setNewProp({ ...newProp, ownerPhone: e.target.value })}
                         placeholder="Ex: +55 (41) 99999-8888"
-                        className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs"
+                        className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs font-mono"
                       />
                     </div>
 
@@ -1983,6 +2167,224 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
               </form>
             </div>
+          </div>
+        )}
+
+        {/* TAB: GESTÃO COMPLETA DE PROPRIETÁRIOS CADASTRADOS */}
+        {activeTab === 'owners' && (
+          <div className="py-6 flex-1 space-y-6">
+            {/* Feedback Alert */}
+            {ownerFeedback && (
+              <div
+                className={`p-4 rounded-2xl flex items-center justify-between text-xs font-mono border animate-fadeIn ${
+                  ownerFeedback.type === 'success'
+                    ? 'bg-emerald-950/80 border-emerald-500/50 text-emerald-300'
+                    : 'bg-red-950/80 border-red-500/50 text-red-300'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {ownerFeedback.type === 'success' ? (
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                  )}
+                  <span>{ownerFeedback.message}</span>
+                </div>
+                <button
+                  onClick={() => setOwnerFeedback(null)}
+                  className="p-1 text-slate-400 hover:text-white cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {/* Header with Title and Add Owner Action */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#070F26] p-5 rounded-3xl border border-[#D4AF37]/30 shadow-xl">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base sm:text-lg font-extrabold text-white">
+                    Proprietários Cadastrados ({owners.length})
+                  </h3>
+                  <span className="text-[10px] font-mono bg-[#0B163B] text-[#E5C378] border border-[#D4AF37]/35 px-2.5 py-0.5 rounded-full">
+                    Confidencial · Restrito Admin
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1 max-w-2xl font-sans">
+                  Cadastre e mantenha os dados confidenciais dos proprietários (contatos, documentos, dados bancários e margem mínima de negociação).
+                  Ao cadastrar ou editar um imóvel, você poderá selecioná-los para preenchimento automático.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleOpenCreateOwner}
+                className="tech-btn-primary inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-[#050B1A] shrink-0 shadow-lg cursor-pointer"
+              >
+                <PlusCircle className="w-4 h-4 text-[#050B1A]" />
+                <span>Cadastrar Novo Proprietário</span>
+              </button>
+            </div>
+
+            {/* List of Owners */}
+            {owners.length === 0 ? (
+              <div className="text-center py-12 bg-[#070F26] rounded-3xl border border-white/10 p-6">
+                <UserCheck className="w-12 h-12 text-[#D4AF37]/50 mx-auto mb-3" />
+                <h4 className="text-sm font-bold text-white">Nenhum proprietário cadastrado</h4>
+                <p className="text-xs text-slate-400 mt-1 mb-4">
+                  Clique no botão acima para registrar o primeiro proprietário com dados completos.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleOpenCreateOwner}
+                  className="tech-btn-primary px-4 py-2 rounded-xl text-xs font-bold text-[#050B1A] cursor-pointer"
+                >
+                  Cadastrar Proprietário Agora
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {owners.map((owner) => {
+                  const linkedPropsCount = properties.filter(
+                    (p) => p.ownerName && p.ownerName.toLowerCase() === owner.name.toLowerCase()
+                  ).length;
+                  const initials = owner.name
+                    .split(' ')
+                    .map((n) => n[0])
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .join('')
+                    .toUpperCase();
+
+                  return (
+                    <div
+                      key={owner.id}
+                      className="bg-[#070F26] rounded-3xl p-5 border border-[#D4AF37]/30 shadow-lg hover:border-[#D4AF37]/60 transition-all flex flex-col justify-between space-y-4 group"
+                    >
+                      <div>
+                        {/* Top Profile Strip */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#0B163B] to-[#12235E] border-2 border-[#D4AF37]/50 flex items-center justify-center text-sm font-extrabold text-[#ECC97E] shadow-md shrink-0">
+                              {initials}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <h4 className="text-sm font-bold text-white group-hover:text-[#ECC97E] transition-colors">
+                                  {owner.name}
+                                </h4>
+                              </div>
+                              {owner.document ? (
+                                <span className="text-[11px] font-mono text-[#E5C378] block">
+                                  Doc: {owner.document}
+                                </span>
+                              ) : (
+                                <span className="text-[11px] font-mono text-slate-400 block">
+                                  Proprietário Pessoa Física/Jurídica
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditOwner(owner)}
+                              className="p-1.5 rounded-lg bg-[#0B163B] hover:bg-[#12235E] border border-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                              title="Editar Dados do Proprietário"
+                            >
+                              <Edit className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteOwner(owner.id, owner.name)}
+                              className="p-1.5 rounded-lg bg-red-950/70 hover:bg-red-900 border border-red-500/30 text-red-300 hover:text-white transition-colors cursor-pointer"
+                              title="Excluir Proprietário"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Details Badges */}
+                        <div className="mt-4 space-y-2 text-xs">
+                          <div className="flex items-center gap-2 text-emerald-400 font-mono">
+                            <Phone className="w-3.5 h-3.5 shrink-0" />
+                            <a
+                              href={`https://wa.me/${owner.phone.replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="hover:underline truncate"
+                              title="Conversar no WhatsApp"
+                            >
+                              {owner.phone}
+                            </a>
+                          </div>
+
+                          {owner.email && (
+                            <div className="flex items-center gap-2 text-slate-300 font-mono">
+                              <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              <a
+                                href={`mailto:${owner.email}`}
+                                className="hover:underline truncate"
+                                title="Enviar E-mail"
+                              >
+                                {owner.email}
+                              </a>
+                            </div>
+                          )}
+
+                          {owner.minNegotiationValue && (
+                            <div className="flex items-start gap-2 text-[#E5C378] font-mono">
+                              <DollarSign className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                              <span className="text-[11px] leading-tight">Mínimo: {owner.minNegotiationValue}</span>
+                            </div>
+                          )}
+
+                          {owner.bankDetails && (
+                            <div className="p-2.5 rounded-xl bg-[#050B1A] border border-white/10 text-[11px] text-slate-300 font-mono leading-relaxed">
+                              <div className="flex items-center gap-1.5 text-slate-400 mb-1 font-semibold uppercase text-[10px]">
+                                <CreditCard className="w-3 h-3 text-[#D4AF37]" />
+                                <span>Dados Bancários / PIX:</span>
+                              </div>
+                              <p className="line-clamp-2">{owner.bankDetails}</p>
+                            </div>
+                          )}
+
+                          {owner.notes && (
+                            <div className="p-2.5 rounded-xl bg-[#0B163B]/60 border border-amber-500/20 text-[11px] text-amber-200/90 leading-relaxed">
+                              <div className="flex items-center gap-1.5 text-amber-400 mb-1 font-semibold uppercase text-[10px]">
+                                <FileText className="w-3 h-3" />
+                                <span>Notas Internas:</span>
+                              </div>
+                              <p className="line-clamp-2">{owner.notes}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Footer Info */}
+                      <div className="pt-3 border-t border-white/10 flex items-center justify-between text-[11px] font-mono text-slate-400">
+                        <span className="text-slate-300">
+                          {linkedPropsCount > 0 ? (
+                            <strong className="text-[#ECC97E]">{linkedPropsCount} imóvel(is) cadastrado(s)</strong>
+                          ) : (
+                            'Nenhum imóvel vinculado'
+                          )}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditOwner(owner)}
+                          className="text-[#D4AF37] hover:underline font-semibold cursor-pointer"
+                        >
+                          Editar &rarr;
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -3181,21 +3583,88 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </div>
 
                     <div className="p-4 rounded-2xl bg-[#0B163B]/70 border border-[#D4AF37]/30 space-y-3">
-                      <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#E5C378] block">
-                        Dados do Proprietário
-                      </span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#E5C378]">
+                          Dados do Proprietário
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-400">
+                          {owners.length} proprietários cadastrados
+                        </span>
+                      </div>
+
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
-                          <label className="block text-[11px] font-mono text-slate-300 mb-1">NOME DO PROPRIETÁRIO</label>
-                          <input
-                            type="text"
-                            value={editingProperty.ownerName || ''}
-                            onChange={(e) => setEditingProperty({ ...editingProperty, ownerName: e.target.value })}
-                            className="w-full bg-[#050B1A] border border-white/15 text-white rounded-xl px-3 py-2 text-xs"
-                          />
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-[11px] font-mono text-slate-300 font-bold flex items-center gap-1">
+                              <User className="w-3.5 h-3.5 text-[#D4AF37]" />
+                              <span>PROPRIETÁRIO *</span>
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setIsCustomOwnerEdit(!isCustomOwnerEdit)}
+                              className="text-[10px] font-mono text-[#ECC97E] hover:underline cursor-pointer"
+                            >
+                              {isCustomOwnerEdit ? '« Escolher da Lista' : '+ Digitar outro'}
+                            </button>
+                          </div>
+
+                          {!isCustomOwnerEdit ? (
+                            <select
+                              value={
+                                owners.some((o) => o.name === editingProperty.ownerName)
+                                  ? owners.find((o) => o.name === editingProperty.ownerName)?.id
+                                  : ''
+                              }
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === 'custom') {
+                                  setIsCustomOwnerEdit(true);
+                                  return;
+                                }
+                                const selected = owners.find((o) => o.id === val);
+                                if (selected && editingProperty) {
+                                  setEditingProperty({
+                                    ...editingProperty,
+                                    ownerName: selected.name,
+                                    ownerPhone: selected.phone || editingProperty.ownerPhone,
+                                    ownerEmail: selected.email || editingProperty.ownerEmail,
+                                    ownerDocument: selected.document || editingProperty.ownerDocument,
+                                    ownerBankDetails: selected.bankDetails || editingProperty.ownerBankDetails,
+                                    ownerMinNegotiationValue: selected.minNegotiationValue || editingProperty.ownerMinNegotiationValue,
+                                  });
+                                }
+                              }}
+                              className="w-full bg-[#050B1A] border border-[#D4AF37]/50 text-white rounded-xl px-3 py-2 text-xs font-semibold focus:ring-1 focus:ring-[#D4AF37] cursor-pointer"
+                            >
+                              <option value="">-- Selecione o Proprietário Cadastrado --</option>
+                              {owners.map((o) => (
+                                <option key={o.id} value={o.id}>
+                                  {o.name} {o.document ? `· ${o.document}` : ''}
+                                </option>
+                              ))}
+                              <option value="custom">&#x270E; Digitar outro proprietário manualmente...</option>
+                            </select>
+                          ) : (
+                            <input
+                              type="text"
+                              value={editingProperty.ownerName || ''}
+                              onChange={(e) => setEditingProperty({ ...editingProperty, ownerName: e.target.value })}
+                              placeholder="Digite o nome do proprietário..."
+                              className="w-full bg-[#050B1A] border border-[#D4AF37]/50 text-white rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                              autoFocus
+                            />
+                          )}
                         </div>
+
                         <div>
-                          <label className="block text-[11px] font-mono text-slate-300 mb-1">TELEFONE / WHATSAPP</label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-[11px] font-mono text-slate-300 mb-1">TELEFONE / WHATSAPP</label>
+                            {owners.some((o) => o.name === editingProperty.ownerName) && (
+                              <span className="text-[10px] font-mono text-emerald-400 font-semibold">
+                                ✓ Vinculado
+                              </span>
+                            )}
+                          </div>
                           <input
                             type="text"
                             value={editingProperty.ownerPhone || ''}
@@ -3203,6 +3672,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             className="w-full bg-[#050B1A] border border-white/15 text-emerald-400 font-mono rounded-xl px-3 py-2 text-xs"
                           />
                         </div>
+
                         <div>
                           <label className="block text-[11px] font-mono text-slate-300 mb-1">E-MAIL</label>
                           <input
@@ -3578,6 +4048,162 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   >
                     <Save className="w-4 h-4 text-[#050B1A]" />
                     <span>{isSavingRealtor ? 'Salvando...' : editingRealtor ? 'Salvar Alterações' : 'Cadastrar Corretor'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE CADASTRO / EDIÇÃO DE PROPRIETÁRIO */}
+        {isOwnerModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#050B1A]/85 backdrop-blur-md animate-in fade-in duration-200"
+            onClick={() => setIsOwnerModalOpen(false)}
+          >
+            <div
+              className="relative w-full max-w-xl bg-[#070F26] text-white rounded-3xl shadow-[0_25px_70px_rgba(0,0,0,0.85)] overflow-hidden flex flex-col border border-[#D4AF37]/50"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-5 border-b border-[#D4AF37]/30 bg-[#050B1A]">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#0B163B] border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37] shrink-0">
+                    <UserCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-white">
+                      {editingOwner ? `Editar Proprietário · ${editingOwner.name}` : 'Cadastrar Novo Proprietário'}
+                    </h3>
+                    <p className="text-[11px] text-slate-400 font-sans mt-0.5">
+                      Fica disponível imediatamente para seleção e preenchimento automático em qualquer imóvel.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsOwnerModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-[#070F26] hover:bg-[#0B163B] border border-white/10 text-white flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4 text-[#D4AF37]" />
+                </button>
+              </div>
+
+              {/* Form Body */}
+              <form onSubmit={handleSaveOwnerForm} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                    NOME COMPLETO DO PROPRIETÁRIO (OU RAZÃO SOCIAL) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={ownerFormData.name || ''}
+                    onChange={(e) => setOwnerFormData({ ...ownerFormData, name: e.target.value })}
+                    placeholder="Ex: Carlos Eduardo Albuquerque ou Inversiones Santa Teresa"
+                    className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      TELEFONE / WHATSAPP *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={ownerFormData.phone || ''}
+                      onChange={(e) => setOwnerFormData({ ...ownerFormData, phone: e.target.value })}
+                      placeholder="+55 (41) 99999-8888"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-emerald-400 rounded-xl px-3.5 py-2 text-xs font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      E-MAIL
+                    </label>
+                    <input
+                      type="email"
+                      value={ownerFormData.email || ''}
+                      onChange={(e) => setOwnerFormData({ ...ownerFormData, email: e.target.value })}
+                      placeholder="proprietario@email.com"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      DOCUMENTO (CPF / CNPJ / RUC / EIN)
+                    </label>
+                    <input
+                      type="text"
+                      value={ownerFormData.document || ''}
+                      onChange={(e) => setOwnerFormData({ ...ownerFormData, document: e.target.value })}
+                      placeholder="Ex: CPF 123.456.789-00 ou CNPJ..."
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      VALOR MÍNIMO DE NEGOCIAÇÃO
+                    </label>
+                    <input
+                      type="text"
+                      value={ownerFormData.minNegotiationValue || ''}
+                      onChange={(e) => setOwnerFormData({ ...ownerFormData, minNegotiationValue: e.target.value })}
+                      placeholder="Ex: Não aceita menos que R$ 4.500.000 à vista"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-[#E5C378] rounded-xl px-3.5 py-2 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                    DADOS BANCÁRIOS / CHAVE PIX PARA REPASSE
+                  </label>
+                  <input
+                    type="text"
+                    value={ownerFormData.bankDetails || ''}
+                    onChange={(e) => setOwnerFormData({ ...ownerFormData, bankDetails: e.target.value })}
+                    placeholder="Ex: Banco Itaú Ag 1234 CC 56789-0 | Chave PIX: 41999998888"
+                    className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                    OBSERVAÇÕES CONFIDENCIAIS / PREFERÊNCIAS DE NEGOCIAÇÃO
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={ownerFormData.notes || ''}
+                    onChange={(e) => setOwnerFormData({ ...ownerFormData, notes: e.target.value })}
+                    placeholder="Notas confidenciais sobre autorização de venda, histórico de propostas, horários para visita..."
+                    className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl p-3 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setIsOwnerModalOpen(false)}
+                    className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-400 hover:text-white cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingOwner}
+                    className="tech-btn-primary inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-[#050B1A] cursor-pointer disabled:opacity-50"
+                  >
+                    <Save className="w-4 h-4 text-[#050B1A]" />
+                    <span>{isSavingOwner ? 'Salvando...' : editingOwner ? 'Salvar Alterações' : 'Cadastrar Proprietário'}</span>
                   </button>
                 </div>
               </form>
