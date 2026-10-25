@@ -46,7 +46,13 @@ import {
   Layers,
   Sliders,
   Eye,
+  QrCode,
+  Share2,
+  Send,
+  Copy,
+  Check,
 } from 'lucide-react';
+import QRCode from 'qrcode';
 import {
   Property,
   PropertyType,
@@ -66,6 +72,10 @@ import {
   TechEffectType,
   TeamMember,
   INITIAL_TEAM_MEMBERS,
+  GoogleReviewConfig,
+  GoogleReviewTemplate,
+  INITIAL_GOOGLE_REVIEW_CONFIG,
+  INITIAL_GOOGLE_REVIEW_TEMPLATES,
 } from '../types/property';
 import {
   saveProperty,
@@ -93,8 +103,11 @@ import {
   saveTeamMember,
   deleteTeamMember,
   subscribeToTeamMembers,
+  fetchGoogleReviewConfig,
+  saveGoogleReviewConfig,
+  subscribeToGoogleReviewConfig,
 } from '../services/propertyService';
-import { COMPANY_INFO } from '../utils/whatsapp';
+import { COMPANY_INFO, getWhatsAppLink } from '../utils/whatsapp';
 import { updateAdminPassword } from '../utils/security';
 import { isValidYouTubeUrl, getYouTubeEmbedUrl } from '../utils/youtube';
 import { isValid360Url, get360EmbedUrl, detect360Provider, parse360Tour, is360ImageSource } from '../utils/virtualTour360';
@@ -109,7 +122,7 @@ interface AdminPanelProps {
   onClose: () => void;
   onLogout: () => void;
   onRefreshData: () => void;
-  initialTab?: 'properties' | 'new' | 'owners' | 'condos' | 'realtors' | 'team' | 'leads' | 'segments' | 'security';
+  initialTab?: 'properties' | 'new' | 'owners' | 'condos' | 'realtors' | 'team' | 'leads' | 'segments' | 'security' | 'googleReviews';
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -121,7 +134,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onRefreshData,
   initialTab,
 }) => {
-  const [activeTab, setActiveTab] = useState<'properties' | 'new' | 'owners' | 'condos' | 'realtors' | 'team' | 'leads' | 'segments' | 'security'>(initialTab || 'properties');
+  const [activeTab, setActiveTab] = useState<'properties' | 'new' | 'owners' | 'condos' | 'realtors' | 'team' | 'leads' | 'segments' | 'security' | 'googleReviews'>(initialTab || 'properties');
   const [searchFilter, setSearchFilter] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'residencial' | 'comercial'>('all');
 
@@ -154,6 +167,104 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     });
     return () => unsubscribe();
   }, []);
+
+  // Google Reviews & Direct Client Dispatch State
+  const [googleConfig, setGoogleConfig] = useState<GoogleReviewConfig>(INITIAL_GOOGLE_REVIEW_CONFIG);
+  const [isSavingGoogleConfig, setIsSavingGoogleConfig] = useState(false);
+  const [googleConfigFeedback, setGoogleConfigFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [clientDispatchName, setClientDispatchName] = useState('');
+  const [clientDispatchPhone, setClientDispatchPhone] = useState('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('tmpl_compra_venda');
+  const [customDispatchMessage, setCustomDispatchMessage] = useState<string>('');
+  const [isCopiedMsg, setIsCopiedMsg] = useState(false);
+  const [isCopiedLink, setIsCopiedLink] = useState(false);
+  const [adminQrCodeDataUrl, setAdminQrCodeDataUrl] = useState<string>('');
+
+  useEffect(() => {
+    fetchGoogleReviewConfig().then(setGoogleConfig);
+    const unsubscribe = subscribeToGoogleReviewConfig((cfg) => {
+      setGoogleConfig(cfg);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Sync QR code when googleConfig.reviewUrl changes
+  useEffect(() => {
+    if (googleConfig.reviewUrl) {
+      QRCode.toDataURL(googleConfig.reviewUrl, {
+        width: 320,
+        margin: 2,
+        color: {
+          dark: '#050B1A',
+          light: '#FFFFFF',
+        },
+      })
+        .then(setAdminQrCodeDataUrl)
+        .catch((err) => console.error('Erro ao gerar QR Code do Google Review:', err));
+    }
+  }, [googleConfig.reviewUrl]);
+
+  // Update message preview when template, client name, or review URL changes
+  useEffect(() => {
+    const tmpl = googleConfig.templates?.find((t) => t.id === selectedTemplateId) || googleConfig.templates?.[0] || INITIAL_GOOGLE_REVIEW_CONFIG.templates[0];
+    if (tmpl) {
+      const name = clientDispatchName.trim() || 'Cliente';
+      const formatted = tmpl.text
+        .replace(/\{NOME\}/g, name)
+        .replace(/\{LINK\}/g, googleConfig.reviewUrl);
+      setCustomDispatchMessage(formatted);
+    }
+  }, [selectedTemplateId, clientDispatchName, googleConfig.reviewUrl, googleConfig.templates]);
+
+  const handleSendWhatsAppReview = () => {
+    const cleanPhone = clientDispatchPhone.replace(/\D/g, '');
+    const encoded = encodeURIComponent(customDispatchMessage.trim());
+    if (cleanPhone) {
+      const fullPhone = cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
+      window.open(`https://wa.me/${fullPhone}?text=${encoded}`, '_blank');
+    } else {
+      window.open(`https://wa.me/?text=${encoded}`, '_blank');
+    }
+  };
+
+  const handleCopyReviewMessage = () => {
+    navigator.clipboard.writeText(customDispatchMessage);
+    setIsCopiedMsg(true);
+    setTimeout(() => setIsCopiedMsg(false), 2500);
+  };
+
+  const handleCopyReviewLink = () => {
+    navigator.clipboard.writeText(googleConfig.reviewUrl);
+    setIsCopiedLink(true);
+    setTimeout(() => setIsCopiedLink(false), 2500);
+  };
+
+  const handleSaveGoogleReviewConfig = async () => {
+    setIsSavingGoogleConfig(true);
+    setGoogleConfigFeedback(null);
+    try {
+      await saveGoogleReviewConfig(googleConfig);
+      setGoogleConfigFeedback({
+        type: 'success',
+        message: 'Link de Avaliação do Google e parâmetros atualizados com sucesso no Firestore!',
+      });
+      setTimeout(() => setGoogleConfigFeedback(null), 4000);
+    } catch (err: any) {
+      setGoogleConfigFeedback({
+        type: 'error',
+        message: err.message || 'Falha ao salvar link de avaliação.',
+      });
+    } finally {
+      setIsSavingGoogleConfig(false);
+    }
+  };
+
+  const handleQuickDispatchFromLead = (lead: LeadSubmission) => {
+    setClientDispatchName(lead.name || '');
+    setClientDispatchPhone(lead.phone || '');
+    setSelectedTemplateId('tmpl_pos_visita');
+    setActiveTab('googleReviews');
+  };
 
   // Homepage Segments 01 & 02 State & Listener
   const [segmentsConfig, setSegmentsConfig] = useState<HomepageSegmentsConfig>(INITIAL_HOMEPAGE_SEGMENTS);
@@ -1536,6 +1647,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           >
             <Sparkles className="w-4 h-4 text-[#D4AF37]" />
             <span>Segmentos 01 & 02 (Página Inicial)</span>
+          </button>
+
+          {/* New Tab: Avaliações Google & Disparo para Clientes */}
+          <button
+            onClick={() => setActiveTab('googleReviews')}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+              activeTab === 'googleReviews'
+                ? 'tech-btn-primary shadow-[0_0_20px_rgba(212,175,55,0.4)]'
+                : 'tech-btn-secondary text-slate-300'
+            }`}
+          >
+            <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+            <span>Avaliações Google & Disparo</span>
           </button>
 
           <button
@@ -3643,6 +3767,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         </div>
                       )}
                     </div>
+
+                    {/* Quick WhatsApp Google Review Dispatch */}
+                    <div className="pt-3 border-t border-white/10 flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => handleQuickDispatchFromLead(lead)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 text-xs font-semibold transition-all cursor-pointer"
+                        title="Abrir gerador de mensagem para avaliação no Google"
+                      >
+                        <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                        <span>Pedir Avaliação no Google via WhatsApp</span>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -5141,6 +5278,405 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           </div>
         )}
+
+        {/* TAB: GOOGLE REVIEWS & DIRECT CLIENT DISPATCH */}
+        {activeTab === 'googleReviews' && (
+          <div className="py-6 flex-1 max-w-6xl mx-auto w-full space-y-6 animate-in fade-in duration-200">
+            {/* Header with Title and Live Google Badge */}
+            <div className="flex flex-wrap items-center justify-between gap-4 pb-5 border-b border-[#D4AF37]/25">
+              <div>
+                <div className="inline-flex items-center gap-2 text-xs font-mono font-semibold tracking-wider uppercase text-[#D4AF37] mb-1 px-3 py-0.5 rounded-full bg-[#070F26] border border-[#D4AF37]/35">
+                  <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                  <span>GOOGLE MEU NEGÓCIO · REPUTAÇÃO E AVALIAÇÕES</span>
+                </div>
+                <h3 className="text-2xl font-extrabold text-white">
+                  Disparo de Avaliações no Google para Clientes
+                </h3>
+                <p className="text-xs text-slate-300 mt-1 max-w-3xl leading-relaxed">
+                  Envie solicitações personalizadas via WhatsApp para que compradores, proprietários, inquilinos e condôminos avaliem a <strong>Bratu Imobiliária & Administradora LTDA</strong> direto no Google. Configure também o link oficial e baixe o QR Code de balcão.
+                </p>
+              </div>
+
+              {/* Google Verified Score Badge */}
+              <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#070F26] border border-[#D4AF37]/40 shadow-lg">
+                <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 p-2 flex items-center justify-center shrink-0">
+                  <svg className="w-6 h-6" viewBox="0 0 24 24">
+                    <path
+                      fill="#4285F4"
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    />
+                    <path
+                      fill="#34A853"
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    />
+                    <path
+                      fill="#FBBC05"
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                    />
+                    <path
+                      fill="#EA4335"
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="flex items-center text-amber-400">
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <Star key={i} className="w-3.5 h-3.5 fill-amber-400" />
+                      ))}
+                    </div>
+                    <span className="text-white font-bold text-xs">{googleConfig.averageRating.toFixed(1)}</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
+                    {googleConfig.totalReviewsCount}+ avaliações registradas
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Notification Banner */}
+            {googleConfigFeedback && (
+              <div
+                className={`p-4 rounded-2xl border text-xs flex items-center justify-between gap-3 animate-in fade-in ${
+                  googleConfigFeedback.type === 'success'
+                    ? 'bg-emerald-950/80 border-emerald-500/50 text-emerald-200'
+                    : 'bg-red-950/80 border-red-500/50 text-red-200'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  {googleConfigFeedback.type === 'success' ? (
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                  )}
+                  <span className="font-medium">{googleConfigFeedback.message}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setGoogleConfigFeedback(null)}
+                  className="text-slate-400 hover:text-white cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Main Content Layout: Left = WhatsApp Dispatcher, Right = QR Code & Settings */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* LEFT COLUMN: DISPATCHER (SPAN 7) */}
+              <div className="lg:col-span-7 space-y-6">
+                <div className="bg-[#070F26] rounded-3xl border border-[#D4AF37]/35 p-6 shadow-xl space-y-5">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
+                        <Send className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-white">
+                          Disparador Direto para o Cliente via WhatsApp
+                        </h4>
+                        <span className="text-[11px] text-slate-400">
+                          Preencha os dados e dispare a mensagem formatada em 1 clique
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Client Info Inputs */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-mono text-slate-300 mb-1 font-semibold">
+                        NOME DO CLIENTE
+                      </label>
+                      <input
+                        type="text"
+                        value={clientDispatchName}
+                        onChange={(e) => setClientDispatchName(e.target.value)}
+                        placeholder="Ex: Dr. Carlos Eduardo ou Mariana"
+                        className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-mono text-slate-300 mb-1 font-semibold">
+                        WHATSAPP / TELEFONE DO CLIENTE
+                      </label>
+                      <input
+                        type="text"
+                        value={clientDispatchPhone}
+                        onChange={(e) => setClientDispatchPhone(e.target.value)}
+                        placeholder="Ex: (41) 99123-4567 ou 5541991234567"
+                        className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Template Selector Pills */}
+                  <div>
+                    <label className="block text-[11px] font-mono text-[#E5C378] mb-2 font-bold">
+                      SELECIONE O MOMENTO / MODELO DE MENSAGEM:
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {(googleConfig.templates || INITIAL_GOOGLE_REVIEW_TEMPLATES).map((tmpl) => (
+                        <button
+                          key={tmpl.id}
+                          type="button"
+                          onClick={() => setSelectedTemplateId(tmpl.id)}
+                          className={`p-3 rounded-xl text-left border transition-all cursor-pointer ${
+                            selectedTemplateId === tmpl.id
+                              ? 'bg-gradient-to-r from-[#0B163B] to-[#12235E] border-[#D4AF37] text-white shadow-md'
+                              : 'bg-[#050B1A] border-white/10 hover:border-white/20 text-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-bold truncate">{tmpl.title}</span>
+                            {selectedTemplateId === tmpl.id && (
+                              <Check className="w-3.5 h-3.5 text-[#ECC97E] shrink-0 ml-1" />
+                            )}
+                          </div>
+                          <p className="text-[10px] text-slate-400 line-clamp-1">
+                            {tmpl.description}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Message Preview (Editable Textarea) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[11px] font-mono text-slate-300 font-semibold">
+                        MENSAGEM QUE SERÁ ENVIADA (EDITÁVEL):
+                      </label>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {customDispatchMessage.length} caracteres
+                      </span>
+                    </div>
+                    <textarea
+                      rows={6}
+                      value={customDispatchMessage}
+                      onChange={(e) => setCustomDispatchMessage(e.target.value)}
+                      className="w-full bg-[#050B1A] border border-white/15 text-slate-200 rounded-xl p-3 text-xs font-sans leading-relaxed focus:ring-1 focus:ring-[#D4AF37]"
+                    />
+                  </div>
+
+                  {/* Dispatch Action Buttons */}
+                  <div className="pt-2 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleSendWhatsAppReview}
+                      className="flex-1 min-w-[200px] py-3 px-5 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-700 text-white font-bold text-xs flex items-center justify-center gap-2 hover:brightness-110 shadow-[0_0_20px_rgba(16,185,129,0.35)] transition-all cursor-pointer"
+                    >
+                      <Send className="w-4 h-4" />
+                      <span>Disparar via WhatsApp para o Cliente</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleCopyReviewMessage}
+                      className="px-4 py-3 rounded-xl bg-[#0B163B] hover:bg-[#12235E] border border-white/15 text-xs font-semibold text-slate-200 flex items-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      {isCopiedMsg ? (
+                        <>
+                          <Check className="w-4 h-4 text-emerald-400" />
+                          <span className="text-emerald-400">Copiada!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4 text-slate-300" />
+                          <span>Copiar Mensagem</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleCopyReviewLink}
+                      className="px-4 py-3 rounded-xl bg-[#0B163B] hover:bg-[#12235E] border border-white/15 text-xs font-semibold text-slate-200 flex items-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      {isCopiedLink ? (
+                        <>
+                          <Check className="w-4 h-4 text-emerald-400" />
+                          <span className="text-emerald-400">Link Copiado!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4 text-slate-300" />
+                          <span>Copiar Link</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Strategy & Best Practices for 5-Star Reviews */}
+                <div className="bg-[#070F26] rounded-3xl border border-white/10 p-5 space-y-3">
+                  <h5 className="text-xs font-mono font-bold uppercase text-[#E5C378] flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+                    <span>Dicas para Conquistar 100% de Avaliações 5 Estrelas no Google</span>
+                  </h5>
+                  <ul className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px] text-slate-300">
+                    <li className="p-3 rounded-xl bg-[#0B163B]/60 border border-white/5 space-y-1">
+                      <strong className="text-white block font-sans">1. Momento de Êxtase</strong>
+                      <span>Envie o link minutos após a entrega de chaves, assinatura de escritura ou fechamento da locação.</span>
+                    </li>
+                    <li className="p-3 rounded-xl bg-[#0B163B]/60 border border-white/5 space-y-1">
+                      <strong className="text-white block font-sans">2. Facilidade no Link</strong>
+                      <span>O link direto leva o cliente diretamente à tela de dar as 5 estrelas sem precisar pesquisar no Google.</span>
+                    </li>
+                    <li className="p-3 rounded-xl bg-[#0B163B]/60 border border-white/5 space-y-1">
+                      <strong className="text-white block font-sans">3. Responda em 24h</strong>
+                      <span>Sempre responda publicamente a cada review no Google agradecendo o nome do cliente e a parceria.</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN: QR CODE & SETTINGS (SPAN 5) */}
+              <div className="lg:col-span-5 space-y-6">
+                {/* QR Code Card */}
+                <div className="bg-[#070F26] rounded-3xl border border-[#D4AF37]/35 p-6 shadow-xl text-center space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/10 text-left">
+                    <div className="flex items-center gap-2">
+                      <QrCode className="w-4 h-4 text-[#D4AF37]" />
+                      <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-white">
+                        QR Code Oficial de Avaliação
+                      </h4>
+                    </div>
+                    <span className="text-[10px] font-mono text-[#E5C378] bg-[#0B163B] px-2 py-0.5 rounded border border-[#D4AF37]/30">
+                      Alta Definição
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-300 text-left leading-relaxed">
+                    Exiba este QR Code no balcão da imobiliária, pastas de entrega de chaves, envelopes contratuais ou cartões de visita.
+                  </p>
+
+                  <div className="inline-block p-4 bg-white rounded-2xl border-4 border-[#D4AF37]/50 shadow-[0_0_25px_rgba(212,175,55,0.2)]">
+                    {adminQrCodeDataUrl ? (
+                      <img
+                        src={adminQrCodeDataUrl}
+                        alt="QR Code Google Review Bratu"
+                        className="w-48 h-48 mx-auto object-contain rounded-lg"
+                      />
+                    ) : (
+                      <div className="w-48 h-48 flex items-center justify-center text-slate-800 text-xs font-mono">
+                        Gerando QR Code...
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-center gap-2 pt-1">
+                    {adminQrCodeDataUrl && (
+                      <a
+                        href={adminQrCodeDataUrl}
+                        download="Bratu-Imobiliaria-Google-Avaliacao-QRCode.png"
+                        className="tech-btn-primary px-4 py-2.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-md"
+                      >
+                        <Upload className="w-3.5 h-3.5 rotate-180 text-[#050B1A]" />
+                        <span>Baixar QR Code (PNG)</span>
+                      </a>
+                    )}
+
+                    <a
+                      href={googleConfig.reviewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2.5 rounded-xl bg-[#0B163B] hover:bg-[#12235E] border border-white/15 text-xs font-semibold text-slate-200 inline-flex items-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 text-[#ECC97E]" />
+                      <span>Testar Link</span>
+                    </a>
+                  </div>
+                </div>
+
+                {/* Google Configuration Settings Form */}
+                <div className="bg-[#070F26] rounded-3xl border border-[#D4AF37]/35 p-6 shadow-xl space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                    <div className="flex items-center gap-2">
+                      <Sliders className="w-4 h-4 text-[#D4AF37]" />
+                      <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-white">
+                        Configurações do Link Google
+                      </h4>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      LINK DE AVALIAÇÃO DO GOOGLE (URL) *
+                    </label>
+                    <input
+                      type="text"
+                      value={googleConfig.reviewUrl}
+                      onChange={(e) => setGoogleConfig({ ...googleConfig, reviewUrl: e.target.value })}
+                      placeholder="https://search.google.com/local/writereview?placeid=... ou https://g.page/r/..."
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3 py-2 text-xs font-mono select-all"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-1 block">
+                      Cole aqui a URL de avaliação do Google Meu Negócio / Maps da Bratu.
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      NOME COMERCIAL REGISTRADO NO GOOGLE
+                    </label>
+                    <input
+                      type="text"
+                      value={googleConfig.businessName}
+                      onChange={(e) => setGoogleConfig({ ...googleConfig, businessName: e.target.value })}
+                      placeholder="Bratu Imobiliária & Administradora LTDA"
+                      className="w-full bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-2 text-xs"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                        NOTA MÉDIA (ESTRELAS)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="1"
+                        max="5"
+                        value={googleConfig.averageRating}
+                        onChange={(e) => setGoogleConfig({ ...googleConfig, averageRating: Number(e.target.value) })}
+                        className="w-full bg-[#0B163B] border border-white/15 text-[#ECC97E] font-bold rounded-xl px-3 py-2 text-xs font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                        TOTAL DE AVALIAÇÕES
+                      </label>
+                      <input
+                        type="number"
+                        value={googleConfig.totalReviewsCount}
+                        onChange={(e) => setGoogleConfig({ ...googleConfig, totalReviewsCount: Number(e.target.value) })}
+                        className="w-full bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-2 text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={handleSaveGoogleReviewConfig}
+                      disabled={isSavingGoogleConfig}
+                      className="w-full tech-btn-primary py-2.5 px-4 rounded-xl text-xs font-bold text-[#050B1A] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      <Save className="w-4 h-4 text-[#050B1A]" />
+                      <span>{isSavingGoogleConfig ? 'Salvando no Firestore...' : 'Salvar Configurações no Banco de Dados'}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
 
         {/* MODAL DE EDIÇÃO COMPLETA DE QUALQUER IMÓVEL REGISTRADO */}
         {editingProperty && (

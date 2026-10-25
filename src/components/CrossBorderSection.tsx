@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { Globe2, ShieldCheck, Scale, Award, ArrowUpRight, Check, Landmark, DollarSign, Building } from 'lucide-react';
 import { getWhatsAppLink } from '../utils/whatsapp';
 
@@ -8,7 +9,14 @@ export const CrossBorderSection: React.FC = () => {
   );
 
   return (
-    <section id="brasil-paraguai" className="py-24 bg-[#050B1A] text-white relative overflow-hidden scroll-mt-14 border-b border-[#D4AF37]/20">
+    <motion.section
+      id="brasil-paraguai"
+      initial={{ opacity: 0, y: 40 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.15 }}
+      transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
+      className="py-24 bg-[#050B1A] text-white relative overflow-hidden scroll-mt-14 border-b border-[#D4AF37]/20"
+    >
       {/* Decorative architectural grid background */}
       <div className="absolute inset-0 tech-grid-pattern opacity-40 pointer-events-none" />
 
@@ -255,6 +263,6 @@ export const CrossBorderSection: React.FC = () => {
           </a>
         </div>
       </div>
-    </section>
+    </motion.section>
   );
 };

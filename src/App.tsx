@@ -62,7 +62,7 @@ export default function App() {
   });
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
-  const [adminInitialTab, setAdminInitialTab] = useState<'properties' | 'new' | 'owners' | 'condos' | 'realtors' | 'team' | 'leads' | 'segments' | 'security'>('properties');
+  const [adminInitialTab, setAdminInitialTab] = useState<'properties' | 'new' | 'owners' | 'condos' | 'realtors' | 'team' | 'leads' | 'segments' | 'security' | 'googleReviews'>('properties');
 
   // Periodically check session expiry
   useEffect(() => {

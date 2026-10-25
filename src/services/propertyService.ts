@@ -23,6 +23,8 @@ import {
   INITIAL_HOMEPAGE_SEGMENTS,
   TeamMember,
   INITIAL_TEAM_MEMBERS,
+  GoogleReviewConfig,
+  INITIAL_GOOGLE_REVIEW_CONFIG,
 } from '../types/property';
 import { PROPERTIES as INITIAL_PROPERTIES } from '../data/properties';
 
@@ -1066,4 +1068,111 @@ export async function deleteTeamMember(id: string): Promise<void> {
     console.error('Erro ao excluir membro da equipe:', err);
     throw new Error(err?.message || 'Falha ao excluir membro da equipe no Firestore.');
   }
+}
+
+// =========================================================================
+// GOOGLE REVIEWS CONFIGURATION & DIRECT CLIENT DISPATCH PERSISTENCE
+// =========================================================================
+const SETTINGS_COLLECTION = 'settings';
+const GOOGLE_REVIEW_DOC_ID = 'google_review';
+const GOOGLE_REVIEW_LOCAL_STORAGE_KEY = 'bratu_google_review_config_cache';
+
+export async function fetchGoogleReviewConfig(): Promise<GoogleReviewConfig> {
+  try {
+    const docRef = doc(db, SETTINGS_COLLECTION, GOOGLE_REVIEW_DOC_ID);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const data = snap.data() as GoogleReviewConfig;
+      const merged: GoogleReviewConfig = {
+        ...INITIAL_GOOGLE_REVIEW_CONFIG,
+        ...data,
+        templates: data.templates && data.templates.length > 0 ? data.templates : INITIAL_GOOGLE_REVIEW_CONFIG.templates,
+      };
+      try {
+        localStorage.setItem(GOOGLE_REVIEW_LOCAL_STORAGE_KEY, JSON.stringify(merged));
+      } catch (e) {
+        // ignore
+      }
+      return merged;
+    }
+  } catch (err) {
+    console.warn('Erro ao carregar configurações do Google Review do Firestore, tentando cache local:', err);
+  }
+
+  try {
+    const cached = localStorage.getItem(GOOGLE_REVIEW_LOCAL_STORAGE_KEY);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  return INITIAL_GOOGLE_REVIEW_CONFIG;
+}
+
+export async function saveGoogleReviewConfig(config: GoogleReviewConfig): Promise<void> {
+  const payload: GoogleReviewConfig = {
+    ...config,
+    updatedAt: new Date().toISOString(),
+  };
+
+  try {
+    const docRef = doc(db, SETTINGS_COLLECTION, GOOGLE_REVIEW_DOC_ID);
+    await setDoc(docRef, payload, { merge: true });
+    try {
+      localStorage.setItem(GOOGLE_REVIEW_LOCAL_STORAGE_KEY, JSON.stringify(payload));
+    } catch (e) {
+      // ignore
+    }
+  } catch (err: any) {
+    console.error('Erro ao persistir configurações do Google Review no Firestore:', err);
+    // Persist in localStorage regardless so client never loses changes
+    try {
+      localStorage.setItem(GOOGLE_REVIEW_LOCAL_STORAGE_KEY, JSON.stringify(payload));
+    } catch (e) {
+      // ignore
+    }
+    throw new Error(err?.message || 'Falha ao sincronizar com Firestore, salvo localmente.');
+  }
+}
+
+export function subscribeToGoogleReviewConfig(
+  callback: (config: GoogleReviewConfig) => void
+): () => void {
+  const docRef = doc(db, SETTINGS_COLLECTION, GOOGLE_REVIEW_DOC_ID);
+  return onSnapshot(
+    docRef,
+    (snap) => {
+      if (snap.exists()) {
+        const data = snap.data() as GoogleReviewConfig;
+        const merged: GoogleReviewConfig = {
+          ...INITIAL_GOOGLE_REVIEW_CONFIG,
+          ...data,
+          templates: data.templates && data.templates.length > 0 ? data.templates : INITIAL_GOOGLE_REVIEW_CONFIG.templates,
+        };
+        try {
+          localStorage.setItem(GOOGLE_REVIEW_LOCAL_STORAGE_KEY, JSON.stringify(merged));
+        } catch (e) {
+          // ignore
+        }
+        callback(merged);
+      } else {
+        callback(INITIAL_GOOGLE_REVIEW_CONFIG);
+      }
+    },
+    (err) => {
+      console.warn('Snapshot error para Google Review config, usando cache local:', err);
+      try {
+        const cached = localStorage.getItem(GOOGLE_REVIEW_LOCAL_STORAGE_KEY);
+        if (cached) {
+          callback(JSON.parse(cached));
+          return;
+        }
+      } catch (e) {
+        // ignore
+      }
+      callback(INITIAL_GOOGLE_REVIEW_CONFIG);
+    }
+  );
 }

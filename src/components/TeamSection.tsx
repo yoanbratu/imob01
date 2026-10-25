@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import {
   Users,
   Shield,
@@ -52,7 +53,14 @@ export const TeamSection: React.FC<TeamSectionProps> = ({
   };
 
   return (
-    <section id="equipe" className="py-24 bg-[#050B1A] text-white border-b border-[#D4AF37]/20 relative overflow-hidden">
+    <motion.section
+      id="equipe"
+      initial={{ opacity: 0, y: 40 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.15 }}
+      transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
+      className="py-24 bg-[#050B1A] text-white border-b border-[#D4AF37]/20 relative overflow-hidden"
+    >
       {/* Background Tech Elements */}
       <div className="absolute inset-0 tech-grid-pattern opacity-25 pointer-events-none" />
       <div className="absolute top-1/4 -left-32 w-96 h-96 bg-[#D4AF37]/5 rounded-full blur-3xl pointer-events-none" />
@@ -403,6 +411,6 @@ export const TeamSection: React.FC<TeamSectionProps> = ({
           </div>
         </div>
       )}
-    </section>
+    </motion.section>
   );
 };

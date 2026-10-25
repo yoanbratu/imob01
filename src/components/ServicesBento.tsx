@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { KeyRound, Shield, FileCheck, TrendingUp, CheckCircle2, ArrowRight, Sparkles } from 'lucide-react';
 import { getWhatsAppLink } from '../utils/whatsapp';
 
@@ -15,7 +16,14 @@ export const ServicesBento: React.FC<ServicesBentoProps> = ({ onOpenSellModal })
   };
 
   return (
-    <section id="servicos" className="py-24 bg-[#070F26] text-white border-y border-[#D4AF37]/20 scroll-mt-14 relative">
+    <motion.section
+      id="servicos"
+      initial={{ opacity: 0, y: 40 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.15 }}
+      transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
+      className="py-24 bg-[#070F26] text-white border-y border-[#D4AF37]/20 scroll-mt-14 relative"
+    >
       <div className="absolute inset-0 tech-grid-pattern opacity-30 pointer-events-none" />
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -231,6 +239,6 @@ export const ServicesBento: React.FC<ServicesBentoProps> = ({ onOpenSellModal })
           </div>
         </div>
       </div>
-    </section>
+    </motion.section>
   );
 };

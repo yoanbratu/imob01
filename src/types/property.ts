@@ -430,3 +430,109 @@ export const INITIAL_TEAM_MEMBERS: TeamMember[] = [
   },
 ];
 
+// Google Business Review Configuration & Dispatch Templates
+export interface GoogleReviewTemplate {
+  id: string;
+  title: string;
+  description: string;
+  category: 'visita' | 'compra' | 'locacao' | 'condominio' | 'curto';
+  text: string;
+}
+
+export interface GoogleReviewConfig {
+  reviewUrl: string;
+  placeId?: string;
+  businessName: string;
+  averageRating: number;
+  totalReviewsCount: number;
+  templates: GoogleReviewTemplate[];
+  updatedAt?: string;
+}
+
+export const INITIAL_GOOGLE_REVIEW_TEMPLATES: GoogleReviewTemplate[] = [
+  {
+    id: 'tmpl_compra_venda',
+    title: 'Pós-Fechamento de Negócio (Compra / Venda)',
+    description: 'Ideal para clientes que acabaram de adquirir ou vender um imóvel com a Bratu.',
+    category: 'compra',
+    text: `Olá {NOME}! É uma honra para toda a equipe da Bratu Imobiliária & Administradora LTDA ter participado dessa importante conquista patrimonial.
+
+Sua opinião sobre nosso atendimento e assessoria jurídica é fundamental para nós. Poderia nos dedicar 1 minuto para nos avaliar com 5 estrelas no Google?
+
+👉 Clique aqui para avaliar direto no Google:
+{LINK}
+
+Muito obrigado pela confiança!
+Equipe Bratu Imobiliária & Administradora LTDA`,
+  },
+  {
+    id: 'tmpl_pos_visita',
+    title: 'Pós-Visita e Atendimento aos Imóveis',
+    description: 'Para clientes que visitaram imóveis ou receberam consultoria de investimentos.',
+    category: 'visita',
+    text: `Olá {NOME}, tudo bem? Aqui é da Bratu Imobiliária & Administradora LTDA!
+
+Foi um grande prazer lhe apresentar as opções de imóveis e investimentos. Buscamos sempre proporcionar um atendimento transparente, técnico e de excelência.
+
+Você poderia deixar uma breve avaliação sobre a sua experiência conosco no Google? Leva menos de 1 minuto e nos ajuda bastante:
+
+⭐ Avaliar a Bratu no Google:
+{LINK}
+
+Agradecemos imensamente pela sua atenção!`,
+  },
+  {
+    id: 'tmpl_locacao',
+    title: 'Pós-Contrato de Locação Residencial / Corporativa',
+    description: 'Para proprietários e inquilinos que fecharam contrato de locação com agilidade.',
+    category: 'locacao',
+    text: `Prezado(a) {NOME},
+
+Parabéns pela assinatura do contrato de locação com a Bratu Imobiliária & Administradora LTDA! Nossa missão é garantir que toda a sua jornada seja ágil, segura e tranquila.
+
+Gostaríamos muito de contar com a sua avaliação no nosso perfil oficial do Google:
+
+⭐ Clique para avaliar no Google:
+{LINK}
+
+Conte conosco para o que precisar durante toda a sua permanência!`,
+  },
+  {
+    id: 'tmpl_condominio',
+    title: 'Gestão Patrimonial & Administração de Condomínios',
+    description: 'Para síndicos, condôminos e proprietários com imóveis sob administração contínua.',
+    category: 'condominio',
+    text: `Olá {NOME},
+
+A Bratu Imobiliária & Administradora LTDA preza pela transparência e pontualidade na gestão patrimonial e administração predial.
+
+Seu feedback no Google é essencial para mantermos nosso padrão de qualidade elevado. Poderia compartilhar sua experiência conosco?
+
+⭐ Deixe sua avaliação no Google:
+{LINK}
+
+Agradecemos a parceria e a confiança de sempre!`,
+  },
+  {
+    id: 'tmpl_curto',
+    title: 'Mensagem Rápida & Direta (WhatsApp)',
+    description: 'Mensagem objetiva para clientes ocupados que preferem rapidez.',
+    category: 'curto',
+    text: `Olá {NOME}! Sua opinião sobre a Bratu Imobiliária & Administradora LTDA é muito importante para nós. Se puder nos avaliar com 5 estrelas no Google, leva apenas 30 segundos:
+
+⭐ {LINK}
+
+Muito obrigado pelo apoio!`,
+  },
+];
+
+export const INITIAL_GOOGLE_REVIEW_CONFIG: GoogleReviewConfig = {
+  // Direct Google search/maps review link for Bratu Imobiliária & Administradora LTDA
+  reviewUrl: 'https://www.google.com/search?q=Bratu+Imobiliaria+%26+Administradora+LTDA#lrd=0x94dce4113291eb01:0x2249e98e82ef429,3,,,',
+  placeId: 'ChIJ0b55Mp_135QRKb3viI7pSSIi',
+  businessName: 'Bratu Imobiliária & Administradora LTDA',
+  averageRating: 5.0,
+  totalReviewsCount: 148,
+  templates: INITIAL_GOOGLE_REVIEW_TEMPLATES,
+};
+

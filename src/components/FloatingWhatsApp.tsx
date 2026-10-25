@@ -47,10 +47,10 @@ export const FloatingWhatsApp: React.FC = () => {
       setIsVisible(true);
     }, 500);
 
-    // Show contextual message with fluid slide-out from the button
+    // Show contextual message with fluid slide-out after reveal animation completes
     const tooltipTimer = setTimeout(() => {
       setShowTooltip(true);
-    }, 1200);
+    }, 1450);
 
     return () => {
       clearTimeout(timer);
@@ -105,12 +105,54 @@ export const FloatingWhatsApp: React.FC = () => {
     },
   };
 
+  // Reveal container variant with blur-in, rise from bottom and subtle rotational alignment
+  const containerRevealVariants: Variants = {
+    hidden: {
+      opacity: 0,
+      y: 55,
+      rotate: -7,
+      scale: 0.82,
+      filter: 'blur(12px)',
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      rotate: 0,
+      scale: 1,
+      filter: 'blur(0px)',
+      transition: {
+        duration: 0.85,
+        ease: [0.16, 1, 0.3, 1],
+        y: { type: 'spring', stiffness: 130, damping: 17, mass: 0.9 },
+        rotate: { type: 'spring', stiffness: 110, damping: 15, mass: 0.85 },
+        scale: { type: 'spring', stiffness: 140, damping: 18 },
+        filter: { duration: 0.7, ease: 'easeOut' },
+        opacity: { duration: 0.55, ease: 'easeOut' },
+      },
+    },
+    exit: {
+      opacity: 0,
+      y: 40,
+      rotate: 5,
+      scale: 0.88,
+      filter: 'blur(8px)',
+      transition: {
+        duration: 0.32,
+        ease: 'easeInOut',
+      },
+    },
+  };
+
   return (
-    <div
-      className={`fixed bottom-6 right-6 z-40 flex items-center gap-3 transition-opacity duration-500 ${
-        isVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-      }`}
-    >
+    <AnimatePresence>
+      {isVisible && (
+        <motion.div
+          variants={containerRevealVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          className="fixed bottom-6 right-6 z-40 flex items-center gap-3 will-change-transform"
+        >
       {/* Tooltip with silky-smooth organic fade-in, scale growth, staggered child entry, and 3D tilt tracking */}
       <AnimatePresence>
         {showTooltip && (
@@ -231,6 +273,8 @@ export const FloatingWhatsApp: React.FC = () => {
           <MessageCircle className="w-7 h-7 fill-[#050B1A]" />
         </a>
       </motion.div>
-    </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
