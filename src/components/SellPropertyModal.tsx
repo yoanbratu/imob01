@@ -89,21 +89,35 @@ export const SellPropertyModal: React.FC<SellPropertyModalProps> = ({ isOpen, on
         <div className="bg-[#050B1A] border-b border-[#D4AF37]/30 p-6 sm:p-7 relative">
           <button
             onClick={onClose}
-            className="absolute top-5 right-5 text-slate-400 hover:text-[#D4AF37] transition-colors cursor-pointer"
+            className="absolute top-5 right-5 text-slate-400 hover:text-[#D4AF37] transition-colors cursor-pointer z-10"
             aria-label="Fechar"
           >
             <X className="w-5 h-5" />
           </button>
-          <div className="inline-flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider text-[#D4AF37] font-semibold mb-1">
-            <ShieldCheck className="w-4 h-4 text-[#D4AF37]" />
-            <span>CANAL EXCLUSIVO PARA PROPRIETÁRIOS</span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pr-8">
+            <div>
+              <div className="inline-flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider text-[#D4AF37] font-semibold mb-1">
+                <ShieldCheck className="w-4 h-4 text-[#D4AF37]" />
+                <span>CANAL EXCLUSIVO PARA PROPRIETÁRIOS</span>
+              </div>
+              <h3 className="text-2xl font-bold tracking-tight text-white">
+                Anuncie ou Administre seu Imóvel
+              </h3>
+              <p className="text-xs text-slate-300 mt-1 max-w-sm leading-relaxed">
+                Avaliação técnica de mercado, divulgação em alta resolução e gestão com repasse garantido no Brasil, Estados Unidos e Paraguai.
+              </p>
+            </div>
+            <div className="hidden sm:block p-2 rounded-xl bg-[#070F26] border border-[#D4AF37]/40 shrink-0 shadow-md">
+              <img
+                src="/assets/aistudio/LOGOPNG_100042ea.png"
+                alt="Bratu Imobiliária & Administradora"
+                className="h-9 w-auto object-contain"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = '/logo-bratu.png';
+                }}
+              />
+            </div>
           </div>
-          <h3 className="text-2xl font-bold tracking-tight text-white">
-            Anuncie ou Administre seu Imóvel
-          </h3>
-          <p className="text-xs text-slate-300 mt-1">
-            Avaliação técnica de mercado, divulgação em alta resolução e gestão com repasse garantido no Brasil, Estados Unidos e Paraguai.
-          </p>
         </div>
 
         {/* Form Body */}

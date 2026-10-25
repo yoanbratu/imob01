@@ -1514,8 +1514,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         {/* Top Bar of the Admin Panel */}
         <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-[#D4AF37]/30">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-r from-[#ECC97E] to-[#D4AF37] text-[#050B1A] flex items-center justify-center shadow-[0_0_20px_rgba(212,175,55,0.4)]">
-              <ShieldCheck className="w-6 h-6 fill-[#050B1A]" />
+            <div className="relative h-11 px-2.5 rounded-2xl bg-[#0B163B] border border-[#D4AF37]/50 flex items-center justify-center shadow-[0_0_20px_rgba(212,175,55,0.3)] overflow-hidden group">
+              <img
+                src="/assets/aistudio/LOGOPNG_100042ea.png"
+                alt="Bratu Imobiliária & Administradora"
+                className="h-8 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = '/logo-bratu.png';
+                }}
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -5297,9 +5304,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </p>
               </div>
 
-              {/* Google Verified Score Badge */}
-              <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#070F26] border border-[#D4AF37]/40 shadow-lg">
-                <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 p-2 flex items-center justify-center shrink-0">
+              {/* Google Verified Score Badge & Bratu Brand Seal */}
+              <div className="flex items-center gap-3">
+                <div className="hidden sm:flex items-center p-2 px-3 rounded-2xl bg-[#070F26] border border-[#D4AF37]/35 shadow-md">
+                  <img
+                    src="/assets/aistudio/LOGOPNG_100042ea.png"
+                    alt="Bratu Imobiliária & Administradora"
+                    className="h-8 w-auto object-contain"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = '/logo-bratu.png';
+                    }}
+                  />
+                </div>
+
+                <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#070F26] border border-[#D4AF37]/40 shadow-lg">
+                  <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 p-2 flex items-center justify-center shrink-0">
                   <svg className="w-6 h-6" viewBox="0 0 24 24">
                     <path
                       fill="#4285F4"
@@ -5334,6 +5353,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
               </div>
             </div>
+          </div>
 
             {/* Notification Banner */}
             {googleConfigFeedback && (

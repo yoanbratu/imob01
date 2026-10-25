@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Globe2, ShieldCheck, Scale, Award, ArrowUpRight, Check, Landmark, DollarSign, Building } from 'lucide-react';
 import { getWhatsAppLink } from '../utils/whatsapp';
+import { TechBrandEmblem } from './TechBrandEmblem';
 
 export const CrossBorderSection: React.FC = () => {
   const whatsappCrossBorderUrl = getWhatsAppLink(
@@ -21,22 +22,29 @@ export const CrossBorderSection: React.FC = () => {
       <div className="absolute inset-0 tech-grid-pattern opacity-40 pointer-events-none" />
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Pill Kicker */}
-        <div className="inline-flex items-center gap-2 text-xs font-mono font-semibold tracking-wider uppercase text-[#D4AF37] mb-3">
-          <Globe2 className="w-4 h-4 text-[#D4AF37]" />
-          <span>ATUAÇÃO ESTRATÉGICA INTERNACIONAL</span>
-          <span className="text-white/20">·</span>
-          <span>BRASIL · ESTADOS UNIDOS · PARAGUAI</span>
-        </div>
+        {/* Header Grid: Title & Holographic Seal */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center mb-16">
+          <div className="lg:col-span-8">
+            {/* Section Pill Kicker */}
+            <div className="inline-flex items-center gap-2 text-xs font-mono font-semibold tracking-wider uppercase text-[#D4AF37] mb-3">
+              <Globe2 className="w-4 h-4 text-[#D4AF37]" />
+              <span>ATUAÇÃO ESTRATÉGICA INTERNACIONAL</span>
+              <span className="text-white/20">·</span>
+              <span>BRASIL · ESTADOS UNIDOS · PARAGUAI</span>
+            </div>
 
-        {/* Title */}
-        <div className="max-w-3xl mb-16">
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
-            Conectando o melhor dos mercados imobiliários do Brasil, Estados Unidos e Paraguai.
-          </h2>
-          <p className="text-slate-300 text-sm sm:text-base mt-4 leading-relaxed">
-            Com presença consolidada e conhecimento profundo das legislações locais e cambiais, a Bratu oferece uma ponte segura para quem deseja morar com alto padrão ou diversificar seu patrimônio com rentabilidade superior e proteção em moeda forte.
-          </p>
+            {/* Title */}
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
+              Conectando o melhor dos mercados imobiliários do Brasil, Estados Unidos e Paraguai.
+            </h2>
+            <p className="text-slate-300 text-sm sm:text-base mt-4 leading-relaxed">
+              Com presença consolidada e conhecimento profundo das legislações locais e cambiais, a Bratu oferece uma ponte segura para quem deseja morar com alto padrão ou diversificar seu patrimônio com rentabilidade superior e proteção em moeda forte.
+            </p>
+          </div>
+
+          <div className="lg:col-span-4 flex justify-center">
+            <TechBrandEmblem mode="seal" className="w-full max-w-xs" />
+          </div>
         </div>
 
         {/* 3-Column Comparison: Brasil, Estados Unidos, Paraguai */}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Search, KeyRound, Building, ShieldCheck, Sparkles, Scan, Globe2 } from 'lucide-react';
 import { PropertyFilters, PropertyPurpose } from '../types/property';
+import { TechBrandEmblem } from './TechBrandEmblem';
 
 interface HeroProps {
   filters: PropertyFilters;
@@ -50,53 +51,60 @@ export const Hero: React.FC<HeroProps> = ({
 
       {/* Main Content Area */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full mt-8 md:mt-12 flex-1 flex flex-col justify-center">
-        <div className="max-w-3xl">
-          {/* Technological Kicker Badge */}
-          <div className="inline-flex items-center gap-2 mb-4 px-3 py-1 rounded-full bg-[#070F26]/90 border border-[#D4AF37]/40 text-xs font-mono font-semibold tracking-wider text-[#E5C378] shadow-[0_0_15px_rgba(212,175,55,0.2)]">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] animate-pulse" />
-            <span>IMÓVEIS COMERCIAIS & RESIDENCIAIS</span>
-            <span className="text-white/30">·</span>
-            <span className="text-white/90">BRASIL · ESTADOS UNIDOS · PARAGUAI</span>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center mb-8">
+          <div className="lg:col-span-7">
+            {/* Technological Kicker Badge */}
+            <div className="inline-flex items-center gap-2 mb-4 px-3 py-1 rounded-full bg-[#070F26]/90 border border-[#D4AF37]/40 text-xs font-mono font-semibold tracking-wider text-[#E5C378] shadow-[0_0_15px_rgba(212,175,55,0.2)]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] animate-pulse" />
+              <span>IMÓVEIS COMERCIAIS & RESIDENCIAIS</span>
+              <span className="text-white/30">·</span>
+              <span className="text-white/90">BRASIL · ESTADOS UNIDOS · PARAGUAI</span>
+            </div>
+
+            {/* Primary Headline with Rich Gold Shimmer */}
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.08] mb-6">
+              Seu imóvel, <br className="hidden sm:inline" />
+              <span className="tech-gold-text">
+                nosso compromisso.
+              </span>
+            </h1>
+
+            {/* Subtitle */}
+            <p className="text-base sm:text-lg text-slate-300 font-normal leading-relaxed max-w-2xl mb-8">
+              Especialistas em intermediação e administração de <strong>imóveis comerciais e residenciais</strong> de alto padrão. Seleção criteriosa de lajes corporativas, salas de negócios, mansões e coberturas no Brasil, Estados Unidos e Paraguai.
+            </p>
+
+            {/* Modern Creative Technological Action Buttons */}
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-4 lg:mb-0">
+              <button
+                onClick={() => handleQuickPurpose('Venda')}
+                className="tech-btn-primary inline-flex items-center justify-center gap-2 px-6 py-3.5 text-xs sm:text-sm rounded-xl cursor-pointer"
+              >
+                <KeyRound className="w-4 h-4 text-[#050B1A]" />
+                <span>Comprar Imóvel</span>
+              </button>
+
+              <button
+                onClick={() => handleQuickPurpose('Locação')}
+                className="tech-btn-secondary inline-flex items-center justify-center gap-2 px-6 py-3.5 text-xs sm:text-sm font-semibold rounded-xl cursor-pointer"
+              >
+                <Building className="w-4 h-4 text-[#E5C378]" />
+                <span>Alugar Imóvel</span>
+              </button>
+
+              <button
+                onClick={onOpenSellModal}
+                className="tech-btn-secondary inline-flex items-center justify-center gap-2 px-6 py-3.5 text-xs sm:text-sm font-semibold rounded-xl text-slate-200 cursor-pointer"
+              >
+                <ShieldCheck className="w-4 h-4 text-[#D4AF37]" />
+                <span>Anunciar Meu Imóvel</span>
+              </button>
+            </div>
           </div>
 
-          {/* Primary Headline with Rich Gold Shimmer */}
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.08] mb-6">
-            Seu imóvel, <br className="hidden sm:inline" />
-            <span className="tech-gold-text">
-              nosso compromisso.
-            </span>
-          </h1>
-
-          {/* Subtitle */}
-          <p className="text-base sm:text-lg text-slate-300 font-normal leading-relaxed max-w-2xl mb-8">
-            Especialistas em intermediação e administração de <strong>imóveis comerciais e residenciais</strong> de alto padrão. Seleção criteriosa de lajes corporativas, salas de negócios, mansões e coberturas no Brasil, Estados Unidos e Paraguai.
-          </p>
-
-          {/* Modern Creative Technological Action Buttons */}
-          <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-10">
-            <button
-              onClick={() => handleQuickPurpose('Venda')}
-              className="tech-btn-primary inline-flex items-center justify-center gap-2 px-6 py-3.5 text-xs sm:text-sm rounded-xl cursor-pointer"
-            >
-              <KeyRound className="w-4 h-4 text-[#050B1A]" />
-              <span>Comprar Imóvel</span>
-            </button>
-
-            <button
-              onClick={() => handleQuickPurpose('Locação')}
-              className="tech-btn-secondary inline-flex items-center justify-center gap-2 px-6 py-3.5 text-xs sm:text-sm font-semibold rounded-xl cursor-pointer"
-            >
-              <Building className="w-4 h-4 text-[#E5C378]" />
-              <span>Alugar Imóvel</span>
-            </button>
-
-            <button
-              onClick={onOpenSellModal}
-              className="tech-btn-secondary inline-flex items-center justify-center gap-2 px-6 py-3.5 text-xs sm:text-sm font-semibold rounded-xl text-slate-200 cursor-pointer"
-            >
-              <ShieldCheck className="w-4 h-4 text-[#D4AF37]" />
-              <span>Anunciar Meu Imóvel</span>
-            </button>
+          {/* Technological Brand Hologram Showcase */}
+          <div className="lg:col-span-5 flex justify-center">
+            <TechBrandEmblem mode="hero" className="w-full max-w-md" />
           </div>
         </div>
 

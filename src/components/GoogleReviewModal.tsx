@@ -72,6 +72,18 @@ export const GoogleReviewModal: React.FC<GoogleReviewModalProps> = ({
 
         {/* Modal Header */}
         <div className="p-6 sm:p-8 pb-4 text-center">
+          {/* Official Bratu Logo */}
+          <div className="flex justify-center mb-3">
+            <img
+              src="/assets/aistudio/LOGOPNG_100042ea.png"
+              alt="Bratu Imobiliária & Administradora"
+              className="h-10 w-auto object-contain drop-shadow-[0_4px_12px_rgba(212,175,55,0.3)]"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = '/logo-bratu.png';
+              }}
+            />
+          </div>
+
           {/* Google Official G Logo Badge */}
           <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-white/10 border border-white/20 shadow-inner mb-4">
             <svg className="w-4 h-4" viewBox="0 0 24 24">

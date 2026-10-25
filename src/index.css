@@ -183,3 +183,28 @@
     opacity: 0.2;
   }
 }
+
+@keyframes scan {
+  0% {
+    top: 6%;
+    opacity: 0.15;
+  }
+  15% {
+    opacity: 0.95;
+  }
+  50% {
+    top: 92%;
+    opacity: 0.95;
+  }
+  85% {
+    opacity: 0.95;
+  }
+  100% {
+    top: 6%;
+    opacity: 0.15;
+  }
+}
+
+.animate-laser-scan {
+  animation: scan 4s ease-in-out infinite;
+}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MessageCircle, Menu, X, PlusCircle, Globe2, Lock, ShieldCheck } from 'lucide-react';
 import { COMPANY_INFO, getWhatsAppLink } from '../utils/whatsapp';
+import { TechBrandEmblem } from './TechBrandEmblem';
 
 interface HeaderProps {
   onOpenSellModal: () => void;
@@ -41,27 +42,10 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Brand Zone */}
           <a
             href="#"
-            className="flex items-center gap-3 group focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] rounded-lg"
+            className="flex items-center gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] rounded-xl"
             aria-label="Bratu Imobiliária e Administradora"
           >
-            <div className="relative h-10 w-auto flex items-center overflow-hidden rounded">
-              <img
-                src="/assets/aistudio/LOGOPNG_100042ea.png"
-                alt="Logo Bratu Imobiliária"
-                className="h-10 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
-                onError={(e) => {
-                  (e.target as HTMLElement).style.display = 'none';
-                }}
-              />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-base font-extrabold tracking-tight text-white group-hover:text-[#E5C378] transition-colors">
-                BRATU
-              </span>
-              <span className="text-[9px] uppercase tracking-[0.25em] -mt-1 font-semibold text-[#D4AF37]">
-                Imobiliária & Administradora
-              </span>
-            </div>
+            <TechBrandEmblem mode="compact" />
           </a>
 
           {/* Nav Links */}

@@ -95,8 +95,15 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
 
         {/* Header */}
         <div className="text-center mb-6">
-          <div className="w-14 h-14 rounded-2xl bg-[#0B163B] border border-[#D4AF37]/50 flex items-center justify-center mx-auto mb-3 text-[#D4AF37] shadow-[0_0_20px_rgba(212,175,55,0.25)]">
-            <Lock className="w-7 h-7" />
+          <div className="relative inline-block mb-3 p-2.5 px-4 rounded-2xl bg-[#050B1A] border border-[#D4AF37]/45 shadow-[0_0_25px_rgba(212,175,55,0.25)]">
+            <img
+              src="/assets/aistudio/LOGOPNG_100042ea.png"
+              alt="Bratu Imobiliária & Administradora"
+              className="h-10 w-auto object-contain mx-auto"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = '/logo-bratu.png';
+              }}
+            />
           </div>
           <span className="text-[10px] font-mono uppercase tracking-widest text-[#E5C378] block">
             ACESSO RESTRITO & CRIPTOGRAFADO

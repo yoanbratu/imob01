@@ -2,6 +2,7 @@ import React from 'react';
 import { COMPANY_INFO, getWhatsAppLink } from '../utils/whatsapp';
 import { MessageCircle, Mail, MapPin, Globe, Shield, ArrowUp, Star, ExternalLink } from 'lucide-react';
 import { INITIAL_GOOGLE_REVIEW_CONFIG } from '../types/property';
+import { TechBrandEmblem } from './TechBrandEmblem';
 
 export const Footer: React.FC = () => {
   const scrollToTop = () => {
@@ -14,24 +15,7 @@ export const Footer: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10 pb-12 border-b border-white/10">
           {/* Brand & Mission (Span 4) */}
           <div className="lg:col-span-4 space-y-4">
-            <div className="flex items-center gap-3">
-              <img
-                src="/assets/aistudio/LOGOPNG_100042ea.png"
-                alt="Bratu Imobiliária e Administradora"
-                className="h-11 w-auto object-contain"
-                onError={(e) => {
-                  (e.target as HTMLElement).style.display = 'none';
-                }}
-              />
-              <div>
-                <span className="text-base font-extrabold text-white tracking-tight block">
-                  BRATU
-                </span>
-                <span className="text-[10px] uppercase tracking-[0.2em] text-[#D4AF37] font-semibold block">
-                  Imobiliária & Administradora
-                </span>
-              </div>
-            </div>
+            <TechBrandEmblem mode="compact" />
 
             <p className="text-slate-400 text-xs leading-relaxed max-w-sm">
               Assessoria imobiliária de alto padrão, gestão patrimonial e soluções transfronteiriças no <strong>Brasil, Estados Unidos e Paraguai</strong>. Tradição, discrição e segurança jurídica para o seu patrimônio.
