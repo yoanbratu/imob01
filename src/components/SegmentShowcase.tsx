@@ -1,6 +1,18 @@
-import React from 'react';
-import { Home, ArrowRight, CheckCircle2, Sparkles, Briefcase, Edit, Settings } from 'lucide-react';
-import { PropertyCategory, HomepageSegmentsConfig, INITIAL_HOMEPAGE_SEGMENTS } from '../types/property';
+import React, { useState } from 'react';
+import {
+  Home,
+  ArrowRight,
+  CheckCircle2,
+  Sparkles,
+  Briefcase,
+  Edit,
+  PlusCircle,
+  Building,
+  Layers,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
+import { PropertyCategory, HomepageSegmentsConfig, HomepageSegment, INITIAL_HOMEPAGE_SEGMENTS } from '../types/property';
 import { TechImage } from './TechImage';
 
 interface SegmentShowcaseProps {
@@ -19,6 +31,16 @@ export const SegmentShowcase: React.FC<SegmentShowcaseProps> = ({
   const currentConfig = config || INITIAL_HOMEPAGE_SEGMENTS;
   const seg1 = currentConfig.segment1 || INITIAL_HOMEPAGE_SEGMENTS.segment1;
   const seg2 = currentConfig.segment2 || INITIAL_HOMEPAGE_SEGMENTS.segment2;
+  const customSegments = currentConfig.customSegments || [];
+
+  const [expandedSeg, setExpandedSeg] = useState<{ [key: string]: boolean }>({
+    segment_01: true,
+    segment_02: true,
+  });
+
+  const toggleExpand = (id: string) => {
+    setExpandedSeg((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
 
   const handleNavigateToCategory = (cat: PropertyCategory) => {
     onSelectCategory(cat);
@@ -26,6 +48,158 @@ export const SegmentShowcase: React.FC<SegmentShowcaseProps> = ({
     if (target) {
       target.scrollIntoView({ behavior: 'smooth' });
     }
+  };
+
+  const renderSegmentCard = (seg: HomepageSegment, defaultIcon: React.ReactNode, isPrimaryButton: boolean = false) => {
+    const hasItems = Array.isArray(seg.items) && seg.items.length > 0;
+    const isExpanded = expandedSeg[seg.id] ?? true;
+
+    return (
+      <div
+        key={seg.id}
+        className="group rounded-3xl bg-[#070F26] border border-[#D4AF37]/30 hover:border-[#D4AF37]/80 hover:shadow-[0_15px_40px_rgba(212,175,55,0.2)] transition-all duration-300 p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden"
+      >
+        {/* Tech Corner Accents */}
+        <div className="absolute top-3 left-3 w-3 h-3 border-t-2 border-l-2 border-[#D4AF37] pointer-events-none" />
+        <div className="absolute top-3 right-3 w-3 h-3 border-t-2 border-r-2 border-[#D4AF37] pointer-events-none" />
+
+        <div>
+          {/* Card Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-[#0B163B] border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37] shrink-0">
+                {defaultIcon}
+              </div>
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-widest text-[#E5C378] block">
+                  {seg.segmentTag || 'SEGMENTO'}
+                </span>
+                <h3 className="text-2xl font-bold text-white tracking-tight">
+                  {seg.title}
+                </h3>
+              </div>
+            </div>
+
+            {seg.badge && (
+              <span className="text-xs font-mono font-semibold text-[#D4AF37] bg-[#050B1A] px-3 py-1 rounded-full border border-[#D4AF37]/30 shrink-0">
+                {seg.badge}
+              </span>
+            )}
+          </div>
+
+          {/* Main Visual High-Tech Image Frame with Cyber Effects */}
+          <div className="mb-6 rounded-2xl overflow-hidden border border-[#D4AF37]/30 shadow-md">
+            <TechImage
+              src={seg.imageUrl}
+              alt={seg.title}
+              aspectClass="aspect-[16/9]"
+              badge={seg.imageBadge || `${seg.title.toUpperCase()} · 4K`}
+              techEffect={seg.techEffect || 'holo-gold'}
+              allowEffectToggle={true}
+              showTechHud={true}
+              onClick={() => handleNavigateToCategory(seg.category || 'residencial')}
+            />
+          </div>
+
+          {/* Description */}
+          <p className="text-slate-300 text-sm leading-relaxed mb-6 font-sans">
+            {seg.description}
+          </p>
+
+          {/* Features Checklist */}
+          {Array.isArray(seg.features) && seg.features.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-6 text-xs text-slate-300 font-medium">
+              {seg.features.map((feature, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[#D4AF37] shrink-0" />
+                  <span>{feature}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Sub-Items / Extra Cards & Photos in Segment */}
+          {hasItems && (
+            <div className="mb-6 pt-4 border-t border-white/10">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#E5C378] flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-[#D4AF37]" />
+                  <span>Destaques & Imóveis do Segmento ({seg.items!.length})</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => toggleExpand(seg.id)}
+                  className="text-[11px] font-mono text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer"
+                >
+                  <span>{isExpanded ? 'Recolher' : 'Exibir'}</span>
+                  {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
+              </div>
+
+              {isExpanded && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in duration-200">
+                  {seg.items!.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-2xl bg-[#0B163B]/80 border border-white/10 hover:border-[#D4AF37]/50 p-3 transition-all flex flex-col justify-between group/item"
+                    >
+                      <div className="rounded-xl overflow-hidden mb-2 relative aspect-[16/10] bg-[#050B1A]">
+                        <TechImage
+                          src={item.imageUrl}
+                          alt={item.title}
+                          aspectClass="aspect-[16/10]"
+                          badge={item.badge || 'DESTAQUE'}
+                          techEffect={item.techEffect || seg.techEffect || 'holo-gold'}
+                          allowEffectToggle={false}
+                          showTechHud={false}
+                        />
+                      </div>
+                      <div>
+                        {item.badge && (
+                          <span className="text-[9px] font-mono text-[#E5C378] bg-[#070F26] px-2 py-0.5 rounded border border-[#D4AF37]/30 inline-block mb-1">
+                            {item.badge}
+                          </span>
+                        )}
+                        <h4 className="text-xs font-bold text-white group-hover/item:text-[#ECC97E] transition-colors">
+                          {item.title}
+                        </h4>
+                        {item.subtitle && (
+                          <p className="text-[10px] font-mono text-slate-400 mt-0.5">
+                            {item.subtitle}
+                          </p>
+                        )}
+                        {item.description && (
+                          <p className="text-[11px] text-slate-300 mt-1 line-clamp-2">
+                            {item.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer CTA & Label */}
+        <div className="pt-5 border-t border-white/10 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => handleNavigateToCategory(seg.category || 'residencial')}
+            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-[0_0_15px_rgba(212,175,55,0.2)] cursor-pointer ${
+              isPrimaryButton
+                ? 'bg-gradient-to-r from-[#ECC97E] via-[#D4AF37] to-[#B8934E] text-[#050B1A] hover:brightness-110'
+                : 'bg-[#0B163B] hover:bg-[#12235E] border border-[#D4AF37] text-white'
+            }`}
+          >
+            <span>{seg.ctaText || 'Explorar Portfólio'}</span>
+            <ArrowRight className={`w-4 h-4 ${isPrimaryButton ? 'text-[#050B1A]' : 'text-[#D4AF37]'}`} />
+          </button>
+          <span className="text-xs text-slate-400 font-mono">{seg.footerLabel || 'Venda & Locação'}</span>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -42,174 +216,43 @@ export const SegmentShowcase: React.FC<SegmentShowcaseProps> = ({
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mt-1">
             {currentConfig.headerTitle || 'Imóveis Comerciais & Residenciais'}
           </h2>
-          <p className="text-slate-300 text-sm sm:text-base mt-3 leading-relaxed">
+          <p className="text-slate-300 text-sm sm:text-base mt-3 leading-relaxed font-sans">
             {currentConfig.headerDescription || 'Atendimento consultivo sob medida com equipes dedicadas para o mercado residencial de alto padrão e para o setor corporativo e comercial.'}
           </p>
 
           {/* Discreet Admin Direct Edit Button */}
           {isAdmin && onOpenAdminSegments && (
-            <div className="mt-4 flex justify-center">
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
               <button
                 type="button"
                 onClick={onOpenAdminSegments}
-                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-[#0B163B] hover:bg-[#12235E] border border-[#D4AF37]/60 text-[#E5C378] text-xs font-mono font-semibold transition-all shadow-[0_0_15px_rgba(212,175,55,0.2)] cursor-pointer"
+                className="inline-flex items-center gap-2 px-4 py-1.5 rounded-xl bg-[#0B163B] hover:bg-[#12235E] border border-[#D4AF37]/60 text-[#E5C378] text-xs font-mono font-semibold transition-all shadow-[0_0_15px_rgba(212,175,55,0.2)] cursor-pointer"
               >
                 <Edit className="w-3.5 h-3.5 text-[#D4AF37]" />
-                <span>Editar Fotos & Textos dos Segmentos (Painel)</span>
+                <span>Administrar Segmentos 01 & 02 (Fotos, Itens, Criar & Excluir)</span>
               </button>
             </div>
           )}
         </div>
 
-        {/* 2-Pillar Visual Bento Grid */}
+        {/* Pillars Visual Bento Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Pillar 1: Imóveis Residenciais (Segmento 01) */}
-          <div className="group rounded-3xl bg-[#070F26] border border-[#D4AF37]/30 hover:border-[#D4AF37]/80 hover:shadow-[0_15px_40px_rgba(212,175,55,0.2)] transition-all duration-300 p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden">
-            {/* Tech Corner Accents */}
-            <div className="absolute top-3 left-3 w-3 h-3 border-t-2 border-l-2 border-[#D4AF37]" />
-            <div className="absolute top-3 right-3 w-3 h-3 border-t-2 border-r-2 border-[#D4AF37]" />
+          {/* Segmento 01: Residencial */}
+          {renderSegmentCard(seg1, <Home className="w-6 h-6" />, true)}
 
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-[#0B163B] border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37]">
-                    <Home className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-[#E5C378] block">
-                      {seg1.segmentTag || 'SEGMENTO 01'}
-                    </span>
-                    <h3 className="text-2xl font-bold text-white tracking-tight">
-                      {seg1.title || 'Imóveis Residenciais'}
-                    </h3>
-                  </div>
-                </div>
+          {/* Segmento 02: Comercial */}
+          {renderSegmentCard(seg2, <Briefcase className="w-6 h-6" />, false)}
 
-                {seg1.badge && (
-                  <span className="text-xs font-mono font-semibold text-[#D4AF37] bg-[#050B1A] px-3 py-1 rounded-full border border-[#D4AF37]/30">
-                    {seg1.badge}
-                  </span>
-                )}
-              </div>
-
-              {/* Visual High-Tech Image Frame with Cyber Effects */}
-              <div className="mb-6 rounded-2xl overflow-hidden border border-[#D4AF37]/30 shadow-md">
-                <TechImage
-                  src={seg1.imageUrl}
-                  alt={seg1.title}
-                  aspectClass="aspect-[16/9]"
-                  badge={seg1.imageBadge || 'RESIDENCIAL · LUXO AUTORAL'}
-                  techEffect={seg1.techEffect || 'holo-gold'}
-                  allowEffectToggle={true}
-                  showTechHud={true}
-                  onClick={() => handleNavigateToCategory(seg1.category || 'residencial')}
-                />
-              </div>
-
-              <p className="text-slate-300 text-sm leading-relaxed mb-6">
-                {seg1.description}
-              </p>
-
-              {/* Features List */}
-              {Array.isArray(seg1.features) && seg1.features.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-8 text-xs text-slate-300 font-medium">
-                  {seg1.features.map((feature, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-[#D4AF37] shrink-0" />
-                      <span>{feature}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="pt-5 border-t border-white/10 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => handleNavigateToCategory(seg1.category || 'residencial')}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#ECC97E] via-[#D4AF37] to-[#B8934E] text-[#050B1A] text-xs font-bold hover:brightness-110 transition-all shadow-[0_0_15px_rgba(212,175,55,0.25)] cursor-pointer"
-              >
-                <span>{seg1.ctaText || 'Explorar Imóveis Residenciais'}</span>
-                <ArrowRight className="w-4 h-4 text-[#050B1A]" />
-              </button>
-              <span className="text-xs text-slate-400 font-mono">{seg1.footerLabel || 'Venda & Locação'}</span>
-            </div>
-          </div>
-
-          {/* Pillar 2: Imóveis Comerciais (Segmento 02) */}
-          <div className="group rounded-3xl bg-[#070F26] border border-[#D4AF37]/30 hover:border-[#D4AF37]/80 hover:shadow-[0_15px_40px_rgba(212,175,55,0.2)] transition-all duration-300 p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden">
-            <div className="absolute top-3 left-3 w-3 h-3 border-t-2 border-l-2 border-[#D4AF37]" />
-            <div className="absolute top-3 right-3 w-3 h-3 border-t-2 border-r-2 border-[#D4AF37]" />
-
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-[#0B163B] border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37]">
-                    <Briefcase className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-[#E5C378] block">
-                      {seg2.segmentTag || 'SEGMENTO 02'}
-                    </span>
-                    <h3 className="text-2xl font-bold text-white tracking-tight">
-                      {seg2.title || 'Imóveis Comerciais'}
-                    </h3>
-                  </div>
-                </div>
-
-                {seg2.badge && (
-                  <span className="text-xs font-mono font-semibold text-[#D4AF37] bg-[#050B1A] px-3 py-1 rounded-full border border-[#D4AF37]/30">
-                    {seg2.badge}
-                  </span>
-                )}
-              </div>
-
-              {/* Visual High-Tech Image Frame with Cyber Effects */}
-              <div className="mb-6 rounded-2xl overflow-hidden border border-[#D4AF37]/30 shadow-md">
-                <TechImage
-                  src={seg2.imageUrl}
-                  alt={seg2.title}
-                  aspectClass="aspect-[16/9]"
-                  badge={seg2.imageBadge || 'COMERCIAL · CORPORATE TRIPLE A'}
-                  techEffect={seg2.techEffect || 'cyber-lidar'}
-                  allowEffectToggle={true}
-                  showTechHud={true}
-                  onClick={() => handleNavigateToCategory(seg2.category || 'comercial')}
-                />
-              </div>
-
-              <p className="text-slate-300 text-sm leading-relaxed mb-6">
-                {seg2.description}
-              </p>
-
-              {/* Features List */}
-              {Array.isArray(seg2.features) && seg2.features.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-8 text-xs text-slate-300 font-medium">
-                  {seg2.features.map((feature, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-[#D4AF37] shrink-0" />
-                      <span>{feature}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="pt-5 border-t border-white/10 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => handleNavigateToCategory(seg2.category || 'comercial')}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0B163B] hover:bg-[#12235E] border border-[#D4AF37] text-white text-xs font-bold transition-all shadow-[0_0_15px_rgba(212,175,55,0.2)] cursor-pointer"
-              >
-                <span>{seg2.ctaText || 'Explorar Imóveis Comerciais'}</span>
-                <ArrowRight className="w-4 h-4 text-[#D4AF37]" />
-              </button>
-              <span className="text-xs text-slate-400 font-mono">{seg2.footerLabel || 'Venda & Locação'}</span>
-            </div>
-          </div>
+          {/* Custom Segments (created by admin) */}
+          {customSegments.map((custSeg) =>
+            renderSegmentCard(
+              custSeg,
+              <Building className="w-6 h-6" />,
+              custSeg.category === 'residencial'
+            )
+          )}
         </div>
       </div>
     </section>
   );
 };
-

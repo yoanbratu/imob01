@@ -5,6 +5,7 @@ import { SegmentShowcase } from './components/SegmentShowcase';
 import { PropertyGrid } from './components/PropertyGrid';
 import { ServicesBento } from './components/ServicesBento';
 import { CrossBorderSection } from './components/CrossBorderSection';
+import { TeamSection } from './components/TeamSection';
 import { TestimonialsSection } from './components/TestimonialsSection';
 import { YieldCalculator } from './components/YieldCalculator';
 import { ContactSection } from './components/ContactSection';
@@ -15,7 +16,15 @@ import { SellPropertyModal } from './components/SellPropertyModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { AdminPanel } from './components/AdminPanel';
 import { validateAdminSession, clearAdminSession } from './utils/security';
-import { Property, PropertyFilters, LeadSubmission, HomepageSegmentsConfig, INITIAL_HOMEPAGE_SEGMENTS } from './types/property';
+import {
+  Property,
+  PropertyFilters,
+  LeadSubmission,
+  HomepageSegmentsConfig,
+  INITIAL_HOMEPAGE_SEGMENTS,
+  TeamMember,
+  INITIAL_TEAM_MEMBERS,
+} from './types/property';
 import {
   fetchProperties,
   subscribeToProperties,
@@ -23,6 +32,8 @@ import {
   fetchLeads,
   fetchHomepageSegments,
   subscribeToHomepageSegments,
+  fetchTeamMembers,
+  subscribeToTeamMembers,
 } from './services/propertyService';
 import { injectOrUpdateJSONLD } from './utils/seoStructuredData';
 import { SemanticCatalogIndex } from './components/SemanticCatalogIndex';
@@ -40,6 +51,7 @@ export default function App() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [leads, setLeads] = useState<LeadSubmission[]>([]);
   const [homepageSegments, setHomepageSegments] = useState<HomepageSegmentsConfig>(INITIAL_HOMEPAGE_SEGMENTS);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(INITIAL_TEAM_MEMBERS);
   const [filters, setFilters] = useState<PropertyFilters>(INITIAL_FILTERS);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [isSellModalOpen, setIsSellModalOpen] = useState(false);
@@ -50,7 +62,7 @@ export default function App() {
   });
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
-  const [adminInitialTab, setAdminInitialTab] = useState<'properties' | 'new' | 'owners' | 'condos' | 'realtors' | 'leads' | 'segments' | 'security'>('properties');
+  const [adminInitialTab, setAdminInitialTab] = useState<'properties' | 'new' | 'owners' | 'condos' | 'realtors' | 'team' | 'leads' | 'segments' | 'security'>('properties');
 
   // Periodically check session expiry
   useEffect(() => {
@@ -65,10 +77,11 @@ export default function App() {
     return () => clearInterval(timer);
   }, [isAdmin]);
 
-  // Load properties and homepage segments from Firestore and set up subscriptions
+  // Load properties, team members, and homepage segments from Firestore and set up subscriptions
   useEffect(() => {
     let unsubscribeProps: (() => void) | undefined;
     let unsubscribeSegments: (() => void) | undefined;
+    let unsubscribeTeam: (() => void) | undefined;
 
     async function loadData() {
       const initialProps = await fetchProperties();
@@ -87,6 +100,13 @@ export default function App() {
       unsubscribeSegments = subscribeToHomepageSegments((updatedSegments) => {
         setHomepageSegments(updatedSegments);
       });
+
+      const initialTeam = await fetchTeamMembers();
+      setTeamMembers(initialTeam);
+
+      unsubscribeTeam = subscribeToTeamMembers((updatedTeam) => {
+        setTeamMembers(updatedTeam);
+      });
     }
 
     loadData();
@@ -94,6 +114,7 @@ export default function App() {
     return () => {
       if (unsubscribeProps) unsubscribeProps();
       if (unsubscribeSegments) unsubscribeSegments();
+      if (unsubscribeTeam) unsubscribeTeam();
     };
   }, []);
 
@@ -282,6 +303,16 @@ export default function App() {
 
         {/* Cross-border Institutional Section: Brasil & Paraguai */}
         <CrossBorderSection />
+
+        {/* Equipe de Especialistas & Liderança: Bratu Imobiliária & Administradora LTDA */}
+        <TeamSection
+          teamMembers={teamMembers}
+          isAdmin={isAdmin}
+          onOpenAdminTeam={() => {
+            setAdminInitialTab('team');
+            handleOpenAdminTrigger();
+          }}
+        />
 
         {/* Client Testimonials Minimalist Carousel: Brasil & Paraguai */}
         <TestimonialsSection />

@@ -19,7 +19,10 @@ import {
   Condominium,
   HomepageSegment,
   HomepageSegmentsConfig,
+  SegmentItem,
   INITIAL_HOMEPAGE_SEGMENTS,
+  TeamMember,
+  INITIAL_TEAM_MEMBERS,
 } from '../types/property';
 import { PROPERTIES as INITIAL_PROPERTIES } from '../data/properties';
 
@@ -849,11 +852,15 @@ export async function fetchHomepageSegments(): Promise<HomepageSegmentsConfig> {
         segment1: {
           ...INITIAL_HOMEPAGE_SEGMENTS.segment1,
           ...(data.segment1 || {}),
+          items: Array.isArray(data.segment1?.items) ? data.segment1.items : (INITIAL_HOMEPAGE_SEGMENTS.segment1.items || []),
         },
         segment2: {
           ...INITIAL_HOMEPAGE_SEGMENTS.segment2,
           ...(data.segment2 || {}),
+          items: Array.isArray(data.segment2?.items) ? data.segment2.items : (INITIAL_HOMEPAGE_SEGMENTS.segment2.items || []),
         },
+        customSegments: Array.isArray(data.customSegments) ? data.customSegments : [],
+        updatedAt: data.updatedAt,
       };
     }
     return INITIAL_HOMEPAGE_SEGMENTS;
@@ -877,11 +884,15 @@ export function subscribeToHomepageSegments(callback: (config: HomepageSegmentsC
           segment1: {
             ...INITIAL_HOMEPAGE_SEGMENTS.segment1,
             ...(data.segment1 || {}),
+            items: Array.isArray(data.segment1?.items) ? data.segment1.items : (INITIAL_HOMEPAGE_SEGMENTS.segment1.items || []),
           },
           segment2: {
             ...INITIAL_HOMEPAGE_SEGMENTS.segment2,
             ...(data.segment2 || {}),
+            items: Array.isArray(data.segment2?.items) ? data.segment2.items : (INITIAL_HOMEPAGE_SEGMENTS.segment2.items || []),
           },
+          customSegments: Array.isArray(data.customSegments) ? data.customSegments : [],
+          updatedAt: data.updatedAt,
         });
       } else {
         callback(INITIAL_HOMEPAGE_SEGMENTS);
@@ -912,6 +923,7 @@ export async function saveHomepageSegments(config: HomepageSegmentsConfig): Prom
         imageBadge: config.segment1.imageBadge || '',
         description: config.segment1.description || '',
         features: Array.isArray(config.segment1.features) ? config.segment1.features : [],
+        items: Array.isArray(config.segment1.items) ? config.segment1.items : [],
         ctaText: config.segment1.ctaText || '',
         category: config.segment1.category || 'residencial',
         footerLabel: config.segment1.footerLabel || '',
@@ -926,16 +938,132 @@ export async function saveHomepageSegments(config: HomepageSegmentsConfig): Prom
         imageBadge: config.segment2.imageBadge || '',
         description: config.segment2.description || '',
         features: Array.isArray(config.segment2.features) ? config.segment2.features : [],
+        items: Array.isArray(config.segment2.items) ? config.segment2.items : [],
         ctaText: config.segment2.ctaText || '',
         category: config.segment2.category || 'comercial',
         footerLabel: config.segment2.footerLabel || '',
         techEffect: config.segment2.techEffect || 'cyber-lidar',
       },
+      customSegments: Array.isArray(config.customSegments) ? config.customSegments : [],
       updatedAt: new Date().toISOString(),
     };
     await setDoc(docRef, payload, { merge: true });
   } catch (err: any) {
     console.error('Erro ao salvar segmentos no Firestore:', err);
     throw new Error(err?.message || 'Falha ao salvar segmentos da página inicial.');
+  }
+}
+
+// ==========================================
+// EQUIPE BRATU IMOBILIÁRIA & ADMINISTRADORA LTDA
+// ==========================================
+
+const TEAM_MEMBERS_COLLECTION = 'team_members';
+const TEAM_LOCAL_STORAGE_KEY = 'bratu_team_members_cache';
+
+export async function fetchTeamMembers(): Promise<TeamMember[]> {
+  try {
+    const q = query(collection(db, TEAM_MEMBERS_COLLECTION), orderBy('order', 'asc'));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      const list = snap.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...(docSnap.data() as Omit<TeamMember, 'id'>),
+      }));
+      try {
+        localStorage.setItem(TEAM_LOCAL_STORAGE_KEY, JSON.stringify(list));
+      } catch (e) {
+        // ignore storage quota
+      }
+      return list;
+    }
+
+    // Fallback to initial team members if Firestore collection is empty
+    return INITIAL_TEAM_MEMBERS;
+  } catch (err) {
+    console.warn('Erro ao buscar equipe do Firestore, tentando cache local:', err);
+    try {
+      const cached = localStorage.getItem(TEAM_LOCAL_STORAGE_KEY);
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (e) {
+      // ignore
+    }
+    return INITIAL_TEAM_MEMBERS;
+  }
+}
+
+export function subscribeToTeamMembers(callback: (members: TeamMember[]) => void): () => void {
+  const colRef = collection(db, TEAM_MEMBERS_COLLECTION);
+  return onSnapshot(
+    colRef,
+    (snap) => {
+      if (!snap.empty) {
+        const list = snap.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as Omit<TeamMember, 'id'>),
+        }));
+        list.sort((a, b) => (a.order || 99) - (b.order || 99));
+        try {
+          localStorage.setItem(TEAM_LOCAL_STORAGE_KEY, JSON.stringify(list));
+        } catch (e) {
+          // ignore
+        }
+        callback(list);
+      } else {
+        callback(INITIAL_TEAM_MEMBERS);
+      }
+    },
+    (err) => {
+      console.warn('Snapshot error para equipe Bratu, usando padrão/cache:', err);
+      try {
+        const cached = localStorage.getItem(TEAM_LOCAL_STORAGE_KEY);
+        if (cached) {
+          callback(JSON.parse(cached));
+          return;
+        }
+      } catch (e) {
+        // ignore
+      }
+      callback(INITIAL_TEAM_MEMBERS);
+    }
+  );
+}
+
+export async function saveTeamMember(member: TeamMember): Promise<void> {
+  try {
+    const cleanId = (member.id || `member_${Date.now()}`).trim();
+    const docRef = doc(db, TEAM_MEMBERS_COLLECTION, cleanId);
+
+    const payload: Partial<TeamMember> = {
+      name: member.name.trim(),
+      role: member.role.trim(),
+      department: (member.department || 'Diretoria Executiva').trim(),
+      photoUrl: member.photoUrl || '',
+      creci: (member.creci || '').trim(),
+      phone: (member.phone || '').trim(),
+      email: (member.email || '').trim(),
+      bio: (member.bio || '').trim(),
+      order: typeof member.order === 'number' ? member.order : 99,
+      active: member.active !== false,
+      updatedAt: new Date().toISOString(),
+      createdAt: member.createdAt || new Date().toISOString(),
+    };
+
+    await setDoc(docRef, payload, { merge: true });
+  } catch (err: any) {
+    console.error('Erro ao salvar membro da equipe:', err);
+    throw new Error(err?.message || 'Falha ao salvar membro da equipe no Firestore.');
+  }
+}
+
+export async function deleteTeamMember(id: string): Promise<void> {
+  try {
+    const docRef = doc(db, TEAM_MEMBERS_COLLECTION, id);
+    await deleteDoc(docRef);
+  } catch (err: any) {
+    console.error('Erro ao excluir membro da equipe:', err);
+    throw new Error(err?.message || 'Falha ao excluir membro da equipe no Firestore.');
   }
 }

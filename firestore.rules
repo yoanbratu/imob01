@@ -114,14 +114,15 @@ service cloud.firestore {
 
     // HomepageSegment payload validation blueprint
     function isValidHomepageSegment(data) {
-      return data.keys().hasAll(['title', 'imageUrl']) &&
+      return data.keys().hasAll(['title']) &&
         data.title is string && data.title.size() > 0 && data.title.size() <= 300 &&
-        data.imageUrl is string && data.imageUrl.size() <= 800000 &&
+        (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 800000)) &&
         (!('segmentTag' in data) || (data.segmentTag is string && data.segmentTag.size() <= 100)) &&
         (!('badge' in data) || (data.badge is string && data.badge.size() <= 100)) &&
         (!('imageBadge' in data) || (data.imageBadge is string && data.imageBadge.size() <= 200)) &&
         (!('description' in data) || (data.description is string && data.description.size() <= 4000)) &&
-        (!('features' in data) || (data.features is list && data.features.size() <= 30)) &&
+        (!('features' in data) || (data.features is list && data.features.size() <= 40)) &&
+        (!('items' in data) || (data.items is list && data.items.size() <= 50)) &&
         (!('ctaText' in data) || (data.ctaText is string && data.ctaText.size() <= 150)) &&
         (!('category' in data) || (data.category is string && data.category.size() <= 100)) &&
         (!('footerLabel' in data) || (data.footerLabel is string && data.footerLabel.size() <= 100)) &&
@@ -129,6 +130,26 @@ service cloud.firestore {
         (!('headerTag' in data) || (data.headerTag is string && data.headerTag.size() <= 150)) &&
         (!('headerTitle' in data) || (data.headerTitle is string && data.headerTitle.size() <= 300)) &&
         (!('headerDescription' in data) || (data.headerDescription is string && data.headerDescription.size() <= 2000)) &&
+        (!('segment1' in data) || (data.segment1 is map)) &&
+        (!('segment2' in data) || (data.segment2 is map)) &&
+        (!('customSegments' in data) || (data.customSegments is list && data.customSegments.size() <= 20)) &&
+        (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 100));
+    }
+
+    // TeamMember payload validation blueprint (Equipe Bratu Imobiliária & Administradora LTDA)
+    function isValidTeamMember(data) {
+      return data.keys().hasAll(['name', 'role']) &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 200 &&
+        data.role is string && data.role.size() > 0 && data.role.size() <= 200 &&
+        (!('department' in data) || (data.department is string && data.department.size() <= 200)) &&
+        (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 800000)) &&
+        (!('creci' in data) || (data.creci is string && data.creci.size() <= 120)) &&
+        (!('phone' in data) || (data.phone is string && data.phone.size() <= 100)) &&
+        (!('email' in data) || (data.email is string && data.email.size() <= 150)) &&
+        (!('bio' in data) || (data.bio is string && data.bio.size() <= 4000)) &&
+        (!('order' in data) || (data.order is number)) &&
+        (!('active' in data) || (data.active is bool)) &&
+        (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 100)) &&
         (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 100));
     }
 
@@ -172,6 +193,13 @@ service cloud.firestore {
       allow get, list: if true;
       allow create, update: if isValidId(segmentId) && isValidHomepageSegment(incoming());
       allow delete: if isValidId(segmentId);
+    }
+
+    // Team members: Read and write staff of Bratu Imobiliária & Administradora LTDA
+    match /team_members/{memberId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(memberId) && isValidTeamMember(incoming());
+      allow delete: if isValidId(memberId);
     }
 
     // Default deny catch-all

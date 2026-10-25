@@ -18,6 +18,7 @@ import {
   Trash2,
   Save,
   CheckCircle,
+  CheckCircle2,
   X,
   Search,
   ExternalLink,
@@ -50,6 +51,7 @@ import {
   Property,
   PropertyType,
   PropertyPurpose,
+  PropertyCategory,
   Country,
   LeadSubmission,
   Realtor,
@@ -57,9 +59,13 @@ import {
   Condominium,
   HomepageSegment,
   HomepageSegmentsConfig,
+  SegmentItem,
   INITIAL_HOMEPAGE_SEGMENTS,
   CURATED_TECH_PHOTOS,
+  CURATED_TEAM_AVATARS,
   TechEffectType,
+  TeamMember,
+  INITIAL_TEAM_MEMBERS,
 } from '../types/property';
 import {
   saveProperty,
@@ -83,6 +89,10 @@ import {
   fetchHomepageSegments,
   saveHomepageSegments,
   subscribeToHomepageSegments,
+  fetchTeamMembers,
+  saveTeamMember,
+  deleteTeamMember,
+  subscribeToTeamMembers,
 } from '../services/propertyService';
 import { COMPANY_INFO } from '../utils/whatsapp';
 import { updateAdminPassword } from '../utils/security';
@@ -99,7 +109,7 @@ interface AdminPanelProps {
   onClose: () => void;
   onLogout: () => void;
   onRefreshData: () => void;
-  initialTab?: 'properties' | 'new' | 'owners' | 'condos' | 'realtors' | 'leads' | 'segments' | 'security';
+  initialTab?: 'properties' | 'new' | 'owners' | 'condos' | 'realtors' | 'team' | 'leads' | 'segments' | 'security';
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -111,18 +121,80 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onRefreshData,
   initialTab,
 }) => {
-  const [activeTab, setActiveTab] = useState<'properties' | 'new' | 'owners' | 'condos' | 'realtors' | 'leads' | 'segments' | 'security'>(initialTab || 'properties');
+  const [activeTab, setActiveTab] = useState<'properties' | 'new' | 'owners' | 'condos' | 'realtors' | 'team' | 'leads' | 'segments' | 'security'>(initialTab || 'properties');
   const [searchFilter, setSearchFilter] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'residencial' | 'comercial'>('all');
+
+  // Team (Equipe Bratu) State & Listener
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(INITIAL_TEAM_MEMBERS);
+  const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
+  const [editingTeamMember, setEditingTeamMember] = useState<TeamMember | null>(null);
+  const [teamFormData, setTeamFormData] = useState<Partial<TeamMember>>({
+    name: '',
+    role: '',
+    department: 'Diretoria Executiva',
+    photoUrl: '',
+    creci: '',
+    phone: '',
+    email: '',
+    bio: '',
+    order: 1,
+    active: true,
+  });
+  const [teamFeedback, setTeamFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [isSavingTeamMember, setIsSavingTeamMember] = useState(false);
+  const [deleteConfirmTeamMember, setDeleteConfirmTeamMember] = useState<TeamMember | null>(null);
+  const [isCompressingTeamPhoto, setIsCompressingTeamPhoto] = useState(false);
+  const [teamSearch, setTeamSearch] = useState('');
+  const [teamDeptFilter, setTeamDeptFilter] = useState('all');
+
+  useEffect(() => {
+    const unsubscribe = subscribeToTeamMembers((data) => {
+      setTeamMembers(data);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Homepage Segments 01 & 02 State & Listener
   const [segmentsConfig, setSegmentsConfig] = useState<HomepageSegmentsConfig>(INITIAL_HOMEPAGE_SEGMENTS);
   const [isSavingSegments, setIsSavingSegments] = useState(false);
   const [segmentsFeedback, setSegmentsFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [activeSegmentTab, setActiveSegmentTab] = useState<'seg1' | 'seg2' | 'header'>('seg1');
+  const [activeSegmentTab, setActiveSegmentTab] = useState<'seg1' | 'seg2' | 'header' | 'custom'>('seg1');
   const [newFeature1, setNewFeature1] = useState('');
   const [newFeature2, setNewFeature2] = useState('');
   const [isCompressingSegmentPhoto, setIsCompressingSegmentPhoto] = useState(false);
+
+  // Segment Items & Custom Segments Modals
+  const [isSegmentItemModalOpen, setIsSegmentItemModalOpen] = useState(false);
+  const [segmentItemTarget, setSegmentItemTarget] = useState<'segment1' | 'segment2' | string>('segment1');
+  const [editingItemData, setEditingItemData] = useState<Partial<SegmentItem>>({
+    title: '',
+    subtitle: '',
+    description: '',
+    imageUrl: '',
+    badge: '',
+    techEffect: 'holo-gold',
+  });
+  const [isCompressingItemPhoto, setIsCompressingItemPhoto] = useState(false);
+
+  // Custom Segment Modal
+  const [isCustomSegmentModalOpen, setIsCustomSegmentModalOpen] = useState(false);
+  const [customSegmentFormData, setCustomSegmentFormData] = useState<Partial<HomepageSegment>>({
+    id: '',
+    segmentTag: 'SEGMENTO 03',
+    title: '',
+    badge: 'ESPECIAL',
+    imageUrl: '',
+    imageBadge: 'DESTAQUE EXCLUSIVO',
+    description: '',
+    features: [],
+    ctaText: 'Explorar Imóveis',
+    category: 'residencial',
+    footerLabel: 'Venda & Locação',
+    techEffect: 'holo-gold',
+    items: [],
+  });
+  const [newCustomFeature, setNewCustomFeature] = useState('');
 
   useEffect(() => {
     if (initialTab) {
@@ -966,6 +1038,349 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
+  // ==========================================
+  // TEAM MEMBERS (EQUIPE BRATU) HANDLERS
+  // ==========================================
+  const handleOpenNewTeamModal = () => {
+    setEditingTeamMember(null);
+    setTeamFormData({
+      name: '',
+      role: '',
+      department: 'Diretoria Executiva',
+      photoUrl: '',
+      creci: '',
+      phone: '+55 (21) 98098-4243',
+      email: 'Demy@Bratu.com.br',
+      bio: '',
+      order: (teamMembers.length || 0) + 1,
+      active: true,
+    });
+    setTeamFeedback(null);
+    setIsTeamModalOpen(true);
+  };
+
+  const handleOpenEditTeamModal = (member: TeamMember) => {
+    setEditingTeamMember(member);
+    setTeamFormData({
+      name: member.name,
+      role: member.role,
+      department: member.department,
+      photoUrl: member.photoUrl,
+      creci: member.creci,
+      phone: member.phone,
+      email: member.email,
+      bio: member.bio,
+      order: member.order,
+      active: member.active !== false,
+    });
+    setTeamFeedback(null);
+    setIsTeamModalOpen(true);
+  };
+
+  const handleTeamPhotoUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    if (!file.type.startsWith('image/')) return;
+    setIsCompressingTeamPhoto(true);
+    setTeamFeedback(null);
+    try {
+      const compressedDataUrl = await compressImage(file, 800, 800, 0.82);
+      setTeamFormData((prev) => ({ ...prev, photoUrl: compressedDataUrl }));
+      setTeamFeedback({ type: 'success', message: 'Foto do membro otimizada com sucesso!' });
+    } catch (err: any) {
+      console.error('Erro ao comprimir foto da equipe:', err);
+      setTeamFeedback({ type: 'error', message: err.message || 'Falha ao processar foto.' });
+    } finally {
+      setIsCompressingTeamPhoto(false);
+    }
+  };
+
+  const handleSelectCuratedTeamAvatar = (url: string) => {
+    setTeamFormData((prev) => ({ ...prev, photoUrl: url }));
+  };
+
+  const handleSaveTeamForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!teamFormData.name || !teamFormData.role) {
+      setTeamFeedback({ type: 'error', message: 'Preencha o Nome e o Cargo do membro.' });
+      return;
+    }
+    setIsSavingTeamMember(true);
+    setTeamFeedback(null);
+    try {
+      const memberToSave: TeamMember = {
+        id: editingTeamMember ? editingTeamMember.id : `bratu_team_${Date.now()}`,
+        name: teamFormData.name.trim(),
+        role: teamFormData.role.trim(),
+        department: (teamFormData.department || 'Diretoria Executiva').trim(),
+        photoUrl: teamFormData.photoUrl || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=800&q=80',
+        creci: (teamFormData.creci || '').trim(),
+        phone: (teamFormData.phone || '').trim(),
+        email: (teamFormData.email || '').trim(),
+        bio: (teamFormData.bio || '').trim(),
+        order: typeof teamFormData.order === 'number' ? teamFormData.order : (teamMembers.length + 1),
+        active: teamFormData.active !== false,
+        createdAt: editingTeamMember?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      await saveTeamMember(memberToSave);
+      setTeamFeedback({
+        type: 'success',
+        message: editingTeamMember ? 'Membro da equipe atualizado com sucesso!' : 'Novo membro cadastrado na equipe com sucesso!',
+      });
+      setIsTeamModalOpen(false);
+      setTimeout(() => setTeamFeedback(null), 3500);
+    } catch (err: any) {
+      setTeamFeedback({ type: 'error', message: err.message || 'Erro ao salvar membro da equipe.' });
+    } finally {
+      setIsSavingTeamMember(false);
+    }
+  };
+
+  const handleDeleteTeamMemberAction = async (id: string, name: string) => {
+    try {
+      await deleteTeamMember(id);
+      setTeamFeedback({ type: 'success', message: `Membro "${name}" excluído da equipe com sucesso.` });
+      setDeleteConfirmTeamMember(null);
+      setTimeout(() => setTeamFeedback(null), 3000);
+    } catch (err: any) {
+      setTeamFeedback({ type: 'error', message: err.message || 'Erro ao excluir membro da equipe.' });
+    }
+  };
+
+  const handleToggleTeamActive = async (member: TeamMember) => {
+    try {
+      const updated: TeamMember = {
+        ...member,
+        active: !member.active,
+        updatedAt: new Date().toISOString(),
+      };
+      await saveTeamMember(updated);
+      setTeamFeedback({
+        type: 'success',
+        message: `Status de "${member.name}" alterado para ${!member.active ? 'Ativo' : 'Oculto'}.`,
+      });
+      setTimeout(() => setTeamFeedback(null), 2500);
+    } catch (err: any) {
+      setTeamFeedback({ type: 'error', message: err.message || 'Erro ao atualizar status.' });
+    }
+  };
+
+  // ==========================================
+  // SEGMENT ITEMS & CUSTOM SEGMENTS CRUD HANDLERS
+  // ==========================================
+  const handleOpenNewSegmentItem = (segKey: 'segment1' | 'segment2' | string) => {
+    setSegmentItemTarget(segKey);
+    setEditingItemData({
+      id: `item_${Date.now()}`,
+      title: '',
+      subtitle: '',
+      description: '',
+      imageUrl: segKey === 'segment2'
+        ? 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80'
+        : 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80',
+      badge: 'DESTAQUE',
+      techEffect: 'holo-gold',
+    });
+    setIsSegmentItemModalOpen(true);
+  };
+
+  const handleOpenEditSegmentItem = (segKey: 'segment1' | 'segment2' | string, item: SegmentItem) => {
+    setSegmentItemTarget(segKey);
+    setEditingItemData({ ...item });
+    setIsSegmentItemModalOpen(true);
+  };
+
+  const handleItemPhotoUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    if (!file.type.startsWith('image/')) return;
+    setIsCompressingItemPhoto(true);
+    try {
+      const compressedDataUrl = await compressImage(file, 900, 600, 0.82);
+      setEditingItemData((prev) => ({ ...prev, imageUrl: compressedDataUrl }));
+    } catch (err: any) {
+      console.error('Erro ao comprimir foto do item:', err);
+    } finally {
+      setIsCompressingItemPhoto(false);
+    }
+  };
+
+  const handleSaveSegmentItemForm = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingItemData.title || !editingItemData.imageUrl) {
+      alert('Preencha ao menos o título e selecione uma foto para o item.');
+      return;
+    }
+
+    const itemToSave: SegmentItem = {
+      id: editingItemData.id || `item_${Date.now()}`,
+      title: (editingItemData.title || '').trim(),
+      subtitle: (editingItemData.subtitle || '').trim(),
+      description: (editingItemData.description || '').trim(),
+      imageUrl: editingItemData.imageUrl || '',
+      badge: (editingItemData.badge || '').trim(),
+      techEffect: editingItemData.techEffect || 'holo-gold',
+      createdAt: editingItemData.createdAt || new Date().toISOString(),
+    };
+
+    setSegmentsConfig((prev) => {
+      if (segmentItemTarget === 'segment1' || segmentItemTarget === 'segment2') {
+        const seg = prev[segmentItemTarget];
+        const existingItems = seg.items || [];
+        const exists = existingItems.some((it) => it.id === itemToSave.id);
+        const newItems = exists
+          ? existingItems.map((it) => (it.id === itemToSave.id ? itemToSave : it))
+          : [...existingItems, itemToSave];
+        return {
+          ...prev,
+          [segmentItemTarget]: {
+            ...seg,
+            items: newItems,
+          },
+        };
+      } else {
+        // Custom segment
+        const customList = prev.customSegments || [];
+        const updatedCustom = customList.map((cSeg) => {
+          if (cSeg.id === segmentItemTarget) {
+            const existingItems = cSeg.items || [];
+            const exists = existingItems.some((it) => it.id === itemToSave.id);
+            const newItems = exists
+              ? existingItems.map((it) => (it.id === itemToSave.id ? itemToSave : it))
+              : [...existingItems, itemToSave];
+            return { ...cSeg, items: newItems };
+          }
+          return cSeg;
+        });
+        return { ...prev, customSegments: updatedCustom };
+      }
+    });
+
+    setIsSegmentItemModalOpen(false);
+    setSegmentsFeedback({
+      type: 'success',
+      message: 'Item / Foto adicionado ao segmento! Lembre-se de clicar em "Salvar Alterações" no topo.',
+    });
+  };
+
+  const handleDeleteSegmentItem = (segKey: 'segment1' | 'segment2' | string, itemId: string) => {
+    if (confirm('Tem certeza que deseja excluir este item/foto do segmento?')) {
+      setSegmentsConfig((prev) => {
+        if (segKey === 'segment1' || segKey === 'segment2') {
+          const seg = prev[segKey];
+          return {
+            ...prev,
+            [segKey]: {
+              ...seg,
+              items: (seg.items || []).filter((it) => it.id !== itemId),
+            },
+          };
+        } else {
+          const customList = prev.customSegments || [];
+          return {
+            ...prev,
+            customSegments: customList.map((cSeg) => {
+              if (cSeg.id === segKey) {
+                return {
+                  ...cSeg,
+                  items: (cSeg.items || []).filter((it) => it.id !== itemId),
+                };
+              }
+              return cSeg;
+            }),
+          };
+        }
+      });
+      setSegmentsFeedback({
+        type: 'success',
+        message: 'Item excluído do segmento! Clique em "Salvar Alterações" para confirmar.',
+      });
+    }
+  };
+
+  // Custom Segments Handlers
+  const handleOpenNewCustomSegment = () => {
+    const nextNum = (segmentsConfig.customSegments?.length || 0) + 3;
+    setCustomSegmentFormData({
+      id: `custom_seg_${Date.now()}`,
+      segmentTag: `SEGMENTO 0${nextNum}`,
+      title: '',
+      badge: 'ESPECIALIDADE',
+      imageUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
+      imageBadge: 'ATIVO SELECIONADO · 4K',
+      description: '',
+      features: [],
+      ctaText: 'Explorar Oportunidades',
+      category: 'residencial',
+      footerLabel: 'Venda & Locação',
+      techEffect: 'holo-gold',
+      items: [],
+    });
+    setNewCustomFeature('');
+    setIsCustomSegmentModalOpen(true);
+  };
+
+  const handleOpenEditCustomSegment = (cSeg: HomepageSegment) => {
+    setCustomSegmentFormData({ ...cSeg });
+    setNewCustomFeature('');
+    setIsCustomSegmentModalOpen(true);
+  };
+
+  const handleSaveCustomSegmentForm = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customSegmentFormData.title || !customSegmentFormData.imageUrl) {
+      alert('Preencha ao menos o título e foto do novo segmento.');
+      return;
+    }
+    const newSeg: HomepageSegment = {
+      id: customSegmentFormData.id || `custom_seg_${Date.now()}`,
+      segmentTag: (customSegmentFormData.segmentTag || 'SEGMENTO').trim(),
+      title: (customSegmentFormData.title || '').trim(),
+      badge: (customSegmentFormData.badge || '').trim(),
+      imageUrl: customSegmentFormData.imageUrl || '',
+      imageBadge: (customSegmentFormData.imageBadge || '').trim(),
+      description: (customSegmentFormData.description || '').trim(),
+      features: Array.isArray(customSegmentFormData.features) ? customSegmentFormData.features : [],
+      ctaText: (customSegmentFormData.ctaText || 'Explorar Portfólio').trim(),
+      category: customSegmentFormData.category || 'residencial',
+      footerLabel: (customSegmentFormData.footerLabel || 'Venda & Locação').trim(),
+      techEffect: customSegmentFormData.techEffect || 'holo-gold',
+      items: Array.isArray(customSegmentFormData.items) ? customSegmentFormData.items : [],
+      updatedAt: new Date().toISOString(),
+    };
+
+    setSegmentsConfig((prev) => {
+      const existing = prev.customSegments || [];
+      const exists = existing.some((c) => c.id === newSeg.id);
+      return {
+        ...prev,
+        customSegments: exists
+          ? existing.map((c) => (c.id === newSeg.id ? newSeg : c))
+          : [...existing, newSeg],
+      };
+    });
+
+    setIsCustomSegmentModalOpen(false);
+    setSegmentsFeedback({
+      type: 'success',
+      message: 'Segmento salvo com sucesso! Clique em "Salvar Alterações" no topo para persistir.',
+    });
+  };
+
+  const handleDeleteCustomSegment = (segId: string, title: string) => {
+    if (confirm(`Tem certeza que deseja excluir o segmento "${title}"?`)) {
+      setSegmentsConfig((prev) => ({
+        ...prev,
+        customSegments: (prev.customSegments || []).filter((c) => c.id !== segId),
+      }));
+      setSegmentsFeedback({
+        type: 'success',
+        message: `Segmento "${title}" excluído! Clique em "Salvar Alterações" para confirmar.`,
+      });
+    }
+  };
+
   const filteredProperties = properties.filter((p) => {
     const matchesSearch =
       p.title.toLowerCase().includes(searchFilter.toLowerCase()) ||
@@ -1095,6 +1510,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           >
             <Inbox className="w-4 h-4" />
             <span>Propostas & Contatos Recebidos ({leads.length})</span>
+          </button>
+
+          {/* Equipe Bratu Imobiliária & Administradora LTDA */}
+          <button
+            onClick={() => setActiveTab('team')}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+              activeTab === 'team'
+                ? 'tech-btn-primary'
+                : 'tech-btn-secondary text-slate-300'
+            }`}
+          >
+            <Users className="w-4 h-4 text-[#D4AF37]" />
+            <span>Equipe Bratu ({teamMembers.length})</span>
           </button>
 
           {/* New Tab: Segmentos 01 & 02 da Página Inicial */}
@@ -3227,6 +3655,235 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         )}
 
+        {/* TAB: EQUIPE BRATU IMOBILIÁRIA & ADMINISTRADORA LTDA */}
+        {activeTab === 'team' && (
+          <div className="py-6 flex-1 space-y-6 animate-in fade-in duration-200">
+            {/* Header & Main Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-4 pb-5 border-b border-[#D4AF37]/25">
+              <div>
+                <div className="inline-flex items-center gap-2 text-xs font-mono font-semibold tracking-wider uppercase text-[#D4AF37] mb-1 px-3 py-0.5 rounded-full bg-[#070F26] border border-[#D4AF37]/35">
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#D4AF37]" />
+                  <span>BRATU IMOBILIÁRIA & ADMINISTRADORA LTDA</span>
+                </div>
+                <h3 className="text-2xl font-extrabold text-white">
+                  Gestão da Equipe de Especialistas & Colaboradores
+                </h3>
+                <p className="text-xs text-slate-300 mt-1 max-w-3xl leading-relaxed">
+                  Gerencie nome, cargo, departamento, foto, CRECI, WhatsApp, e-mail e biografia dos profissionais que atuam na Bratu Imobiliária & Administradora LTDA.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleOpenNewTeamModal}
+                  className="tech-btn-primary inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-[#050B1A] shadow-lg cursor-pointer"
+                >
+                  <PlusCircle className="w-4 h-4 text-[#050B1A]" />
+                  <span>+ Novo Membro da Equipe</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Notification Banner */}
+            {teamFeedback && (
+              <div
+                className={`p-4 rounded-2xl border text-xs flex items-center justify-between gap-3 animate-in fade-in ${
+                  teamFeedback.type === 'success'
+                    ? 'bg-emerald-950/80 border-emerald-500/50 text-emerald-200'
+                    : 'bg-red-950/80 border-red-500/50 text-red-200'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  {teamFeedback.type === 'success' ? (
+                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                  )}
+                  <span className="font-medium">{teamFeedback.message}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTeamFeedback(null)}
+                  className="text-slate-400 hover:text-white cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Filters Bar: Search & Department Filter */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#070F26] border border-[#D4AF37]/30">
+              <div className="relative flex-1 min-w-[260px]">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={teamSearch}
+                  onChange={(e) => setTeamSearch(e.target.value)}
+                  placeholder="Buscar por nome, cargo, setor ou CRECI..."
+                  className="w-full bg-[#0B163B] border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-mono text-slate-400">Filtrar Setor:</span>
+                <select
+                  value={teamDeptFilter}
+                  onChange={(e) => setTeamDeptFilter(e.target.value)}
+                  className="bg-[#0B163B] border border-white/15 text-white rounded-xl px-3 py-1.5 text-xs font-mono cursor-pointer"
+                >
+                  <option value="all">Todos os Setores</option>
+                  <option value="Diretoria Executiva">Diretoria Executiva</option>
+                  <option value="Administração Condominial">Administração Condominial</option>
+                  <option value="Vendas Residencial">Vendas Residencial</option>
+                  <option value="Ativos Internacionais & Comercial">Ativos Internacionais & Comercial</option>
+                  <option value="Locação & Corporativo">Locação & Corporativo</option>
+                  <option value="Jurídico & Contratos">Jurídico & Contratos</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Team Members Grid */}
+            {(() => {
+              const filtered = teamMembers.filter((m) => {
+                const matchSearch =
+                  m.name.toLowerCase().includes(teamSearch.toLowerCase()) ||
+                  m.role.toLowerCase().includes(teamSearch.toLowerCase()) ||
+                  (m.department && m.department.toLowerCase().includes(teamSearch.toLowerCase())) ||
+                  (m.creci && m.creci.toLowerCase().includes(teamSearch.toLowerCase()));
+                const matchDept = teamDeptFilter === 'all' || m.department === teamDeptFilter;
+                return matchSearch && matchDept;
+              });
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="text-center py-16 bg-[#070F26] rounded-3xl border border-white/10 p-8 space-y-3">
+                    <Users className="w-12 h-12 text-[#D4AF37] mx-auto opacity-50" />
+                    <h4 className="text-base font-bold text-white">Nenhum membro encontrado</h4>
+                    <p className="text-xs text-slate-400 max-w-md mx-auto">
+                      Nenhum profissional corresponde aos filtros atuais. Limpe a busca ou cadastre um novo membro.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleOpenNewTeamModal}
+                      className="tech-btn-primary inline-flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold text-[#050B1A]"
+                    >
+                      <PlusCircle className="w-4 h-4 text-[#050B1A]" />
+                      <span>Cadastrar Membro</span>
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filtered.map((member) => (
+                    <div
+                      key={member.id}
+                      className="rounded-3xl bg-[#070F26] border border-[#D4AF37]/35 hover:border-[#D4AF37] p-5 transition-all flex flex-col justify-between shadow-xl relative group"
+                    >
+                      <div>
+                        {/* Top Meta & Status */}
+                        <div className="flex items-center justify-between mb-4">
+                          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#E5C378] bg-[#0B163B] px-2.5 py-0.5 rounded border border-[#D4AF37]/30">
+                            {member.department || 'Geral'}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => handleToggleTeamActive(member)}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                              member.active !== false
+                                ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-500/50'
+                                : 'bg-slate-800 text-slate-400 border border-white/10'
+                            }`}
+                            title="Clique para alternar visibilidade no site público"
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${member.active !== false ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
+                            <span>{member.active !== false ? 'Ativo no Site' : 'Oculto'}</span>
+                          </button>
+                        </div>
+
+                        {/* Photo & Profile Header */}
+                        <div className="flex items-start gap-4 mb-4">
+                          <img
+                            src={member.photoUrl || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=800&q=80'}
+                            alt={member.name}
+                            className="w-16 h-16 rounded-2xl object-cover border-2 border-[#D4AF37]/40 shadow-md shrink-0 bg-[#0B163B]"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <h4 className="text-base font-bold text-white truncate group-hover:text-[#ECC97E] transition-colors">
+                              {member.name}
+                            </h4>
+                            <p className="text-xs font-mono font-semibold text-[#D4AF37] truncate mt-0.5">
+                              {member.role}
+                            </p>
+                            {member.creci && (
+                              <span className="text-[10px] font-mono text-slate-400 block mt-1">
+                                {member.creci}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Contact details */}
+                        <div className="space-y-1.5 py-3 border-t border-white/10 text-xs">
+                          {member.phone && (
+                            <div className="flex items-center gap-2 text-slate-300 font-mono">
+                              <Phone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              <span className="text-emerald-400 font-bold">{member.phone}</span>
+                            </div>
+                          )}
+                          {member.email && (
+                            <div className="flex items-center gap-2 text-slate-300 font-mono truncate">
+                              <Mail className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
+                              <span className="truncate">{member.email}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Bio snippet */}
+                        {member.bio && (
+                          <p className="text-[11px] text-slate-300 line-clamp-3 mt-2 leading-relaxed font-sans bg-[#0B163B]/50 p-2.5 rounded-xl border border-white/5">
+                            {member.bio}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Card Actions */}
+                      <div className="pt-4 mt-4 border-t border-white/10 flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-mono text-slate-500">
+                          Ordem: #{member.order ?? 99}
+                        </span>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditTeamModal(member)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0B163B] hover:bg-[#12235E] border border-[#D4AF37]/50 text-[#E5C378] text-xs font-mono font-bold transition-all cursor-pointer"
+                          >
+                            <Edit className="w-3.5 h-3.5 text-[#D4AF37]" />
+                            <span>Editar</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setDeleteConfirmTeamMember(member)}
+                            className="p-1.5 rounded-xl bg-red-950/50 hover:bg-red-900 border border-red-500/40 text-red-300 transition-all cursor-pointer"
+                            title="Excluir membro da equipe"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
         {/* TAB: HOMEPAGE SPECIALIZED SEGMENTS (01 & 02) */}
         {activeTab === 'segments' && (
           <div className="py-6 flex-1 max-w-6xl mx-auto w-full space-y-8 animate-in fade-in duration-200">
@@ -3292,12 +3949,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
             )}
 
-            {/* Sub-Tabs: Segmento 01 | Segmento 02 | Cabeçalho Geral */}
-            <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-[#081233] border border-white/10 max-w-lg">
+            {/* Sub-Tabs: Segmento 01 | Segmento 02 | Segmentos Adicionais | Cabeçalho Geral */}
+            <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-2xl bg-[#081233] border border-white/10 max-w-2xl">
               <button
                 type="button"
                 onClick={() => setActiveSegmentTab('seg1')}
-                className={`flex-1 py-2 text-xs font-mono font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                className={`flex-1 min-w-[140px] py-2 text-xs font-mono font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
                   activeSegmentTab === 'seg1'
                     ? 'bg-[#D4AF37] text-[#050B1A] shadow-md'
                     : 'text-slate-300 hover:text-white'
@@ -3310,7 +3967,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveSegmentTab('seg2')}
-                className={`flex-1 py-2 text-xs font-mono font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                className={`flex-1 min-w-[140px] py-2 text-xs font-mono font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
                   activeSegmentTab === 'seg2'
                     ? 'bg-[#D4AF37] text-[#050B1A] shadow-md'
                     : 'text-slate-300 hover:text-white'
@@ -3318,6 +3975,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               >
                 <Briefcase className="w-3.5 h-3.5" />
                 <span>Segmento 02 (Comercial)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveSegmentTab('custom')}
+                className={`py-2 px-3 text-xs font-mono font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  activeSegmentTab === 'custom'
+                    ? 'bg-[#D4AF37] text-[#050B1A] shadow-md'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>+ Segmentos Criados ({(segmentsConfig.customSegments || []).length})</span>
               </button>
 
               <button
@@ -3722,6 +4392,83 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       />
                     </div>
                   </div>
+
+                  {/* Sub-Items / Galeria de Fotos e Ofertas do Segmento 01 */}
+                  <div className="pt-4 border-t border-white/10 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h5 className="text-xs font-mono font-bold uppercase text-[#E5C378] flex items-center gap-1.5">
+                          <Layers className="w-3.5 h-3.5 text-[#D4AF37]" />
+                          <span>Itens, Ofertas & Fotos Adicionais ({(segmentsConfig.segment1.items || []).length})</span>
+                        </h5>
+                        <p className="text-[10px] text-slate-400">
+                          Inclua cards com fotos próprias, títulos e descrições dentro do Segmento 01.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenNewSegmentItem('segment1')}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#0B163B] hover:bg-[#12235E] border border-[#D4AF37]/50 text-[#E5C378] text-xs font-mono font-bold transition-all cursor-pointer"
+                      >
+                        <PlusCircle className="w-3.5 h-3.5 text-[#D4AF37]" />
+                        <span>+ Incluir Item / Foto</span>
+                      </button>
+                    </div>
+
+                    {/* Items Grid */}
+                    {(segmentsConfig.segment1.items || []).length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {(segmentsConfig.segment1.items || []).map((item) => (
+                          <div
+                            key={item.id}
+                            className="p-2.5 rounded-xl bg-[#0B163B] border border-white/10 flex items-start gap-2.5 relative group/sub"
+                          >
+                            <img
+                              src={item.imageUrl}
+                              alt={item.title}
+                              className="w-14 h-14 rounded-lg object-cover border border-[#D4AF37]/40 shrink-0 bg-[#050B1A]"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <span className="text-[9px] font-mono text-[#E5C378] block truncate">
+                                {item.badge || 'DESTAQUE'}
+                              </span>
+                              <h6 className="text-xs font-bold text-white truncate">
+                                {item.title}
+                              </h6>
+                              {item.subtitle && (
+                                <span className="text-[10px] text-slate-400 block truncate">
+                                  {item.subtitle}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex flex-col gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditSegmentItem('segment1', item)}
+                                className="p-1 rounded bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white cursor-pointer"
+                                title="Editar Item"
+                              >
+                                <Edit className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteSegmentItem('segment1', item.id)}
+                                className="p-1 rounded bg-red-950/40 hover:bg-red-900 text-red-400 hover:text-white cursor-pointer"
+                                title="Excluir Item"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-400 italic bg-[#050B1A] p-3 rounded-xl border border-dashed border-white/10 text-center">
+                        Nenhum item adicional cadastrado neste segmento. Clique no botão acima para incluir fotos e dados adicionais.
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -4064,7 +4811,200 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       />
                     </div>
                   </div>
+
+                  {/* Sub-Items / Galeria de Fotos e Ofertas do Segmento 02 */}
+                  <div className="pt-4 border-t border-white/10 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h5 className="text-xs font-mono font-bold uppercase text-[#E5C378] flex items-center gap-1.5">
+                          <Layers className="w-3.5 h-3.5 text-[#D4AF37]" />
+                          <span>Itens, Ofertas & Fotos Adicionais ({(segmentsConfig.segment2.items || []).length})</span>
+                        </h5>
+                        <p className="text-[10px] text-slate-400">
+                          Inclua cards com fotos próprias, títulos e descrições dentro do Segmento 02.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenNewSegmentItem('segment2')}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#0B163B] hover:bg-[#12235E] border border-[#D4AF37]/50 text-[#E5C378] text-xs font-mono font-bold transition-all cursor-pointer"
+                      >
+                        <PlusCircle className="w-3.5 h-3.5 text-[#D4AF37]" />
+                        <span>+ Incluir Item / Foto</span>
+                      </button>
+                    </div>
+
+                    {/* Items Grid */}
+                    {(segmentsConfig.segment2.items || []).length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {(segmentsConfig.segment2.items || []).map((item) => (
+                          <div
+                            key={item.id}
+                            className="p-2.5 rounded-xl bg-[#0B163B] border border-white/10 flex items-start gap-2.5 relative group/sub"
+                          >
+                            <img
+                              src={item.imageUrl}
+                              alt={item.title}
+                              className="w-14 h-14 rounded-lg object-cover border border-[#D4AF37]/40 shrink-0 bg-[#050B1A]"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <span className="text-[9px] font-mono text-[#E5C378] block truncate">
+                                {item.badge || 'CORPORATIVO'}
+                              </span>
+                              <h6 className="text-xs font-bold text-white truncate">
+                                {item.title}
+                              </h6>
+                              {item.subtitle && (
+                                <span className="text-[10px] text-slate-400 block truncate">
+                                  {item.subtitle}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex flex-col gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditSegmentItem('segment2', item)}
+                                className="p-1 rounded bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white cursor-pointer"
+                                title="Editar Item"
+                              >
+                                <Edit className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteSegmentItem('segment2', item.id)}
+                                className="p-1 rounded bg-red-950/40 hover:bg-red-900 text-red-400 hover:text-white cursor-pointer"
+                                title="Excluir Item"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-400 italic bg-[#050B1A] p-3 rounded-xl border border-dashed border-white/10 text-center">
+                        Nenhum item adicional cadastrado neste segmento. Clique no botão acima para incluir fotos e dados adicionais.
+                      </p>
+                    )}
+                  </div>
                 </div>
+              </div>
+            )}
+
+            {/* TAB: SEGMENTOS ADICIONAIS / CUSTOMIZADOS */}
+            {activeSegmentTab === 'custom' && (
+              <div className="space-y-6 animate-in fade-in duration-200">
+                <div className="flex flex-wrap items-center justify-between gap-3 p-5 rounded-3xl bg-[#070F26] border border-[#D4AF37]/35 shadow-xl">
+                  <div>
+                    <h4 className="text-base font-bold text-white flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-[#D4AF37]" />
+                      <span>Segmentos Personalizados Criados pelo Administrador</span>
+                    </h4>
+                    <p className="text-xs text-slate-300 mt-1 max-w-xl">
+                      Crie novos segmentos (ex: Segmento 03 - Áreas Rurais & Fazendas, Segmento 04 - Ativos Internacionais) com fotos tecnológicas, tags, títulos e sub-itens completos.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleOpenNewCustomSegment}
+                    className="tech-btn-primary inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-[#050B1A] shadow-md cursor-pointer"
+                  >
+                    <PlusCircle className="w-4 h-4 text-[#050B1A]" />
+                    <span>+ Criar Novo Segmento</span>
+                  </button>
+                </div>
+
+                {(segmentsConfig.customSegments || []).length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {(segmentsConfig.customSegments || []).map((cSeg) => (
+                      <div
+                        key={cSeg.id}
+                        className="rounded-3xl bg-[#070F26] border border-[#D4AF37]/30 hover:border-[#D4AF37]/70 p-5 space-y-4 shadow-xl flex flex-col justify-between"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-[10px] font-mono font-bold text-[#E5C378] bg-[#0B163B] px-2.5 py-0.5 rounded border border-[#D4AF37]/30">
+                              {cSeg.segmentTag}
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-400 bg-[#050B1A] px-2 py-0.5 rounded">
+                              {cSeg.category === 'residencial' ? 'Residencial' : 'Comercial'}
+                            </span>
+                          </div>
+
+                          <div className="aspect-[16/10] rounded-xl overflow-hidden mb-3 border border-[#D4AF37]/30">
+                            <TechImage
+                              src={cSeg.imageUrl}
+                              alt={cSeg.title}
+                              aspectClass="aspect-[16/10]"
+                              badge={cSeg.badge}
+                              techEffect={cSeg.techEffect || 'holo-gold'}
+                              allowEffectToggle={false}
+                              showTechHud={false}
+                            />
+                          </div>
+
+                          <h4 className="text-base font-bold text-white">
+                            {cSeg.title}
+                          </h4>
+                          <p className="text-xs text-slate-300 mt-1 line-clamp-2">
+                            {cSeg.description}
+                          </p>
+
+                          {/* Sub items info */}
+                          <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between text-xs text-slate-400">
+                            <span className="font-mono">
+                              Itens / Fotos anexadas: <strong className="text-white">{(cSeg.items || []).length}</strong>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenNewSegmentItem(cSeg.id)}
+                              className="text-[#D4AF37] hover:underline font-semibold cursor-pointer text-xs"
+                            >
+                              + Incluir Foto/Item
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="pt-3 border-t border-white/10 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditCustomSegment(cSeg)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0B163B] hover:bg-[#12235E] border border-[#D4AF37]/40 text-[#E5C378] text-xs font-mono font-semibold transition-all cursor-pointer"
+                          >
+                            <Edit className="w-3.5 h-3.5 text-[#D4AF37]" />
+                            <span>Editar Segmento</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCustomSegment(cSeg.id, cSeg.title)}
+                            className="p-1.5 rounded-xl bg-red-950/50 hover:bg-red-900 border border-red-500/40 text-red-300 transition-all cursor-pointer"
+                            title="Excluir Segmento"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 bg-[#070F26] rounded-3xl border border-white/10 p-8 space-y-3">
+                    <Layers className="w-10 h-10 text-slate-500 mx-auto" />
+                    <h5 className="text-sm font-bold text-white">Nenhum segmento personalizado criado ainda</h5>
+                    <p className="text-xs text-slate-400 max-w-md mx-auto">
+                      Os Segmentos 01 e 02 estão ativos na página inicial. Se você desejar criar um Segmento 03 ou novo pilar de atuação, clique abaixo.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleOpenNewCustomSegment}
+                      className="tech-btn-primary inline-flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold text-[#050B1A] cursor-pointer"
+                    >
+                      <PlusCircle className="w-4 h-4 text-[#050B1A]" />
+                      <span>Criar Primeiro Segmento Personalizado</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -5942,6 +6882,685 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   >
                     <Save className="w-4 h-4 text-[#050B1A]" />
                     <span>{isSavingCondo ? 'Salvando...' : editingCondo ? 'Salvar Alterações' : 'Cadastrar Condomínio'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+        {/* MODAL DE CADASTRO / EDIÇÃO DE MEMBRO DA EQUIPE BRATU */}
+        {isTeamModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#050B1A]/85 backdrop-blur-md animate-in fade-in duration-200"
+            onClick={() => setIsTeamModalOpen(false)}
+          >
+            <div
+              className="relative w-full max-w-2xl max-h-[92vh] bg-[#070F26] text-white rounded-3xl shadow-[0_25px_70px_rgba(0,0,0,0.85)] overflow-hidden flex flex-col border border-[#D4AF37]/50"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-5 border-b border-[#D4AF37]/30 bg-[#050B1A] shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#0B163B] border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37] shrink-0">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-white">
+                      {editingTeamMember ? `Editar Membro · ${editingTeamMember.name}` : 'Cadastrar Novo Membro na Equipe'}
+                    </h3>
+                    <p className="text-[11px] text-slate-400 font-sans mt-0.5">
+                      Bratu Imobiliária & Administradora LTDA · Exibição no site público e contatos diretos.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsTeamModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-[#070F26] hover:bg-[#0B163B] border border-white/10 text-white flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4 text-[#D4AF37]" />
+                </button>
+              </div>
+
+              {/* Form Body */}
+              <form onSubmit={handleSaveTeamForm} className="p-6 space-y-4 overflow-y-auto flex-1">
+                {/* Photo Section with Live Preview & Upload */}
+                <div className="p-4 rounded-2xl bg-[#0B163B]/60 border border-[#D4AF37]/30 space-y-3">
+                  <span className="block text-[11px] font-mono text-[#E5C378] font-bold uppercase">
+                    Foto do Profissional
+                  </span>
+                  <div className="flex items-start gap-4">
+                    <img
+                      src={teamFormData.photoUrl || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=800&q=80'}
+                      alt="Prévia do Membro"
+                      className="w-20 h-20 rounded-2xl object-cover border-2 border-[#D4AF37]/60 shadow-md shrink-0 bg-[#050B1A]"
+                    />
+                    <div className="flex-1 space-y-2">
+                      <input
+                        type="url"
+                        value={teamFormData.photoUrl || ''}
+                        onChange={(e) => setTeamFormData({ ...teamFormData, photoUrl: e.target.value })}
+                        placeholder="Cole o link da foto (URL) ou envie arquivo abaixo..."
+                        className="w-full bg-[#050B1A] border border-white/15 text-white rounded-xl px-3 py-1.5 text-xs font-mono"
+                      />
+
+                      <div className="flex items-center gap-2">
+                        <label className="flex items-center justify-center gap-2 px-3 py-1.5 bg-[#070F26] hover:bg-[#0B163B] border border-[#D4AF37]/40 rounded-xl text-xs font-mono text-[#ECC97E] cursor-pointer transition-colors">
+                          <Upload className="w-3.5 h-3.5 text-[#D4AF37]" />
+                          <span>{isCompressingTeamPhoto ? 'Comprimindo...' : 'Enviar Foto do Aparelho'}</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => handleTeamPhotoUpload(e.target.files)}
+                          />
+                        </label>
+                        <span className="text-[10px] text-slate-400">
+                          (Compressão automática)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Preset Avatars */}
+                  <div className="pt-2 border-t border-white/10">
+                    <span className="block text-[10px] font-mono text-slate-400 mb-1.5 uppercase">
+                      Ou escolha um retrato corporativo pré-selecionado:
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {CURATED_TEAM_AVATARS.map((avatar, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => handleSelectCuratedTeamAvatar(avatar.url)}
+                          className={`p-1 rounded-xl border transition-all cursor-pointer ${
+                            teamFormData.photoUrl === avatar.url
+                              ? 'border-[#D4AF37] ring-1 ring-[#D4AF37] bg-[#050B1A]'
+                              : 'border-white/10 hover:border-[#D4AF37]/60 bg-[#070F26]'
+                          }`}
+                          title={avatar.name}
+                        >
+                          <img
+                            src={avatar.url}
+                            alt={avatar.name}
+                            className="w-9 h-9 rounded-lg object-cover"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Name & Role */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      NOME COMPLETO *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={teamFormData.name || ''}
+                      onChange={(e) => setTeamFormData({ ...teamFormData, name: e.target.value })}
+                      placeholder="Ex: Alexandre Bratu"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs font-bold focus:ring-1 focus:ring-[#D4AF37]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-[#E5C378] mb-1">
+                      CARGO / FUNÇÃO OFICIAL *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={teamFormData.role || ''}
+                      onChange={(e) => setTeamFormData({ ...teamFormData, role: e.target.value })}
+                      placeholder="Ex: Diretor Geral / Administrador ou Consultor de Vendas"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-[#ECC97E] rounded-xl px-3.5 py-2 text-xs font-bold"
+                    />
+                  </div>
+                </div>
+
+                {/* Department & CRECI */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      DEPARTAMENTO / SETOR
+                    </label>
+                    <select
+                      value={teamFormData.department || 'Diretoria Executiva'}
+                      onChange={(e) => setTeamFormData({ ...teamFormData, department: e.target.value })}
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3 py-2 text-xs cursor-pointer"
+                    >
+                      <option value="Diretoria Executiva" className="bg-[#070F26]">Diretoria Executiva</option>
+                      <option value="Administração Condominial" className="bg-[#070F26]">Administração Condominial</option>
+                      <option value="Vendas Residencial" className="bg-[#070F26]">Vendas Residencial</option>
+                      <option value="Ativos Internacionais & Comercial" className="bg-[#070F26]">Ativos Internacionais & Comercial</option>
+                      <option value="Locação & Corporativo" className="bg-[#070F26]">Locação & Corporativo</option>
+                      <option value="Jurídico & Contratos" className="bg-[#070F26]">Jurídico & Contratos</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      CRECI / REGISTRO PROFISSIONAL
+                    </label>
+                    <input
+                      type="text"
+                      value={teamFormData.creci || ''}
+                      onChange={(e) => setTeamFormData({ ...teamFormData, creci: e.target.value })}
+                      placeholder="Ex: CRECI-PR 32.410 ou OAB-PR 78.432"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Phone & Email */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      TELEFONE / WHATSAPP PARA CONTATO DIRETO
+                    </label>
+                    <input
+                      type="text"
+                      value={teamFormData.phone || ''}
+                      onChange={(e) => setTeamFormData({ ...teamFormData, phone: e.target.value })}
+                      placeholder="+55 (21) 98098-4243"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-emerald-400 font-mono rounded-xl px-3.5 py-2 text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      E-MAIL CORPORATIVO
+                    </label>
+                    <input
+                      type="email"
+                      value={teamFormData.email || ''}
+                      onChange={(e) => setTeamFormData({ ...teamFormData, email: e.target.value })}
+                      placeholder="Demy@Bratu.com.br"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Bio */}
+                <div>
+                  <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                    MINI-BIOGRAFIA / HISTÓRICO PROFISSIONAL
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={teamFormData.bio || ''}
+                    onChange={(e) => setTeamFormData({ ...teamFormData, bio: e.target.value })}
+                    placeholder="Descreva a formação, áreas de atuação e trajetória do profissional..."
+                    className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl p-3 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                  />
+                </div>
+
+                {/* Order & Active */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      ORDEM DE EXIBIÇÃO (NÚMERO)
+                    </label>
+                    <input
+                      type="number"
+                      value={teamFormData.order ?? 1}
+                      onChange={(e) => setTeamFormData({ ...teamFormData, order: Number(e.target.value) })}
+                      className="w-full bg-[#0B163B] border border-white/15 text-white rounded-xl px-3.5 py-2 text-xs font-mono"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-6">
+                    <input
+                      type="checkbox"
+                      id="teamMemberActive"
+                      checked={teamFormData.active !== false}
+                      onChange={(e) => setTeamFormData({ ...teamFormData, active: e.target.checked })}
+                      className="w-4 h-4 text-[#D4AF37] rounded border-white/20 bg-[#0B163B] cursor-pointer"
+                    />
+                    <label htmlFor="teamMemberActive" className="text-xs text-slate-300 font-mono cursor-pointer">
+                      Exibir no site público na seção "Nossa Equipe"
+                    </label>
+                  </div>
+                </div>
+
+                {/* Footer Buttons */}
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setIsTeamModalOpen(false)}
+                    className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-400 hover:text-white cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingTeamMember || isCompressingTeamPhoto}
+                    className="tech-btn-primary inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-[#050B1A] cursor-pointer disabled:opacity-50"
+                  >
+                    <Save className="w-4 h-4 text-[#050B1A]" />
+                    <span>{isSavingTeamMember ? 'Salvando...' : editingTeamMember ? 'Salvar Alterações' : 'Cadastrar Membro'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO DE MEMBRO DA EQUIPE */}
+        {deleteConfirmTeamMember && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#050B1A]/85 backdrop-blur-md animate-in fade-in duration-200"
+            onClick={() => setDeleteConfirmTeamMember(null)}
+          >
+            <div
+              className="relative w-full max-w-md bg-[#070F26] text-white rounded-3xl p-6 border border-red-500/50 shadow-2xl space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-12 h-12 rounded-2xl bg-red-950/70 border border-red-500/40 text-red-400 flex items-center justify-center mx-auto">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div className="text-center">
+                <h4 className="text-lg font-bold text-white">
+                  Excluir Membro da Equipe?
+                </h4>
+                <p className="text-xs text-slate-300 mt-1">
+                  Tem certeza que deseja remover <strong className="text-white">{deleteConfirmTeamMember.name}</strong> ({deleteConfirmTeamMember.role}) do banco de dados?
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmTeamMember(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteTeamMemberAction(deleteConfirmTeamMember.id, deleteConfirmTeamMember.name)}
+                  className="px-5 py-2 rounded-xl text-xs font-bold bg-red-900 hover:bg-red-800 text-white border border-red-500/50 cursor-pointer"
+                >
+                  Confirmar Exclusão
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE CADASTRO / EDIÇÃO DE SUB-ITEM / FOTO DO SEGMENTO */}
+        {isSegmentItemModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#050B1A]/85 backdrop-blur-md animate-in fade-in duration-200"
+            onClick={() => setIsSegmentItemModalOpen(false)}
+          >
+            <div
+              className="relative w-full max-w-xl max-h-[90vh] bg-[#070F26] text-white rounded-3xl shadow-[0_25px_70px_rgba(0,0,0,0.85)] overflow-hidden flex flex-col border border-[#D4AF37]/50"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-5 border-b border-[#D4AF37]/30 bg-[#050B1A] shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#0B163B] border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37] shrink-0">
+                    <Layers className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-white">
+                      Item / Foto Adicional do Segmento
+                    </h3>
+                    <p className="text-[11px] text-slate-400 font-sans mt-0.5">
+                      Vincule fotos próprias e destaques que aparecem no card do segmento.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsSegmentItemModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-[#070F26] hover:bg-[#0B163B] border border-white/10 text-white flex items-center justify-center cursor-pointer"
+                >
+                  <X className="w-4 h-4 text-[#D4AF37]" />
+                </button>
+              </div>
+
+              {/* Form Body */}
+              <form onSubmit={handleSaveSegmentItemForm} className="p-6 space-y-4 overflow-y-auto flex-1">
+                {/* Photo Upload & Preview */}
+                <div className="p-4 rounded-2xl bg-[#0B163B]/60 border border-[#D4AF37]/30 space-y-3">
+                  <span className="block text-[11px] font-mono text-[#E5C378] font-bold uppercase">
+                    Foto do Item / Empreendimento
+                  </span>
+                  {editingItemData.imageUrl && (
+                    <div className="aspect-[16/9] rounded-xl overflow-hidden border border-[#D4AF37]/40 relative bg-[#050B1A]">
+                      <img
+                        src={editingItemData.imageUrl}
+                        alt="Prévia do Item"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+
+                  <input
+                    type="url"
+                    value={editingItemData.imageUrl || ''}
+                    onChange={(e) => setEditingItemData({ ...editingItemData, imageUrl: e.target.value })}
+                    placeholder="URL da foto (ex: https://...)"
+                    className="w-full bg-[#050B1A] border border-white/15 text-white rounded-xl px-3 py-1.5 text-xs font-mono"
+                  />
+
+                  <label className="flex items-center justify-center gap-2 w-full p-2.5 bg-[#070F26] hover:bg-[#0B163B] border border-dashed border-[#D4AF37]/40 rounded-xl text-xs font-mono text-[#ECC97E] cursor-pointer transition-colors">
+                    <Upload className="w-3.5 h-3.5 text-[#D4AF37]" />
+                    <span>{isCompressingItemPhoto ? 'Comprimindo foto...' : 'Enviar Foto do Dispositivo'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleItemPhotoUpload(e.target.files)}
+                    />
+                  </label>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                    TÍTULO DO ITEM *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingItemData.title || ''}
+                    onChange={(e) => setEditingItemData({ ...editingItemData, title: e.target.value })}
+                    placeholder="Ex: Mansão Suspensa Ecoville ou Laje Corporativa Centro Cívico"
+                    className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs font-bold"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      SUBTÍTULO / ESPECIFICAÇÃO
+                    </label>
+                    <input
+                      type="text"
+                      value={editingItemData.subtitle || ''}
+                      onChange={(e) => setEditingItemData({ ...editingItemData, subtitle: e.target.value })}
+                      placeholder="Ex: Curitiba · 4 Suítes · 650m²"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3 py-2 text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      BADGE / SELO
+                    </label>
+                    <input
+                      type="text"
+                      value={editingItemData.badge || ''}
+                      onChange={(e) => setEditingItemData({ ...editingItemData, badge: e.target.value })}
+                      placeholder="Ex: EXCLUSIVIDADE BRATU"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-[#E5C378] font-mono rounded-xl px-3 py-2 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                    DESCRIÇÃO DO ITEM
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={editingItemData.description || ''}
+                    onChange={(e) => setEditingItemData({ ...editingItemData, description: e.target.value })}
+                    placeholder="Conceito arquitetônico autoral, acabamentos de altíssimo padrão..."
+                    className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl p-3 text-xs"
+                  />
+                </div>
+
+                {/* Tech Effect */}
+                <div>
+                  <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                    EFEITO VISUAL DA FOTO
+                  </label>
+                  <select
+                    value={editingItemData.techEffect || 'holo-gold'}
+                    onChange={(e) => setEditingItemData({ ...editingItemData, techEffect: e.target.value as TechEffectType })}
+                    className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3 py-2 text-xs font-mono cursor-pointer"
+                  >
+                    <option value="holo-gold">Holo-Gold (Varredura Ouro)</option>
+                    <option value="cyber-lidar">Cyber-LIDAR (Laser Neon Cyan 3D)</option>
+                    <option value="blueprint">Blueprint 3D (Engenharia BIM)</option>
+                    <option value="matrix">Neo-Matrix (Fósforo Digital)</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setIsSegmentItemModalOpen(false)}
+                    className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-400 hover:text-white cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isCompressingItemPhoto}
+                    className="tech-btn-primary inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-[#050B1A] cursor-pointer"
+                  >
+                    <Save className="w-4 h-4 text-[#050B1A]" />
+                    <span>Salvar Item no Segmento</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE CADASTRO / EDIÇÃO DE NOVO SEGMENTO PERSONALIZADO */}
+        {isCustomSegmentModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#050B1A]/85 backdrop-blur-md animate-in fade-in duration-200"
+            onClick={() => setIsCustomSegmentModalOpen(false)}
+          >
+            <div
+              className="relative w-full max-w-2xl max-h-[92vh] bg-[#070F26] text-white rounded-3xl shadow-[0_25px_70px_rgba(0,0,0,0.85)] overflow-hidden flex flex-col border border-[#D4AF37]/50"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-5 border-b border-[#D4AF37]/30 bg-[#050B1A] shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#0B163B] border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37] shrink-0">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-white">
+                      {customSegmentFormData.id ? `Editar Segmento · ${customSegmentFormData.title}` : 'Criar Novo Segmento Especializado'}
+                    </h3>
+                    <p className="text-[11px] text-slate-400 font-sans mt-0.5">
+                      Aparecerá automaticamente na grade da página inicial junto aos Segmentos 01 e 02.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsCustomSegmentModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-[#070F26] hover:bg-[#0B163B] border border-white/10 text-white flex items-center justify-center cursor-pointer"
+                >
+                  <X className="w-4 h-4 text-[#D4AF37]" />
+                </button>
+              </div>
+
+              {/* Form Body */}
+              <form onSubmit={handleSaveCustomSegmentForm} className="p-6 space-y-4 overflow-y-auto flex-1">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      TAG DO SEGMENTO
+                    </label>
+                    <input
+                      type="text"
+                      value={customSegmentFormData.segmentTag || 'SEGMENTO 03'}
+                      onChange={(e) => setCustomSegmentFormData({ ...customSegmentFormData, segmentTag: e.target.value })}
+                      placeholder="SEGMENTO 03"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-[#E5C378] font-mono rounded-xl px-3 py-2 text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      CATEGORIA
+                    </label>
+                    <select
+                      value={customSegmentFormData.category || 'residencial'}
+                      onChange={(e) => setCustomSegmentFormData({ ...customSegmentFormData, category: e.target.value as PropertyCategory })}
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3 py-2 text-xs cursor-pointer"
+                    >
+                      <option value="residencial" className="bg-[#070F26]">Residencial</option>
+                      <option value="comercial" className="bg-[#070F26]">Comercial</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      BADGE / SELO
+                    </label>
+                    <input
+                      type="text"
+                      value={customSegmentFormData.badge || ''}
+                      onChange={(e) => setCustomSegmentFormData({ ...customSegmentFormData, badge: e.target.value })}
+                      placeholder="RURAL / INTERNACIONAL"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white font-mono rounded-xl px-3 py-2 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                    TÍTULO PRINCIPAL DO SEGMENTO *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={customSegmentFormData.title || ''}
+                    onChange={(e) => setCustomSegmentFormData({ ...customSegmentFormData, title: e.target.value })}
+                    placeholder="Ex: Áreas Rurais & Haras de Luxo"
+                    className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white font-bold rounded-xl px-3.5 py-2 text-xs focus:ring-1 focus:ring-[#D4AF37]"
+                  />
+                </div>
+
+                {/* Photo & Badge */}
+                <div className="p-4 rounded-2xl bg-[#0B163B]/60 border border-[#D4AF37]/30 space-y-3">
+                  <span className="block text-[11px] font-mono text-[#E5C378] font-bold uppercase">
+                    Foto do Segmento & Efeito Tecnológico
+                  </span>
+                  {customSegmentFormData.imageUrl && (
+                    <div className="aspect-[16/9] rounded-xl overflow-hidden border border-[#D4AF37]/40 bg-[#050B1A]">
+                      <img
+                        src={customSegmentFormData.imageUrl}
+                        alt="Prévia"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+
+                  <input
+                    type="url"
+                    value={customSegmentFormData.imageUrl || ''}
+                    onChange={(e) => setCustomSegmentFormData({ ...customSegmentFormData, imageUrl: e.target.value })}
+                    placeholder="URL da foto (ex: https://...)"
+                    className="w-full bg-[#050B1A] border border-white/15 text-white rounded-xl px-3 py-1.5 text-xs font-mono"
+                  />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-mono text-slate-300 mb-1">
+                        BADGE SOBRE A FOTO
+                      </label>
+                      <input
+                        type="text"
+                        value={customSegmentFormData.imageBadge || ''}
+                        onChange={(e) => setCustomSegmentFormData({ ...customSegmentFormData, imageBadge: e.target.value })}
+                        placeholder="RURAL · ALTO PADRÃO"
+                        className="w-full bg-[#050B1A] border border-white/15 text-white rounded-xl px-3 py-1.5 text-xs font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-mono text-slate-300 mb-1">
+                        EFEITO TECNOLÓGICO
+                      </label>
+                      <select
+                        value={customSegmentFormData.techEffect || 'holo-gold'}
+                        onChange={(e) => setCustomSegmentFormData({ ...customSegmentFormData, techEffect: e.target.value as TechEffectType })}
+                        className="w-full bg-[#050B1A] border border-white/15 text-white rounded-xl px-3 py-1.5 text-xs font-mono cursor-pointer"
+                      >
+                        <option value="holo-gold">Holo-Gold (Varredura Ouro)</option>
+                        <option value="cyber-lidar">Cyber-LIDAR (Neon Cyan 3D)</option>
+                        <option value="blueprint">Blueprint 3D (Engenharia BIM)</option>
+                        <option value="matrix">Neo-Matrix (Fósforo Digital)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                    DESCRIÇÃO DO SEGMENTO
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={customSegmentFormData.description || ''}
+                    onChange={(e) => setCustomSegmentFormData({ ...customSegmentFormData, description: e.target.value })}
+                    placeholder="Apresente as características e diferenciais deste segmento..."
+                    className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl p-3 text-xs"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      TEXTO DO BOTÃO (CTA)
+                    </label>
+                    <input
+                      type="text"
+                      value={customSegmentFormData.ctaText || 'Explorar Oportunidades'}
+                      onChange={(e) => setCustomSegmentFormData({ ...customSegmentFormData, ctaText: e.target.value })}
+                      placeholder="Explorar Oportunidades"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3 py-2 text-xs font-semibold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-300 mb-1">
+                      ETIQUETA INFERIOR (FOOTER LABEL)
+                    </label>
+                    <input
+                      type="text"
+                      value={customSegmentFormData.footerLabel || 'Venda & Consultoria'}
+                      onChange={(e) => setCustomSegmentFormData({ ...customSegmentFormData, footerLabel: e.target.value })}
+                      placeholder="Venda & Consultoria"
+                      className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-slate-300 rounded-xl px-3 py-2 text-xs font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomSegmentModalOpen(false)}
+                    className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-400 hover:text-white cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="tech-btn-primary inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-[#050B1A] cursor-pointer"
+                  >
+                    <Save className="w-4 h-4 text-[#050B1A]" />
+                    <span>Salvar Segmento</span>
                   </button>
                 </div>
               </form>

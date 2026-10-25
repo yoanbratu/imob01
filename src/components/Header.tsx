@@ -92,6 +92,12 @@ export const Header: React.FC<HeaderProps> = ({
               <span>Brasil · EUA · Paraguai</span>
             </a>
             <a
+              href="#equipe"
+              className="text-slate-300 hover:text-[#E5C378] transition-colors whitespace-nowrap"
+            >
+              Nossa Equipe
+            </a>
+            <a
               href="#depoimentos"
               className="text-slate-300 hover:text-[#E5C378] transition-colors whitespace-nowrap"
             >
@@ -202,6 +208,13 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <span>Atuação Brasil · EUA · Paraguai</span>
               <Globe2 className="w-4 h-4 text-[#D4AF37]" />
+            </a>
+            <a
+              href="#equipe"
+              onClick={() => setMobileMenuOpen(false)}
+              className="py-2 border-b border-white/10 hover:text-[#E5C378] transition-colors"
+            >
+              Nossa Equipe (Bratu Imobiliária)
             </a>
             <a
               href="#depoimentos"
