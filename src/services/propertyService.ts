@@ -28,11 +28,30 @@ import {
   AdminUser,
   INITIAL_ADMIN_USERS,
 } from '../types/property';
-import { getCachedAdminUsers, setCachedAdminUsers } from '../utils/security';
+import { getCachedAdminUsers, setCachedAdminUsers, validateAdminSession } from '../utils/security';
 import { PROPERTIES as INITIAL_PROPERTIES } from '../data/properties';
 
 const PROPERTIES_COLLECTION = 'properties';
 const LEADS_COLLECTION = 'leads';
+
+/**
+ * Filtra dados confidenciais de proprietários e termos financeiros internos
+ * em estrita conformidade com a LGPD (Lei nº 13.709/2018) e normas de segurança bancária.
+ * Visitantes públicos e bots de IA recebem apenas as informações públicas do anúncio.
+ */
+export function sanitizePropertyForPublic(property: Property, isAdmin: boolean): Property {
+  if (isAdmin) {
+    return property;
+  }
+  return {
+    ...property,
+    ownerDocument: property.ownerDocument ? '[Sigilo Institucional LGPD]' : undefined,
+    ownerBankDetails: property.ownerBankDetails ? '[Sigilo Bancário Institucional Bratu]' : undefined,
+    ownerMinNegotiationValue: property.ownerMinNegotiationValue ? '[Sob Consulta Exclusiva]' : undefined,
+    adminNotes: property.adminNotes ? 'Imóvel sob gestão da Bratu Imobiliária e Administradora.' : undefined,
+    realtorCommission: property.realtorCommission ? 'Honorários Padrão Conforme Tabela' : undefined,
+  };
+}
 
 // Initial sample owner and realtor metadata for the portfolio
 const SAMPLE_ADMIN_METADATA: Record<string, Partial<Property>> = {
@@ -145,14 +164,21 @@ export async function fetchProperties(): Promise<Property[]> {
       });
     });
 
-    return properties;
+    const isAdmin = validateAdminSession();
+    return properties.map((p) => sanitizePropertyForPublic(p, isAdmin));
   } catch (error) {
     console.error('Error fetching properties from Firestore:', error);
     // Fallback to local properties if offline
-    return INITIAL_PROPERTIES.map((p) => ({
-      ...p,
-      ...(SAMPLE_ADMIN_METADATA[p.id] || {}),
-    }));
+    const isAdmin = validateAdminSession();
+    return INITIAL_PROPERTIES.map((p) =>
+      sanitizePropertyForPublic(
+        {
+          ...p,
+          ...(SAMPLE_ADMIN_METADATA[p.id] || {}),
+        },
+        isAdmin
+      )
+    );
   }
 }
 
@@ -207,7 +233,8 @@ export function subscribeToProperties(callback: (properties: Property[]) => void
         });
       });
       if (list.length > 0) {
-        callback(list);
+        const isAdmin = validateAdminSession();
+        callback(list.map((p) => sanitizePropertyForPublic(p, isAdmin)));
       }
     },
     (err) => {
@@ -341,6 +368,10 @@ export async function saveLead(lead: Omit<LeadSubmission, 'id'>): Promise<string
 }
 
 export async function fetchLeads(): Promise<LeadSubmission[]> {
+  // Somente administradores autenticados podem consultar propostas e contatos de clientes
+  if (!validateAdminSession()) {
+    return [];
+  }
   try {
     const colRef = collection(db, LEADS_COLLECTION);
     const snapshot = await getDocs(colRef);
@@ -566,6 +597,9 @@ export const INITIAL_OWNERS: PropertyOwner[] = [
 ];
 
 export async function fetchOwners(): Promise<PropertyOwner[]> {
+  if (!validateAdminSession()) {
+    return [];
+  }
   try {
     const colRef = collection(db, OWNERS_COLLECTION);
     const snapshot = await getDocs(colRef);
@@ -598,6 +632,10 @@ async function seedInitialOwners() {
 }
 
 export function subscribeToOwners(callback: (owners: PropertyOwner[]) => void) {
+  if (!validateAdminSession()) {
+    callback([]);
+    return () => {};
+  }
   const colRef = collection(db, OWNERS_COLLECTION);
   return onSnapshot(
     colRef,

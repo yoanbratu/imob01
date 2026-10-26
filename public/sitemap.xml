@@ -2,53 +2,230 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
         xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
-  <!-- Homepage & Main Real Estate Portal -->
+
+  <!-- Homepage & Portal Principal -->
   <url>
-    <loc>https://ais-pre-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/</loc>
-    <lastmod>2026-10-24</lastmod>
+    <loc>https://ais-dev-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/</loc>
+    <lastmod>2026-10-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://ais-dev-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/assets/aistudio/LOGOPNG_100042ea.png</image:loc>
+      <image:title>Bratu Imobiliária e Administradora de Bens</image:title>
+      <image:caption>Imóveis de alto padrão e gestão patrimonial no Brasil, Estados Unidos e Paraguai</image:caption>
+    </image:image>
   </url>
-  <!-- Curated Featured Real Estate Listings -->
+
+  <!-- Seção Geral do Catálogo de Imóveis -->
   <url>
-    <loc>https://ais-pre-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#imoveis</loc>
-    <lastmod>2026-10-24</lastmod>
+    <loc>https://ais-dev-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#imoveis</loc>
+    <lastmod>2026-10-26</lastmod>
     <changefreq>daily</changefreq>
+    <priority>0.95</priority>
+  </url>
+
+  <!-- BRT-0101: Residência Contemporânea Graciosa (Curitiba) -->
+  <url>
+    <loc>https://ais-dev-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#imovel-BRT-0101</loc>
+    <lastmod>2026-10-26</lastmod>
+    <changefreq>weekly</changefreq>
     <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&amp;fit=crop&amp;w=1400&amp;q=80</image:loc>
+      <image:title>Residência Contemporânea Graciosa - Curitiba</image:title>
+      <image:caption>Casa em condomínio de luxo com 680m², 4 suítes e piscina aquecida</image:caption>
+    </image:image>
+    <video:video>
+      <video:thumbnail_loc>https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&amp;fit=crop&amp;w=1400&amp;q=80</video:thumbnail_loc>
+      <video:title>Tour em Vídeo da Residência Contemporânea Graciosa</video:title>
+      <video:description>Conheça a mansão contemporânea de 680m² no Graciosa Country Club em Curitiba</video:description>
+      <video:content_loc>https://www.youtube.com/watch?v=FjG2c3Nf9yE</video:content_loc>
+      <video:player_loc>https://www.youtube-nocookie.com/embed/FjG2c3Nf9yE</video:player_loc>
+    </video:video>
   </url>
-  <!-- Curitiba Real Estate & Batel Listings -->
+
+  <!-- BRT-0102: Skyline Penthouse Batel Soho (Curitiba) -->
   <url>
-    <loc>https://ais-pre-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#curitiba-batel</loc>
-    <lastmod>2026-10-24</lastmod>
-    <changefreq>daily</changefreq>
+    <loc>https://ais-dev-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#imovel-BRT-0102</loc>
+    <lastmod>2026-10-26</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&amp;fit=crop&amp;w=1400&amp;q=80</image:loc>
+      <image:title>Skyline Penthouse Batel Soho - Curitiba</image:title>
+      <image:caption>Cobertura duplex suspensa no Batel Soho com vista panorâmica de 360° e jacuzzi</image:caption>
+    </image:image>
+    <video:video>
+      <video:thumbnail_loc>https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&amp;fit=crop&amp;w=1400&amp;q=80</video:thumbnail_loc>
+      <video:title>Tour em Vídeo da Cobertura Penthouse Batel Soho</video:title>
+      <video:description>Tour da cobertura duplex de 450m² no coração do Batel em Curitiba</video:description>
+      <video:content_loc>https://www.youtube.com/watch?v=Xn8L2u_K7j0</video:content_loc>
+      <video:player_loc>https://www.youtube-nocookie.com/embed/Xn8L2u_K7j0</video:player_loc>
+    </video:video>
+  </url>
+
+  <!-- BRT-COM10: Corporate Tower Batel Diamond (Curitiba) -->
+  <url>
+    <loc>https://ais-dev-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#imovel-BRT-COM10</loc>
+    <lastmod>2026-10-26</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.88</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&amp;fit=crop&amp;w=1400&amp;q=80</image:loc>
+      <image:title>Corporate Tower Batel Diamond - Curitiba</image:title>
+      <image:caption>Andar corporativo comercial com heliponto homologado e 510m² na Av. do Batel</image:caption>
+    </image:image>
+  </url>
+
+  <!-- BRT-0109: Mansão Alphaville Graciosa (Pinhais/Curitiba) -->
+  <url>
+    <loc>https://ais-dev-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#imovel-BRT-0109</loc>
+    <lastmod>2026-10-26</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.88</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&amp;fit=crop&amp;w=1400&amp;q=80</image:loc>
+      <image:title>Mansão Alphaville Graciosa - Residencial Araucárias</image:title>
+      <image:caption>Residência contemporânea térrea com piscina aquecida em pedra hijau</image:caption>
+    </image:image>
+  </url>
+
+  <!-- BRT-0105: Torre Lumière Oceanfront (Balneário Camboriú) -->
+  <url>
+    <loc>https://ais-dev-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#imovel-BRT-0105</loc>
+    <lastmod>2026-10-26</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.88</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&amp;fit=crop&amp;w=1400&amp;q=80</image:loc>
+      <image:title>Torre Lumière Oceanfront - Balneário Camboriú</image:title>
+      <image:caption>Apartamento frente mar com 380m² e resort privativo 6 estrelas na Barra Sul</image:caption>
+    </image:image>
+  </url>
+
+  <!-- BRT-0106: Apartamento Jardins Contemporâneo (São Paulo) -->
+  <url>
+    <loc>https://ais-dev-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#imovel-BRT-0106</loc>
+    <lastmod>2026-10-26</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1600607687644-c7171b42498b?auto=format&amp;fit=crop&amp;w=1400&amp;q=80</image:loc>
+      <image:title>Apartamento Jardins Contemporâneo - São Paulo</image:title>
+      <image:caption>Apartamento decorado nos Jardins com 240m² e 3 suítes na Ministro Rocha Azevedo</image:caption>
+    </image:image>
+  </url>
+
+  <!-- BRT-0107: Centro Empresarial Cataratas (Foz do Iguaçu) -->
+  <url>
+    <loc>https://ais-dev-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#imovel-BRT-0107</loc>
+    <lastmod>2026-10-26</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.82</priority>
+  </url>
+
+  <!-- BRT-US01: Brickell Flatiron Luxury Residence (Miami, FL) -->
+  <url>
+    <loc>https://ais-dev-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#imovel-BRT-US01</loc>
+    <lastmod>2026-10-26</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.92</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&amp;fit=crop&amp;w=1400&amp;q=80</image:loc>
+      <image:title>Brickell Flatiron Luxury Residence - Miami Brickell</image:title>
+      <image:caption>Apartamento com vista panorâmica para Biscayne Bay no centro financeiro de Miami</image:caption>
+    </image:image>
+  </url>
+
+  <!-- BRT-US02: Golden Oak Estate Lake Nona (Orlando, FL) -->
+  <url>
+    <loc>https://ais-dev-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#imovel-BRT-US02</loc>
+    <lastmod>2026-10-26</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.92</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&amp;fit=crop&amp;w=1400&amp;q=80</image:loc>
+      <image:title>Golden Oak Estate Lake Nona - Orlando</image:title>
+      <image:caption>Mansão com piscina aquecida em condomínio de golf no Lake Nona em Orlando</image:caption>
+    </image:image>
+  </url>
+
+  <!-- BRT-PY03: Edifício Corporativo Santa Teresa (Asunción, Paraguai) -->
+  <url>
+    <loc>https://ais-dev-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#imovel-BRT-PY03</loc>
+    <lastmod>2026-10-26</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&amp;fit=crop&amp;w=1400&amp;q=80</image:loc>
+      <image:title>Edifício Corporativo Santa Teresa - Asunción</image:title>
+      <image:caption>Laje comercial corporativa Triple A no centro financeiro de Asunción</image:caption>
+    </image:image>
+  </url>
+
+  <!-- BRT-PY04: Villa del Este Golf Club (Ciudad del Este, Paraguai) -->
+  <url>
+    <loc>https://ais-dev-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#imovel-BRT-PY04</loc>
+    <lastmod>2026-10-26</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&amp;fit=crop&amp;w=1400&amp;q=80</image:loc>
+      <image:title>Villa del Este Golf Club - Paraná Country Club</image:title>
+      <image:caption>Mansão com 720m² em frente ao campo de golfe no condomínio mais exclusivo do Paraguai</image:caption>
+    </image:image>
+  </url>
+
+  <!-- BRT-COM11: World Trade Center Asunción Suite (Paraguai) -->
+  <url>
+    <loc>https://ais-dev-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#imovel-BRT-COM11</loc>
+    <lastmod>2026-10-26</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.88</priority>
+    <image:image>
+      <image:loc>https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&amp;fit=crop&amp;w=1400&amp;q=80</image:loc>
+      <image:title>World Trade Center Asunción Suite - WTC Torre 2</image:title>
+      <image:caption>Conjunto corporativo no World Trade Center Asunción com rendimento em USD</image:caption>
+    </image:image>
+  </url>
+
+  <!-- BRT-PY08: Residencial Molas López Park (Asunción, Paraguai) -->
+  <url>
+    <loc>https://ais-dev-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#imovel-BRT-PY08</loc>
+    <lastmod>2026-10-26</lastmod>
+    <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-  <!-- USA Portfolio: Miami Brickell & Orlando Lake Nona -->
+
+  <!-- Seções Institucionais e Especialidades -->
   <url>
-    <loc>https://ais-pre-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#eua-miami-orlando</loc>
-    <lastmod>2026-10-24</lastmod>
-    <changefreq>daily</changefreq>
+    <loc>https://ais-dev-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#curitiba-batel</loc>
+    <lastmod>2026-10-26</lastmod>
+    <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-  <!-- Paraguay Portfolio: Asunción Santa Teresa & Paraná Country Club -->
   <url>
-    <loc>https://ais-pre-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#paraguai-asuncion</loc>
-    <lastmod>2026-10-24</lastmod>
-    <changefreq>daily</changefreq>
+    <loc>https://ais-dev-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#eua-miami-orlando</loc>
+    <lastmod>2026-10-26</lastmod>
+    <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
-  <!-- Property Management & Rent Services -->
   <url>
-    <loc>https://ais-pre-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#servicos</loc>
-    <lastmod>2026-10-24</lastmod>
+    <loc>https://ais-dev-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#paraguai-asuncion</loc>
+    <lastmod>2026-10-26</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://ais-dev-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#servicos</loc>
+    <lastmod>2026-10-26</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
-  <!-- Institutional Contact & Consultation -->
   <url>
-    <loc>https://ais-pre-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#contato</loc>
-    <lastmod>2026-10-24</lastmod>
+    <loc>https://ais-dev-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/#contato</loc>
+    <lastmod>2026-10-26</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
+    <priority>0.75</priority>
   </url>
 </urlset>

@@ -1,24 +1,35 @@
 # Robots.txt for Bratu Imobiliária e Administradora
-# Optimized for Google Search and AI Knowledge Engines (ChatGPT, Perplexity, Claude, Gemini, Copilot)
+# Optimized for Google Search and Modern AI Knowledge Engines (ChatGPT, Perplexity, Claude, Gemini, Copilot, Applebot)
+# Complies with Web Standards, Robots Exclusion Protocol and AI Agent Indexing Standards
 
 User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /api/private
 
-# OpenAI ChatGPT Crawlers (Search & User Browsing)
+# Explicit Allow for AI Knowledge Files
+Allow: /llms.txt
+Allow: /sitemap.xml
+
+# OpenAI Crawlers (ChatGPT Web Browsing, SearchGPT, GPTBot)
 User-agent: GPTBot
 Allow: /
+Allow: /llms.txt
 
 User-agent: ChatGPT-User
 Allow: /
+Allow: /llms.txt
 
-# Google Search & Gemini Grounding
+User-agent: OAI-SearchBot
+Allow: /
+
+# Google Search, Googlebot Images, Videos & Gemini AI Grounding
 User-agent: Googlebot
 Allow: /
 
 User-agent: Google-Extended
 Allow: /
+Allow: /llms.txt
 
 User-agent: Googlebot-Image
 Allow: /
@@ -26,30 +37,43 @@ Allow: /
 User-agent: Googlebot-Video
 Allow: /
 
-# Perplexity AI Search Crawler
+# Perplexity AI Search & Knowledge Agent
 User-agent: PerplexityBot
 Allow: /
+Allow: /llms.txt
 
-# Anthropic Claude Search Crawler
+# Anthropic Claude Search & Knowledge Crawlers
 User-agent: ClaudeBot
 Allow: /
+Allow: /llms.txt
 
 User-agent: anthropic-ai
 Allow: /
+Allow: /llms.txt
 
 # Microsoft Bing & Copilot
 User-agent: Bingbot
 Allow: /
+Allow: /llms.txt
 
 User-agent: msnbot
 Allow: /
 
-# Apple Search & Siri
+# Apple Search Engine & Apple Intelligence
 User-agent: Applebot
 Allow: /
+Allow: /llms.txt
 
 User-agent: Applebot-Extended
 Allow: /
+Allow: /llms.txt
 
-# Canonical Sitemap
-Sitemap: https://ais-pre-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/sitemap.xml
+# Cohere, Diffbot & Common Crawl
+User-agent: cohere-ai
+Allow: /
+
+User-agent: Diffbot
+Allow: /
+
+# Sitemaps & Machine-Readable Knowledge
+Sitemap: https://ais-dev-2fxulkkt5n7wmkafrqtodb-123966933238.us-west2.run.app/sitemap.xml
