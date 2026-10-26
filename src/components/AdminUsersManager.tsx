@@ -23,6 +23,9 @@ import {
   RefreshCw,
   UserCheck,
   Building,
+  Camera,
+  Upload,
+  Image as ImageIcon,
 } from 'lucide-react';
 import {
   AdminUser,
@@ -44,6 +47,7 @@ import {
   getCurrentAdminProfile,
   setCurrentAdminProfile,
 } from '../utils/security';
+import { compressImage } from '../utils/imageCompression';
 
 interface AdminUsersManagerProps {
   onAdminProfileUpdated?: (profile: AdminUser) => void;
@@ -74,6 +78,13 @@ export const AdminUsersManager: React.FC<AdminUsersManagerProps> = ({
   const [formActive, setFormActive] = useState(true);
   const [formNotes, setFormNotes] = useState('');
   const [isSavingAdmin, setIsSavingAdmin] = useState(false);
+  const [isCompressingPhoto, setIsCompressingPhoto] = useState(false);
+
+  // Dedicated Quick Photo Modal State
+  const [isQuickPhotoModalOpen, setIsQuickPhotoModalOpen] = useState(false);
+  const [photoTargetAdmin, setPhotoTargetAdmin] = useState<AdminUser | null>(null);
+  const [previewPhotoUrl, setPreviewPhotoUrl] = useState('');
+  const [isSavingQuickPhoto, setIsSavingQuickPhoto] = useState(false);
 
   // Feedback & Invite state
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
@@ -143,6 +154,120 @@ export const AdminUsersManager: React.FC<AdminUsersManagerProps> = ({
     setFormPermissions((prev) =>
       prev.includes(perm) ? prev.filter((p) => p !== perm) : [...prev, perm]
     );
+  };
+
+  // Upload handler inside the creation/edit modal
+  const handleFormPhotoUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    if (!file.type.startsWith('image/')) {
+      setFeedback({ type: 'error', message: 'Selecione um arquivo de imagem válido (JPG, PNG ou WebP).' });
+      return;
+    }
+    setIsCompressingPhoto(true);
+    try {
+      const compressedDataUrl = await compressImage(file, 600, 600, 0.85);
+      setFormAvatarUrl(compressedDataUrl);
+      setFeedback({ type: 'success', message: 'Foto otimizada e pronta para salvar!' });
+      setTimeout(() => setFeedback(null), 3000);
+    } catch (err: any) {
+      console.error('Erro ao comprimir foto:', err);
+      setFeedback({ type: 'error', message: 'Falha ao processar arquivo de imagem.' });
+    } finally {
+      setIsCompressingPhoto(false);
+    }
+  };
+
+  // Open Quick Photo Modal from any admin card
+  const handleOpenQuickPhotoModal = (adm: AdminUser) => {
+    setPhotoTargetAdmin(adm);
+    setPreviewPhotoUrl(adm.avatarUrl || CURATED_TEAM_AVATARS[0].url);
+    setIsQuickPhotoModalOpen(true);
+  };
+
+  // Upload handler inside the quick photo modal
+  const handleQuickPhotoUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    if (!file.type.startsWith('image/')) {
+      setFeedback({ type: 'error', message: 'Selecione um arquivo de imagem válido.' });
+      return;
+    }
+    setIsCompressingPhoto(true);
+    try {
+      const compressedDataUrl = await compressImage(file, 600, 600, 0.85);
+      setPreviewPhotoUrl(compressedDataUrl);
+    } catch (err: any) {
+      console.error('Erro ao comprimir foto:', err);
+      setFeedback({ type: 'error', message: 'Falha ao processar a imagem.' });
+    } finally {
+      setIsCompressingPhoto(false);
+    }
+  };
+
+  // Save the new photo from the Quick Photo Modal
+  const handleSaveQuickPhoto = async () => {
+    if (!photoTargetAdmin || !previewPhotoUrl) return;
+    setIsSavingQuickPhoto(true);
+    try {
+      const updated: AdminUser = {
+        ...photoTargetAdmin,
+        avatarUrl: previewPhotoUrl,
+        updatedAt: new Date().toISOString(),
+      };
+      await saveAdminUser(updated);
+
+      if (currentAdmin.id === updated.id) {
+        setCurrentAdmin(updated);
+        setCurrentAdminProfile(updated);
+        onAdminProfileUpdated?.(updated);
+      }
+
+      setIsQuickPhotoModalOpen(false);
+      setFeedback({
+        type: 'success',
+        message: `Foto de "${updated.name}" atualizada com sucesso!`,
+      });
+      setTimeout(() => setFeedback(null), 4000);
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err?.message || 'Erro ao atualizar foto.' });
+    } finally {
+      setIsSavingQuickPhoto(false);
+    }
+  };
+
+  // 1-Click Direct Card Photo Upload (without opening modal)
+  const handleDirectCardPhotoUpload = async (adm: AdminUser, files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    if (!file.type.startsWith('image/')) return;
+    setIsCompressingPhoto(true);
+    try {
+      const compressedDataUrl = await compressImage(file, 600, 600, 0.85);
+      const updated: AdminUser = {
+        ...adm,
+        avatarUrl: compressedDataUrl,
+        updatedAt: new Date().toISOString(),
+      };
+      await saveAdminUser(updated);
+
+      if (currentAdmin.id === updated.id) {
+        setCurrentAdmin(updated);
+        setCurrentAdminProfile(updated);
+        onAdminProfileUpdated?.(updated);
+      }
+
+      setFeedback({
+        type: 'success',
+        message: `Foto de "${adm.name}" atualizada diretamente com sucesso!`,
+      });
+      setTimeout(() => setFeedback(null), 4000);
+    } catch (err: any) {
+      console.error('Erro no upload direto:', err);
+      setFeedback({ type: 'error', message: 'Erro ao processar imagem.' });
+    } finally {
+      setIsCompressingPhoto(false);
+    }
   };
 
   const handleGenerateSmartPassword = () => {
@@ -521,18 +646,38 @@ Seu perfil de Administrador foi configurado com sucesso:
               }`}
             >
               <div>
-                {/* Top Row: Avatar + Name + Role Badge */}
+                {/* Top Row: Avatar with Camera Trigger + Name + Role Badge */}
                 <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3.5">
-                    <div className="relative shrink-0">
+                    {/* Avatar with Instant Camera Upload Trigger */}
+                    <div className="relative shrink-0 group/avatar">
                       <img
                         src={
                           adm.avatarUrl ||
                           'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=800&q=80'
                         }
                         alt={adm.name}
-                        className="w-14 h-14 rounded-2xl object-cover border-2 border-[#D4AF37]/50 bg-[#050B1A]"
+                        className="w-16 h-16 rounded-2xl object-cover border-2 border-[#D4AF37]/50 bg-[#050B1A] group-hover/avatar:border-[#D4AF37] transition-all"
                       />
+
+                      {/* Hover Camera Overlay Button */}
+                      <label
+                        className="absolute inset-0 bg-[#050B1A]/80 text-[#ECC97E] flex flex-col items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity rounded-2xl cursor-pointer shadow-lg"
+                        title="Clique para trocar a foto deste administrador"
+                      >
+                        <Camera className="w-5 h-5 text-[#D4AF37]" />
+                        <span className="text-[8px] font-mono mt-0.5 font-bold uppercase text-white">
+                          Trocar Foto
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleDirectCardPhotoUpload(adm, e.target.files)}
+                        />
+                      </label>
+
+                      {/* Online/Active Indicator */}
                       <span
                         className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-[#070F26] ${
                           adm.active !== false ? 'bg-emerald-400' : 'bg-slate-500'
@@ -604,33 +749,35 @@ Seu perfil de Administrador foi configurado com sucesso:
 
               {/* Action Footer */}
               <div className="pt-3 border-t border-white/10 space-y-2">
-                <div className="flex items-center justify-between gap-2">
+                <div className="grid grid-cols-3 gap-2">
+                  {/* Dedicated Change Photo Button */}
+                  <button
+                    type="button"
+                    onClick={() => handleOpenQuickPhotoModal(adm)}
+                    className="py-2 px-2.5 rounded-xl bg-[#0B163B] hover:bg-[#12235E] border border-cyan-400/40 text-cyan-300 text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    title="Trocar Foto de Perfil"
+                  >
+                    <Camera className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Foto</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => handleOpenEditModal(adm)}
-                    className="flex-1 py-2 px-3 rounded-xl bg-[#0B163B] hover:bg-[#12235E] border border-[#D4AF37]/40 text-[#ECC97E] text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    className="py-2 px-2.5 rounded-xl bg-[#0B163B] hover:bg-[#12235E] border border-[#D4AF37]/40 text-[#ECC97E] text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <Edit className="w-3.5 h-3.5 text-[#D4AF37]" />
-                    <span>Editar / Senha</span>
+                    <span>Editar</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setInviteModalAdmin({ admin: adm })}
-                    className="py-2 px-3 rounded-xl bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    className="py-2 px-2.5 rounded-xl bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     title="Enviar instruções de acesso por WhatsApp"
                   >
                     <Send className="w-3.5 h-3.5" />
-                    <span>Credenciais</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setDeleteConfirmAdmin(adm)}
-                    className="p-2 rounded-xl bg-red-950/50 hover:bg-red-900 border border-red-500/30 text-red-400 hover:text-white transition-colors cursor-pointer"
-                    title="Remover Administrador"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>WhatsApp</span>
                   </button>
                 </div>
 
@@ -644,19 +791,30 @@ Seu perfil de Administrador foi configurado com sucesso:
                         : 'bg-amber-950/40 border-amber-500/30 text-amber-300 hover:bg-amber-950'
                     }`}
                   >
-                    {adm.active !== false ? '● Acesso Ativo (Pausar)' : '○ Acesso Pausado (Ativar)'}
+                    {adm.active !== false ? '● Ativo (Pausar)' : '○ Pausado (Ativar)'}
                   </button>
 
-                  {!isCurrentSession && adm.active !== false && (
+                  <div className="flex items-center gap-2">
+                    {!isCurrentSession && adm.active !== false && (
+                      <button
+                        type="button"
+                        onClick={() => handleSwitchActiveProfile(adm)}
+                        className="text-[11px] font-mono text-[#D4AF37] hover:underline cursor-pointer flex items-center gap-1"
+                      >
+                        <UserCheck className="w-3 h-3" />
+                        <span>Assumir</span>
+                      </button>
+                    )}
+
                     <button
                       type="button"
-                      onClick={() => handleSwitchActiveProfile(adm)}
-                      className="text-[11px] font-mono text-[#D4AF37] hover:underline cursor-pointer flex items-center gap-1"
+                      onClick={() => setDeleteConfirmAdmin(adm)}
+                      className="p-1.5 rounded-lg bg-red-950/40 hover:bg-red-900 border border-red-500/30 text-red-400 hover:text-white transition-colors cursor-pointer"
+                      title="Remover Administrador"
                     >
-                      <UserCheck className="w-3 h-3" />
-                      <span>Assumir Perfil</span>
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
-                  )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -842,43 +1000,79 @@ Seu perfil de Administrador foi configurado com sucesso:
 
             {/* Modal Form */}
             <form onSubmit={handleSaveAdmin} className="p-6 space-y-5 overflow-y-auto flex-1">
-              {/* Avatar Selector */}
-              <div className="p-4 rounded-2xl bg-[#0B163B]/60 border border-[#D4AF37]/25 space-y-3">
-                <div className="flex items-center gap-4">
-                  <img
-                    src={formAvatarUrl}
-                    alt="Avatar"
-                    className="w-14 h-14 rounded-2xl object-cover border-2 border-[#D4AF37]"
-                  />
-                  <div className="flex-1">
-                    <label className="block text-[11px] font-mono text-[#E5C378] font-bold uppercase mb-1">
-                      Foto de Perfil / Avatar do Administrador
-                    </label>
-                    <input
-                      type="url"
-                      value={formAvatarUrl}
-                      onChange={(e) => setFormAvatarUrl(e.target.value)}
-                      placeholder="URL da foto ou escolha um avatar abaixo..."
-                      className="w-full bg-[#050B1A] border border-white/15 text-white rounded-xl px-3 py-1.5 text-xs font-mono"
-                    />
+              {/* Avatar Selector with Direct Upload and Curated Avatars */}
+              <div className="p-4 rounded-2xl bg-[#0B163B]/60 border border-[#D4AF37]/25 space-y-3.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-4">
+                    <div className="relative shrink-0">
+                      <img
+                        src={formAvatarUrl}
+                        alt="Avatar"
+                        className="w-16 h-16 rounded-2xl object-cover border-2 border-[#D4AF37] shadow-md bg-[#050B1A]"
+                      />
+                      {isCompressingPhoto && (
+                        <div className="absolute inset-0 bg-[#050B1A]/85 rounded-2xl flex items-center justify-center">
+                          <div className="w-5 h-5 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-mono text-[#E5C378] font-bold uppercase mb-1">
+                        Foto de Perfil do Administrador
+                      </label>
+                      <p className="text-[11px] text-slate-400">
+                        Envie uma foto do seu aparelho, tire pela câmera ou selecione um retrato corporativo.
+                      </p>
+                    </div>
                   </div>
+
+                  {/* Direct File Upload Button */}
+                  <label className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#0B163B] to-[#12235E] hover:brightness-110 border border-[#D4AF37]/50 text-[#ECC97E] text-xs font-mono font-bold cursor-pointer transition-all shadow-md shrink-0">
+                    <Upload className="w-4 h-4 text-[#D4AF37]" />
+                    <span>{isCompressingPhoto ? 'Comprimindo foto...' : 'Enviar Foto do Dispositivo'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleFormPhotoUpload(e.target.files)}
+                    />
+                  </label>
                 </div>
-                <div className="flex items-center gap-2 pt-1 overflow-x-auto">
-                  <span className="text-[10px] font-mono text-slate-400 shrink-0">Sugestões:</span>
-                  {CURATED_TEAM_AVATARS.map((av, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setFormAvatarUrl(av.url)}
-                      className={`p-0.5 rounded-xl border transition-all cursor-pointer shrink-0 ${
-                        formAvatarUrl === av.url
-                          ? 'border-[#D4AF37] ring-1 ring-[#D4AF37]'
-                          : 'border-white/10 opacity-70 hover:opacity-100'
-                      }`}
-                    >
-                      <img src={av.url} alt={av.name} className="w-8 h-8 rounded-lg object-cover" />
-                    </button>
-                  ))}
+
+                <div>
+                  <label className="block text-[10px] font-mono text-slate-400 mb-1 uppercase">
+                    Ou cole o link direto da imagem (URL):
+                  </label>
+                  <input
+                    type="url"
+                    value={formAvatarUrl}
+                    onChange={(e) => setFormAvatarUrl(e.target.value)}
+                    placeholder="https://images.unsplash.com/..."
+                    className="w-full bg-[#050B1A] border border-white/15 text-white rounded-xl px-3 py-2 text-xs font-mono"
+                  />
+                </div>
+
+                <div className="pt-2 border-t border-white/10">
+                  <span className="block text-[10px] font-mono text-slate-400 mb-1.5 uppercase">
+                    Ou escolha uma foto corporativa profissional:
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {CURATED_TEAM_AVATARS.map((av, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setFormAvatarUrl(av.url)}
+                        className={`p-1 rounded-xl border transition-all cursor-pointer ${
+                          formAvatarUrl === av.url
+                            ? 'border-[#D4AF37] ring-2 ring-[#D4AF37] bg-[#050B1A]'
+                            : 'border-white/10 hover:border-[#D4AF37]/60 bg-[#070F26]'
+                        }`}
+                        title={av.name}
+                      >
+                        <img src={av.url} alt={av.name} className="w-10 h-10 rounded-lg object-cover" />
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -1174,6 +1368,147 @@ Seu perfil de Administrador foi configurado com sucesso:
                     <span>Copiar Texto</span>
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: TROCAR FOTO DO ADMINISTRADOR (QUICK PHOTO MODAL) */}
+      {isQuickPhotoModalOpen && photoTargetAdmin && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#050B1A]/90 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setIsQuickPhotoModalOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-lg bg-[#070F26] text-white rounded-3xl p-6 sm:p-7 border border-[#D4AF37]/50 shadow-[0_25px_70px_rgba(0,0,0,0.9)] space-y-5 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-cyan-950/80 border border-cyan-400/40 text-cyan-400 flex items-center justify-center">
+                  <Camera className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-base font-extrabold text-white">
+                    Trocar Foto · {photoTargetAdmin.name}
+                  </h4>
+                  <span className="text-xs text-slate-400">
+                    {photoTargetAdmin.role} ({photoTargetAdmin.email})
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsQuickPhotoModalOpen(false)}
+                className="text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Photo Comparison / Preview */}
+            <div className="flex items-center justify-center gap-6 p-4 rounded-2xl bg-[#050B1A] border border-white/10">
+              <div className="text-center space-y-1.5">
+                <span className="text-[10px] font-mono text-slate-400 uppercase block">Foto Atual</span>
+                <img
+                  src={photoTargetAdmin.avatarUrl || CURATED_TEAM_AVATARS[0].url}
+                  alt={photoTargetAdmin.name}
+                  className="w-20 h-20 rounded-2xl object-cover border border-white/20 mx-auto"
+                />
+              </div>
+
+              <div className="text-[#D4AF37] font-bold text-lg">→</div>
+
+              <div className="text-center space-y-1.5">
+                <span className="text-[10px] font-mono text-[#ECC97E] uppercase block font-bold">Nova Foto</span>
+                <div className="relative w-20 h-20 mx-auto">
+                  <img
+                    src={previewPhotoUrl}
+                    alt="Prévia da Nova Foto"
+                    className="w-20 h-20 rounded-2xl object-cover border-2 border-[#D4AF37] shadow-[0_0_15px_rgba(212,175,55,0.3)]"
+                  />
+                  {isCompressingPhoto && (
+                    <div className="absolute inset-0 bg-[#050B1A]/85 rounded-2xl flex items-center justify-center">
+                      <div className="w-5 h-5 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Direct Device Upload / Camera Button */}
+            <div>
+              <label className="w-full flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl bg-gradient-to-r from-[#0B163B] via-[#12235E] to-[#0B163B] hover:brightness-110 border border-[#D4AF37]/60 text-[#ECC97E] text-xs font-mono font-bold cursor-pointer transition-all shadow-md">
+                <Upload className="w-4 h-4 text-[#D4AF37]" />
+                <span>
+                  {isCompressingPhoto ? 'Comprimindo foto...' : 'Escolher Foto do Celular / Computador'}
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleQuickPhotoUpload(e.target.files)}
+                />
+              </label>
+            </div>
+
+            {/* URL Input */}
+            <div>
+              <label className="block text-[10px] font-mono text-slate-400 mb-1 uppercase">
+                Ou cole o link direto (URL):
+              </label>
+              <input
+                type="url"
+                value={previewPhotoUrl}
+                onChange={(e) => setPreviewPhotoUrl(e.target.value)}
+                placeholder="https://..."
+                className="w-full bg-[#050B1A] border border-white/15 text-white rounded-xl px-3.5 py-2 text-xs font-mono focus:border-[#D4AF37]"
+              />
+            </div>
+
+            {/* Curated corporate options */}
+            <div className="pt-2 border-t border-white/10">
+              <span className="block text-[10px] font-mono text-slate-400 mb-2 uppercase">
+                Ou escolha um retrato corporativo profissional:
+              </span>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {CURATED_TEAM_AVATARS.map((av, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setPreviewPhotoUrl(av.url)}
+                    className={`p-1 rounded-xl border transition-all cursor-pointer ${
+                      previewPhotoUrl === av.url
+                        ? 'border-[#D4AF37] ring-2 ring-[#D4AF37] bg-[#050B1A]'
+                        : 'border-white/10 hover:border-[#D4AF37]/60 bg-[#070F26]'
+                    }`}
+                    title={av.name}
+                  >
+                    <img src={av.url} alt={av.name} className="w-10 h-10 rounded-lg object-cover" />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setIsQuickPhotoModalOpen(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveQuickPhoto}
+                disabled={isSavingQuickPhoto || isCompressingPhoto}
+                className="tech-btn-primary inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-extrabold text-[#050B1A] cursor-pointer disabled:opacity-50"
+              >
+                <Save className="w-4 h-4 text-[#050B1A]" />
+                <span>{isSavingQuickPhoto ? 'Salvando...' : 'Salvar Nova Foto'}</span>
               </button>
             </div>
           </div>
