@@ -11,6 +11,7 @@ import { YieldCalculator } from './components/YieldCalculator';
 import { ContactSection } from './components/ContactSection';
 import { Footer } from './components/Footer';
 import { FloatingWhatsApp } from './components/FloatingWhatsApp';
+import { MobileBottomNav } from './components/MobileBottomNav';
 import { PropertyModal } from './components/PropertyModal';
 import { SellPropertyModal } from './components/SellPropertyModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
@@ -55,6 +56,8 @@ export default function App() {
   const [filters, setFilters] = useState<PropertyFilters>(INITIAL_FILTERS);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [isSellModalOpen, setIsSellModalOpen] = useState(false);
+  const [forceCinemaMode, setForceCinemaMode] = useState(false);
+  const [activeSection, setActiveSection] = useState<'inicio' | 'imoveis' | 'galeria' | 'servicos' | 'contato'>('inicio');
 
   // Admin authentication and modal state backed by cryptographic token verification
   const [isAdmin, setIsAdmin] = useState<boolean>(() => {
@@ -168,6 +171,37 @@ export default function App() {
     }
   };
 
+  const handleOpenCinemaGallery = () => {
+    setForceCinemaMode(true);
+    setActiveSection('galeria');
+    const target = document.getElementById('imoveis');
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const y = window.scrollY;
+      const imoveisEl = document.getElementById('imoveis');
+      const servicosEl = document.getElementById('servicos');
+      const contatoEl = document.getElementById('contato');
+
+      if (contatoEl && y >= contatoEl.offsetTop - 320) {
+        setActiveSection('contato');
+      } else if (servicosEl && y >= servicosEl.offsetTop - 320) {
+        setActiveSection('servicos');
+      } else if (imoveisEl && y >= imoveisEl.offsetTop - 320) {
+        setActiveSection((prev) => (prev === 'galeria' ? 'galeria' : 'imoveis'));
+      } else {
+        setActiveSection('inicio');
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   const handleSaveAdminNotes = async (property: Property, notes: string) => {
     await saveProperty({
       ...property,
@@ -258,7 +292,7 @@ export default function App() {
   }, [properties, filters]);
 
   return (
-    <div className="min-h-screen bg-[#050B1A] text-white font-sans selection:bg-[#D4AF37]/30 selection:text-[#FFF1D0]">
+    <div className="min-h-screen bg-[#050B1A] text-white font-sans selection:bg-[#D4AF37]/30 selection:text-[#FFF1D0] pb-16 lg:pb-0">
       {/* Top Bar Navigation */}
       <Header
         onOpenSellModal={() => setIsSellModalOpen(true)}
@@ -271,9 +305,12 @@ export default function App() {
         {/* Hero Section */}
         <Hero
           filters={filters}
+          properties={filteredProperties}
           onFilterChange={handleFilterChange}
           onSearchSubmit={handleSearchSubmit}
           onOpenSellModal={() => setIsSellModalOpen(true)}
+          onSelectProperty={setSelectedProperty}
+          onOpenCinemaGallery={handleOpenCinemaGallery}
         />
 
         {/* Commercial & Residential Specialized Pillars Showcase */}
@@ -294,6 +331,8 @@ export default function App() {
           onFilterChange={handleFilterChange}
           onResetFilters={handleResetFilters}
           onSelectProperty={setSelectedProperty}
+          forceCinemaMode={forceCinemaMode}
+          onResetCinemaMode={() => setForceCinemaMode(false)}
         />
 
         {/* Bento Services Section: Venda, Locação, Administração e Investidores */}
@@ -335,6 +374,13 @@ export default function App() {
 
       {/* Discreet Floating WhatsApp Trigger */}
       <FloatingWhatsApp />
+
+      {/* Mobile & Tablet Ergonomic Bottom Navigation Bar */}
+      <MobileBottomNav
+        activeSection={activeSection}
+        onOpenSellModal={() => setIsSellModalOpen(true)}
+        onOpenCinemaGallery={handleOpenCinemaGallery}
+      />
 
       {/* Property Details Modal with Conditional Admin Section */}
       <PropertyModal

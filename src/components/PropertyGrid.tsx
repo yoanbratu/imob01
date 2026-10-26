@@ -1,6 +1,9 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Property, PropertyCategory, PropertyFilters } from '../types/property';
 import { PropertyCard } from './PropertyCard';
+import { CinemaPropertyGallery } from './CinemaPropertyGallery';
+import { getPropertyWhatsAppLink } from '../utils/whatsapp';
+import { ParallaxSection, RevealBlock } from './ParallaxReveal';
 import {
   SlidersHorizontal,
   RotateCcw,
@@ -20,6 +23,11 @@ import {
   Volume2,
   Star,
   Play,
+  LayoutGrid,
+  Film,
+  List,
+  ArrowUpRight,
+  MessageCircle,
 } from 'lucide-react';
 
 interface PropertyGridProps {
@@ -28,6 +36,8 @@ interface PropertyGridProps {
   onFilterChange: (filters: Partial<PropertyFilters>) => void;
   onResetFilters: () => void;
   onSelectProperty: (property: Property) => void;
+  forceCinemaMode?: boolean;
+  onResetCinemaMode?: () => void;
 }
 
 const CATEGORIES: { id: PropertyCategory; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -44,9 +54,19 @@ export const PropertyGrid: React.FC<PropertyGridProps> = ({
   onFilterChange,
   onResetFilters,
   onSelectProperty,
+  forceCinemaMode = false,
+  onResetCinemaMode,
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'hybrid' | 'grid' | 'list'>('hybrid');
   const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (forceCinemaMode) {
+      setViewMode('hybrid');
+      if (onResetCinemaMode) onResetCinemaMode();
+    }
+  }, [forceCinemaMode, onResetCinemaMode]);
 
   // Web Speech API State
   const [isListening, setIsListening] = useState(false);
@@ -244,13 +264,17 @@ export const PropertyGrid: React.FC<PropertyGridProps> = ({
   ];
 
   return (
-    <section id="imoveis" className="py-24 bg-[#050B1A] text-white scroll-mt-14 relative">
+    <ParallaxSection
+      id="imoveis"
+      parallaxOffset={24}
+      className="py-24 bg-[#050B1A] text-white scroll-mt-14 relative overflow-hidden"
+    >
       {/* Background Tech Texture */}
       <div className="absolute inset-0 tech-grid-pattern opacity-40 pointer-events-none" />
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+        <RevealBlock distance={24} parallaxStrength={12} className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
           <div>
             <div className="inline-flex items-center gap-2 text-xs font-mono font-semibold tracking-wider uppercase text-[#D4AF37] mb-2">
               <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
@@ -324,7 +348,7 @@ export const PropertyGrid: React.FC<PropertyGridProps> = ({
               Alugar
             </button>
           </div>
-        </div>
+        </RevealBlock>
 
         {/* ======================================================== */}
         {/* FAST AUTO-COMPLETE SEARCH CONSOLE (Bairro & Cidade em Tempo Real) */}
@@ -626,9 +650,9 @@ export const PropertyGrid: React.FC<PropertyGridProps> = ({
           )}
         </div>
 
-        {/* Category Tabs: Tech Segmented Navigation with Creative Modern Buttons */}
-        <div id="categorias" className="scroll-mt-24 mb-10">
-          <div className="flex items-center gap-2.5 overflow-x-auto pb-2 scrollbar-none">
+        {/* Category Tabs & View Mode Switcher */}
+        <div id="categorias" className="scroll-mt-24 mb-8 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 lg:pb-0 scrollbar-none">
             {CATEGORIES.map((cat) => {
               const Icon = cat.icon;
               const isActive = filters.category === cat.id;
@@ -647,6 +671,46 @@ export const PropertyGrid: React.FC<PropertyGridProps> = ({
                 </button>
               );
             })}
+          </div>
+
+          {/* High-Performance Gallery Layout Switcher */}
+          <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-[#070F26] border border-[#D4AF37]/35 self-start lg:self-auto shrink-0">
+            <button
+              type="button"
+              onClick={() => setViewMode('hybrid')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                viewMode === 'hybrid'
+                  ? 'bg-[#D4AF37] text-[#050B1A] font-bold shadow-sm'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <Film className="w-3.5 h-3.5" />
+              <span>Cinema 4K + Grade</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('grid')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                viewMode === 'grid'
+                  ? 'bg-[#D4AF37] text-[#050B1A] font-bold shadow-sm'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Apenas Grade</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+                viewMode === 'list'
+                  ? 'bg-[#D4AF37] text-[#050B1A] font-bold shadow-sm'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <List className="w-3.5 h-3.5" />
+              <span>Lista Executiva</span>
+            </button>
           </div>
         </div>
 
@@ -684,17 +748,125 @@ export const PropertyGrid: React.FC<PropertyGridProps> = ({
           </div>
         )}
 
-        {/* Properties Grid */}
+        {/* Widescreen Interactive 4K Cinema Gallery Stage */}
+        {properties.length > 0 && viewMode === 'hybrid' && (
+          <CinemaPropertyGallery
+            properties={properties}
+            onSelectProperty={onSelectProperty}
+          />
+        )}
+
+        {/* Properties Grid or Executive List */}
         {properties.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-            {properties.map((property) => (
-              <PropertyCard
-                key={property.id}
-                property={property}
-                onSelect={onSelectProperty}
-              />
-            ))}
-          </div>
+          viewMode === 'list' ? (
+            <div className="space-y-3">
+              {properties.map((property) => {
+                const waUrl = getPropertyWhatsAppLink(
+                  property.code,
+                  property.title,
+                  property.priceFormatted
+                );
+                return (
+                  <div
+                    key={property.id}
+                    className="rounded-2xl bg-[#070F26] border border-[#D4AF37]/30 hover:border-[#D4AF37] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all shadow-lg"
+                  >
+                    <div
+                      onClick={() => onSelectProperty(property)}
+                      className="flex items-center gap-4 cursor-pointer min-w-0 flex-1"
+                    >
+                      <img
+                        src={property.images[0]}
+                        alt={property.title}
+                        referrerPolicy="no-referrer"
+                        className="w-24 sm:w-32 h-20 object-cover rounded-xl border border-[#D4AF37]/40 shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono text-slate-400">
+                          <span className="text-[#D4AF37] font-bold">{property.code}</span>
+                          <span>·</span>
+                          <span>{property.purpose}</span>
+                          <span>·</span>
+                          <span>{property.type}</span>
+                          <span>·</span>
+                          <span className="text-[#ECC97E]">
+                            {property.neighborhood}, {property.city} ({property.country})
+                          </span>
+                        </div>
+                        <h3 className="text-base sm:text-lg font-bold text-white hover:text-[#ECC97E] truncate mt-0.5">
+                          {property.title}
+                        </h3>
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300 font-mono tabular-nums mt-1">
+                          <span>{property.areaM2} m²</span>
+                          {property.bedrooms !== undefined && (
+                            <>
+                              <span>·</span>
+                              <span>{property.bedrooms} Dorm. ({property.suites || 0} suítes)</span>
+                            </>
+                          )}
+                          {property.parkingSpots !== undefined && (
+                            <>
+                              <span>·</span>
+                              <span>{property.parkingSpots} Vagas</span>
+                            </>
+                          )}
+                          <span>·</span>
+                          <span>{property.images.length} Fotos 4K</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between md:justify-end gap-4 pt-3 md:pt-0 border-t md:border-t-0 border-white/10 shrink-0">
+                      <div className="text-left md:text-right">
+                        <span className="text-[10px] font-mono uppercase text-slate-400 block">
+                          {property.purpose === 'Locação' ? 'ALUGUEL' : 'INVESTIMENTO'}
+                        </span>
+                        <span className="text-lg font-extrabold font-mono tabular-nums text-[#ECC97E]">
+                          {property.priceFormatted}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onSelectProperty(property)}
+                          className="tech-btn-secondary px-3.5 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                        >
+                          <span>Galeria</span>
+                          <ArrowUpRight className="w-3.5 h-3.5 text-[#ECC97E]" />
+                        </button>
+                        <a
+                          href={waUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="tech-btn-primary px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5 text-[#050B1A] fill-[#050B1A]" />
+                          <span>Consultar</span>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+              {properties.map((property, idx) => (
+                <RevealBlock
+                  key={property.id}
+                  delay={Math.min((idx % 3) * 0.08, 0.24)}
+                  distance={26}
+                  parallaxStrength={14}
+                  className="h-full"
+                >
+                  <PropertyCard
+                    property={property}
+                    onSelect={onSelectProperty}
+                  />
+                </RevealBlock>
+              ))}
+            </div>
+          )
         ) : (
           /* Empty State */
           <div className="py-16 text-center bg-[#070F26] rounded-2xl border border-[#D4AF37]/30 p-8 max-w-lg mx-auto shadow-2xl">
@@ -717,6 +889,6 @@ export const PropertyGrid: React.FC<PropertyGridProps> = ({
           </div>
         )}
       </div>
-    </section>
+    </ParallaxSection>
   );
 };

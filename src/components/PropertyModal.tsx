@@ -27,6 +27,9 @@ import {
   Star,
   ExternalLink,
   Video,
+  ChevronLeft,
+  ChevronRight,
+  ZoomIn,
 } from 'lucide-react';
 import { Property } from '../types/property';
 import { getPropertyWhatsAppLink, COMPANY_INFO } from '../utils/whatsapp';
@@ -50,6 +53,7 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
 }) => {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [activeMediaTab, setActiveMediaTab] = useState<'photos' | 'video' | 'tour360'>('photos');
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [adminNotes, setAdminNotes] = useState('');
   const [isSavingNote, setIsSavingNote] = useState(false);
@@ -60,6 +64,7 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
   useEffect(() => {
     setActiveImageIndex(0);
     setActiveMediaTab('photos');
+    setIsLightboxOpen(false);
     if (property) {
       setAdminNotes(property.adminNotes || '');
     }
@@ -67,11 +72,23 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        if (isLightboxOpen) {
+          setIsLightboxOpen(false);
+        } else {
+          onClose();
+        }
+      } else if (property && activeMediaTab === 'photos' && property.images.length > 1) {
+        if (e.key === 'ArrowRight') {
+          setActiveImageIndex((prev) => (prev + 1) % property.images.length);
+        } else if (e.key === 'ArrowLeft') {
+          setActiveImageIndex((prev) => (prev - 1 + property.images.length) % property.images.length);
+        }
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [onClose, isLightboxOpen, property, activeMediaTab]);
 
   if (!property) return null;
 
@@ -235,12 +252,41 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
               <img
                 src={property.images[activeImageIndex] || property.images[0]}
                 alt={property.title}
-                className="w-full h-full object-cover filter contrast-[1.05] brightness-[0.95]"
+                onClick={() => setIsLightboxOpen(true)}
+                className="w-full h-full object-cover filter contrast-[1.05] brightness-[0.95] cursor-zoom-in transition-transform duration-500"
                 referrerPolicy="no-referrer"
               />
               {/* Scrims */}
               <div className="absolute inset-0 bg-gradient-to-t from-[#070F26] via-transparent to-[#050B1A]/60 pointer-events-none" />
               <div className="absolute inset-0 bg-[linear-gradient(rgba(212,175,55,0.03)_1px,transparent_1px)] bg-[size:100%_4px] pointer-events-none opacity-50" />
+
+              {/* Left / Right Photo Navigation Controls */}
+              {property.images.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setActiveImageIndex(
+                        (prev) => (prev - 1 + property.images.length) % property.images.length
+                      )
+                    }
+                    className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-[#050B1A]/85 hover:bg-[#0B163B] border border-[#D4AF37]/60 text-[#ECC97E] flex items-center justify-center shadow-lg transition-all cursor-pointer"
+                    aria-label="Foto anterior"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setActiveImageIndex((prev) => (prev + 1) % property.images.length)
+                    }
+                    className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-[#050B1A]/85 hover:bg-[#0B163B] border border-[#D4AF37]/60 text-[#ECC97E] flex items-center justify-center shadow-lg transition-all cursor-pointer"
+                    aria-label="Próxima foto"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </>
+              )}
 
               {/* Tech Corner HUD Reticles */}
               <div className="absolute top-3 left-3 w-4 h-4 border-t-2 border-l-2 border-[#D4AF37]" />
@@ -288,7 +334,7 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
               <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between text-white z-10">
                 <div>
                   <span className="text-xs uppercase tracking-wider text-slate-400 font-mono block">
-                    VALOR DE AVALIAÇÃO
+                    VALOR DE AVALIAÇÃO · FOTO {activeImageIndex + 1}/{property.images.length}
                   </span>
                   <span className="text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-[#ECC97E]">
                     {property.priceFormatted}
@@ -299,6 +345,14 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsLightboxOpen(true)}
+                    className="px-3 py-1.5 rounded-xl bg-[#050B1A]/80 hover:bg-[#0B163B] border border-[#D4AF37]/40 text-[#ECC97E] text-xs font-mono font-bold backdrop-blur-md transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <ZoomIn className="w-3.5 h-3.5 text-[#D4AF37]" />
+                    <span className="hidden sm:inline">Tela Cheia 4K</span>
+                  </button>
                   <button
                     onClick={handleCopyLink}
                     className="px-3 py-1.5 rounded-xl bg-[#050B1A]/80 hover:bg-[#0B163B] border border-[#D4AF37]/40 text-white text-xs font-medium backdrop-blur-md transition-colors flex items-center gap-1.5 cursor-pointer"
@@ -798,6 +852,64 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Fullscreen 4K Lightbox Overlay */}
+      {isLightboxOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-[#050B1A]/95 backdrop-blur-xl flex flex-col items-center justify-center p-4"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsLightboxOpen(false);
+          }}
+        >
+          <div className="w-full max-w-6xl flex items-center justify-between mb-3 px-2">
+            <div className="text-xs font-mono text-[#ECC97E]">
+              <span className="font-bold text-white">{property.title}</span> · Foto {activeImageIndex + 1} de {property.images.length}
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsLightboxOpen(false)}
+              className="px-3.5 py-1.5 rounded-xl bg-[#070F26] border border-[#D4AF37]/50 text-white text-xs font-mono flex items-center gap-1.5 cursor-pointer"
+            >
+              <X className="w-4 h-4 text-[#D4AF37]" />
+              <span>Fechar Tela Cheia</span>
+            </button>
+          </div>
+          <div
+            className="relative w-full max-w-6xl max-h-[82vh] flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={property.images[activeImageIndex] || property.images[0]}
+              alt={property.title}
+              referrerPolicy="no-referrer"
+              className="max-w-full max-h-[80vh] object-contain rounded-2xl border border-[#D4AF37]/40 shadow-2xl"
+            />
+            {property.images.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setActiveImageIndex((prev) => (prev - 1 + property.images.length) % property.images.length)
+                  }
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-[#050B1A]/90 border border-[#D4AF37] text-[#ECC97E] flex items-center justify-center cursor-pointer"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setActiveImageIndex((prev) => (prev + 1) % property.images.length)
+                  }
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-[#050B1A]/90 border border-[#D4AF37] text-[#ECC97E] flex items-center justify-center cursor-pointer"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

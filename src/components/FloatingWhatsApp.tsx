@@ -151,7 +151,7 @@ export const FloatingWhatsApp: React.FC = () => {
           initial="hidden"
           animate="visible"
           exit="exit"
-          className="fixed bottom-6 right-6 z-40 flex items-center gap-3 will-change-transform"
+          className="fixed bottom-20 lg:bottom-6 right-4 sm:right-6 z-40 flex items-center gap-3 will-change-transform"
         >
       {/* Tooltip with silky-smooth organic fade-in, scale growth, staggered child entry, and 3D tilt tracking */}
       <AnimatePresence>
