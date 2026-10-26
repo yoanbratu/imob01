@@ -536,3 +536,105 @@ export const INITIAL_GOOGLE_REVIEW_CONFIG: GoogleReviewConfig = {
   templates: INITIAL_GOOGLE_REVIEW_TEMPLATES,
 };
 
+// ==========================================
+// MULTI-ADMINISTRATOR MANAGEMENT & RBAC TYPES
+// ==========================================
+export type AdminRole =
+  | 'Super Admin'
+  | 'Gestor Imobiliário'
+  | 'Gestor de Condomínios'
+  | 'Consultor';
+
+export type AdminPermission =
+  | 'properties'
+  | 'owners'
+  | 'condos'
+  | 'realtors'
+  | 'team'
+  | 'leads'
+  | 'segments'
+  | 'googleReviews'
+  | 'admins';
+
+export interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  role: AdminRole;
+  department?: string;
+  avatarUrl?: string;
+  passwordHash: string; // Salted SHA-256 hash
+  permissions: AdminPermission[];
+  active: boolean;
+  notes?: string;
+  createdAt: string;
+  updatedAt?: string;
+  lastLoginAt?: string;
+}
+
+export const ALL_ADMIN_PERMISSIONS: { id: AdminPermission; label: string; description: string }[] = [
+  { id: 'properties', label: 'Catálogo & Cadastro de Imóveis', description: 'Criar, editar, clonar e destacar imóveis' },
+  { id: 'owners', label: 'Proprietários & Dados Bancários', description: 'Acesso a documentos, PIX e margem mínima' },
+  { id: 'condos', label: 'Condomínios & Edifícios', description: 'Gerenciar taxas, endereços e lazer de condomínios' },
+  { id: 'realtors', label: 'Corretores & Comissões', description: 'Gerenciar corretores parceiros e honorários' },
+  { id: 'leads', label: 'Propostas & Leads de Clientes', description: 'Atender contatos e propostas recebidas' },
+  { id: 'team', label: 'Equipe Bratu (Site Público)', description: 'Editar membros exibidos na seção Nossa Equipe' },
+  { id: 'segments', label: 'Segmentos 01 & 02 (Capa)', description: 'Personalizar vitrines da página inicial' },
+  { id: 'googleReviews', label: 'Avaliações Google & Disparo', description: 'Disparar convites de avaliação e QR Code' },
+  { id: 'admins', label: 'Gestão de Administradores & Senhas', description: 'Adicionar novos administradores e alterar senhas' },
+];
+
+export const ROLE_DEFAULT_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
+  'Super Admin': ['properties', 'owners', 'condos', 'realtors', 'team', 'leads', 'segments', 'googleReviews', 'admins'],
+  'Gestor Imobiliário': ['properties', 'owners', 'condos', 'realtors', 'leads', 'googleReviews'],
+  'Gestor de Condomínios': ['properties', 'owners', 'condos', 'leads', 'googleReviews'],
+  'Consultor': ['properties', 'condos', 'leads', 'googleReviews'],
+};
+
+export const INITIAL_ADMIN_USERS: AdminUser[] = [
+  {
+    id: 'admin-master-01',
+    name: 'Ioan G. Bratu',
+    email: 'ioangbratu@gmail.com',
+    phone: '+55 (21) 98098-4243',
+    role: 'Super Admin',
+    department: 'Diretoria Master & Tecnologia',
+    avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=800&q=80',
+    passwordHash: '03df9744d6e35c694784d7e60bd626468eb3bc3cd91d5631257c3cf4a1d11cb3',
+    permissions: ['properties', 'owners', 'condos', 'realtors', 'team', 'leads', 'segments', 'googleReviews', 'admins'],
+    active: true,
+    notes: 'Administrador Master Principal do Sistema Bratu Imobiliária & Administradora LTDA.',
+    createdAt: '2025-01-10T10:00:00.000Z',
+  },
+  {
+    id: 'admin-exec-02',
+    name: 'Alexandre Bratu',
+    email: 'Demy@Bratu.com.br',
+    phone: '+55 (21) 98098-4243',
+    role: 'Super Admin',
+    department: 'Diretoria Executiva',
+    avatarUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=800&q=80',
+    passwordHash: '03df9744d6e35c694784d7e60bd626468eb3bc3cd91d5631257c3cf4a1d11cb3',
+    permissions: ['properties', 'owners', 'condos', 'realtors', 'team', 'leads', 'segments', 'googleReviews', 'admins'],
+    active: true,
+    notes: 'Diretor Geral & Administrador Responsável.',
+    createdAt: '2025-01-15T12:00:00.000Z',
+  },
+  {
+    id: 'admin-condo-03',
+    name: 'Mariana Esteves Bratu',
+    email: 'mariana@bratu.com.br',
+    phone: '+55 (21) 98098-4243',
+    role: 'Gestor de Condomínios',
+    department: 'Administração Condominial',
+    avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80',
+    passwordHash: '03df9744d6e35c694784d7e60bd626468eb3bc3cd91d5631257c3cf4a1d11cb3',
+    permissions: ['properties', 'owners', 'condos', 'leads', 'googleReviews'],
+    active: true,
+    notes: 'Diretora de Gestão de Condomínios & Patrimônio.',
+    createdAt: '2025-02-01T14:30:00.000Z',
+  },
+];
+
+

@@ -76,6 +76,8 @@ import {
   GoogleReviewTemplate,
   INITIAL_GOOGLE_REVIEW_CONFIG,
   INITIAL_GOOGLE_REVIEW_TEMPLATES,
+  AdminUser,
+  INITIAL_ADMIN_USERS,
 } from '../types/property';
 import {
   saveProperty,
@@ -106,14 +108,17 @@ import {
   fetchGoogleReviewConfig,
   saveGoogleReviewConfig,
   subscribeToGoogleReviewConfig,
+  subscribeToAdminUsers,
 } from '../services/propertyService';
 import { COMPANY_INFO, getWhatsAppLink } from '../utils/whatsapp';
-import { updateAdminPassword } from '../utils/security';
+import { updateAdminPassword, getCurrentAdminProfile } from '../utils/security';
 import { isValidYouTubeUrl, getYouTubeEmbedUrl } from '../utils/youtube';
 import { isValid360Url, get360EmbedUrl, detect360Provider, parse360Tour, is360ImageSource } from '../utils/virtualTour360';
 import { Panorama360Viewer } from './Panorama360Viewer';
 import { compressImage, compress360Panorama } from '../utils/imageCompression';
 import { TechImage } from './TechImage';
+import { AdminDashboardOverview, AdminTabType } from './AdminDashboardOverview';
+import { AdminUsersManager } from './AdminUsersManager';
 
 interface AdminPanelProps {
   properties: Property[];
@@ -122,7 +127,7 @@ interface AdminPanelProps {
   onClose: () => void;
   onLogout: () => void;
   onRefreshData: () => void;
-  initialTab?: 'properties' | 'new' | 'owners' | 'condos' | 'realtors' | 'team' | 'leads' | 'segments' | 'security' | 'googleReviews';
+  initialTab?: AdminTabType;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -134,9 +139,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onRefreshData,
   initialTab,
 }) => {
-  const [activeTab, setActiveTab] = useState<'properties' | 'new' | 'owners' | 'condos' | 'realtors' | 'team' | 'leads' | 'segments' | 'security' | 'googleReviews'>(initialTab || 'properties');
+  const [activeTab, setActiveTab] = useState<AdminTabType>(initialTab || 'overview');
   const [searchFilter, setSearchFilter] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'residencial' | 'comercial'>('all');
+  const [admins, setAdmins] = useState<AdminUser[]>(INITIAL_ADMIN_USERS);
+  const [currentAdmin, setCurrentAdmin] = useState<AdminUser>(() => getCurrentAdminProfile());
+  const [duplicateBanner, setDuplicateBanner] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentAdmin(getCurrentAdminProfile());
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    const unsub = subscribeToAdminUsers((list) => {
+      setAdmins(list);
+    });
+    return () => unsub();
+  }, []);
 
   // Team (Equipe Bratu) State & Listener
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(INITIAL_TEAM_MEMBERS);
@@ -709,6 +730,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       } catch (err) {
         console.error('Error deleting property:', err);
       }
+    }
+  };
+
+  const handleDuplicateProperty = async (prop: Property) => {
+    try {
+      const newCode = `BRT-${Math.floor(1000 + Math.random() * 9000)}`;
+      const cloned: Property = {
+        ...prop,
+        id: `brt-${Date.now()}`,
+        code: newCode,
+        title: `${prop.title} (Unidade Similar)`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      await saveProperty(cloned);
+      onRefreshData();
+      setActiveTab('properties');
+      setDuplicateBanner(
+        `Imóvel clonado com sucesso! Novo código gerado: ${newCode} ("${cloned.title}").`
+      );
+      setTimeout(() => setDuplicateBanner(null), 5000);
+    } catch (err) {
+      console.error('Erro ao clonar imóvel:', err);
     }
   };
 
@@ -1512,9 +1556,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     <div className="fixed inset-0 z-50 overflow-y-auto bg-[#050B1A]/95 text-white backdrop-blur-xl animate-in fade-in duration-200">
       <div className="min-h-screen max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col">
         {/* Top Bar of the Admin Panel */}
-        <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-[#D4AF37]/30">
+        <div className="flex flex-wrap items-center justify-between gap-4 pb-5 border-b border-[#D4AF37]/30">
           <div className="flex items-center gap-3">
-            <div className="relative h-11 px-2.5 rounded-2xl bg-[#0B163B] border border-[#D4AF37]/50 flex items-center justify-center shadow-[0_0_20px_rgba(212,175,55,0.3)] overflow-hidden group">
+            <div className="relative h-12 px-3 rounded-2xl bg-[#0B163B] border border-[#D4AF37]/50 flex items-center justify-center shadow-[0_0_20px_rgba(212,175,55,0.3)] overflow-hidden group">
               <img
                 src="/assets/aistudio/LOGOPNG_100042ea.png"
                 alt="Bratu Imobiliária & Administradora"
@@ -1525,21 +1569,46 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-base sm:text-lg font-extrabold text-white tracking-tight">
-                  Painel de Administração · BRATU
+                  Central de Comando · BRATU
                 </span>
                 <span className="text-[10px] font-mono bg-emerald-950/80 text-emerald-400 border border-emerald-500/40 px-2 py-0.5 rounded-full">
-                  Firestore Conectado
+                  ● Cloud Firestore Online
                 </span>
               </div>
-              <span className="text-xs text-slate-400 font-mono">
-                Acesso Restrito: Visualização de Dados de Proprietários, Corretores e Observações
+              <span className="text-xs text-slate-400 font-mono block">
+                Gestão Imobiliária, Condominial, Proprietários & Governança Multi-Admin
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Active Logged-In Administrator Badge */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('security')}
+              className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-[#070F26] hover:bg-[#0B163B] border border-[#D4AF37]/40 transition-colors cursor-pointer"
+              title="Gerenciar Administradores e Acessos"
+            >
+              <img
+                src={
+                  currentAdmin.avatarUrl ||
+                  'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=800&q=80'
+                }
+                alt={currentAdmin.name}
+                className="w-7 h-7 rounded-lg object-cover border border-[#D4AF37]"
+              />
+              <div className="text-left hidden sm:block">
+                <span className="text-[11px] font-bold text-white block leading-none">
+                  {currentAdmin.name}
+                </span>
+                <span className="text-[9px] font-mono text-[#ECC97E] uppercase">
+                  {currentAdmin.role} · {admins.length} Admins
+                </span>
+              </div>
+            </button>
+
             <button
               onClick={onClose}
               className="px-4 py-2 text-xs font-semibold rounded-xl bg-[#0B163B] hover:bg-[#12235E] text-slate-200 border border-[#D4AF37]/30 transition-colors cursor-pointer"
@@ -1551,89 +1620,112 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-red-950/80 hover:bg-red-900 border border-red-500/40 text-red-200 transition-colors cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span>Sair do Modo Admin</span>
+              <span>Sair</span>
             </button>
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="flex items-center gap-2 py-6 border-b border-white/10 overflow-x-auto scrollbar-none">
+        {/* Modern High-Tech Command Navigation Dock */}
+        <div className="flex items-center gap-2 py-4 border-b border-white/10 overflow-x-auto scrollbar-none">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer shrink-0 ${
+              activeTab === 'overview'
+                ? 'tech-btn-primary shadow-[0_0_20px_rgba(212,175,55,0.4)]'
+                : 'tech-btn-secondary text-slate-300'
+            }`}
+          >
+            <Zap className="w-4 h-4 text-[#D4AF37]" />
+            <span>Visão Geral (Painel Rápido)</span>
+          </button>
+
           <button
             onClick={() => setActiveTab('properties')}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer shrink-0 ${
               activeTab === 'properties'
                 ? 'tech-btn-primary'
                 : 'tech-btn-secondary text-slate-300'
             }`}
           >
             <Building className="w-4 h-4" />
-            <span>Catálogo Completo & Proprietários ({properties.length})</span>
+            <span>Catálogo de Imóveis ({properties.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('new')}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer shrink-0 ${
               activeTab === 'new'
                 ? 'tech-btn-primary'
                 : 'tech-btn-secondary text-slate-300'
             }`}
           >
             <PlusCircle className="w-4 h-4" />
-            <span>Cadastrar Novo Imóvel (Comercial / Residencial)</span>
+            <span>+ Novo Imóvel</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('security')}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer shrink-0 ${
+              activeTab === 'security'
+                ? 'tech-btn-primary shadow-[0_0_20px_rgba(212,175,55,0.4)]'
+                : 'tech-btn-secondary text-[#ECC97E] border-[#D4AF37]/40'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4 text-[#D4AF37]" />
+            <span>Administradores & Senhas ({admins.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('owners')}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer shrink-0 ${
               activeTab === 'owners'
                 ? 'tech-btn-primary'
                 : 'tech-btn-secondary text-slate-300'
             }`}
           >
             <UserCheck className="w-4 h-4" />
-            <span>Proprietários Cadastrados ({owners.length})</span>
+            <span>Proprietários ({owners.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('condos')}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer shrink-0 ${
               activeTab === 'condos'
                 ? 'tech-btn-primary'
                 : 'tech-btn-secondary text-slate-300'
             }`}
           >
             <Building className="w-4 h-4" />
-            <span>Condomínios / Edifícios ({condos.length})</span>
+            <span>Condomínios ({condos.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('realtors')}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer shrink-0 ${
               activeTab === 'realtors'
                 ? 'tech-btn-primary'
                 : 'tech-btn-secondary text-slate-300'
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>Corretores Cadastrados ({realtors.length})</span>
+            <span>Corretores ({realtors.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('leads')}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer shrink-0 ${
               activeTab === 'leads'
                 ? 'tech-btn-primary'
                 : 'tech-btn-secondary text-slate-300'
             }`}
           >
             <Inbox className="w-4 h-4" />
-            <span>Propostas & Contatos Recebidos ({leads.length})</span>
+            <span>Propostas / Leads ({leads.length})</span>
           </button>
 
-          {/* Equipe Bratu Imobiliária & Administradora LTDA */}
           <button
             onClick={() => setActiveTab('team')}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer shrink-0 ${
               activeTab === 'team'
                 ? 'tech-btn-primary'
                 : 'tech-btn-secondary text-slate-300'
@@ -1643,44 +1735,64 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <span>Equipe Bratu ({teamMembers.length})</span>
           </button>
 
-          {/* New Tab: Segmentos 01 & 02 da Página Inicial */}
           <button
             onClick={() => setActiveTab('segments')}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer shrink-0 ${
               activeTab === 'segments'
                 ? 'tech-btn-primary'
                 : 'tech-btn-secondary text-slate-300'
             }`}
           >
             <Sparkles className="w-4 h-4 text-[#D4AF37]" />
-            <span>Segmentos 01 & 02 (Página Inicial)</span>
+            <span>Segmentos 01 & 02</span>
           </button>
 
-          {/* New Tab: Avaliações Google & Disparo para Clientes */}
           <button
             onClick={() => setActiveTab('googleReviews')}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer shrink-0 ${
               activeTab === 'googleReviews'
                 ? 'tech-btn-primary shadow-[0_0_20px_rgba(212,175,55,0.4)]'
                 : 'tech-btn-secondary text-slate-300'
             }`}
           >
             <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-            <span>Avaliações Google & Disparo</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('security')}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
-              activeTab === 'security'
-                ? 'tech-btn-primary'
-                : 'tech-btn-secondary text-slate-300'
-            }`}
-          >
-            <Lock className="w-4 h-4" />
-            <span>Segurança & Senha Admin</span>
+            <span>Avaliações Google</span>
           </button>
         </div>
+
+        {/* Duplicate Property Notification Banner */}
+        {duplicateBanner && (
+          <div className="mt-4 p-4 rounded-2xl bg-emerald-950/85 border border-emerald-500/50 text-emerald-200 text-xs flex items-center justify-between gap-3 animate-in fade-in">
+            <div className="flex items-center gap-2.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span className="font-semibold">{duplicateBanner}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDuplicateBanner(null)}
+              className="text-slate-400 hover:text-white cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* TAB 0: EXECUTIVE OVERVIEW & SMART PRODUCTIVITY DASHBOARD */}
+        {activeTab === 'overview' && (
+          <AdminDashboardOverview
+            properties={properties}
+            leads={leads}
+            owners={owners}
+            condos={condos}
+            realtors={realtors}
+            teamMembers={teamMembers}
+            admins={admins}
+            currentAdmin={currentAdmin}
+            onNavigateTab={setActiveTab}
+            onEditProperty={(prop) => setEditingProperty({ ...prop })}
+            onDuplicateProperty={handleDuplicateProperty}
+          />
+        )}
 
         {/* TAB 1: PROPERTIES LIST WITH OWNER, REALTOR, AND ADMIN NOTES */}
         {activeTab === 'properties' && (
@@ -1906,6 +2018,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         >
                           <Compass className={`w-3.5 h-3.5 ${prop.virtualTour360Url ? 'text-cyan-400 animate-spin' : 'text-slate-400'}`} style={{ animationDuration: '10s' }} />
                           <span>{prop.virtualTour360Url ? 'Tour 360°: OK' : '+ Tour 360°'}</span>
+                        </button>
+
+                        {/* 1-Click Duplicate / Clone Property Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleDuplicateProperty(prop)}
+                          className="px-3 py-1.5 rounded-xl bg-[#0B163B] hover:bg-[#12235E] text-slate-200 border border-white/15 hover:border-[#D4AF37]/50 text-[11px] font-bold font-mono transition-colors cursor-pointer flex items-center gap-1.5"
+                          title="Clonar / Duplicar este imóvel em 1 clique para agilizar o cadastro de unidades similares"
+                        >
+                          <Copy className="w-3.5 h-3.5 text-[#D4AF37]" />
+                          <span>Clonar</span>
                         </button>
 
                         {/* Edit Button */}
@@ -5154,136 +5277,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         )}
 
-        {/* TAB 4: SECURITY & CREDENTIAL MANAGEMENT */}
+        {/* TAB 4: MULTI-ADMINISTRATOR MANAGEMENT & CRYPTOGRAPHIC SECURITY */}
         {activeTab === 'security' && (
-          <div className="py-6 flex-1 max-w-4xl mx-auto w-full space-y-6">
-            <div>
-              <span className="text-xs font-mono uppercase tracking-widest text-[#E5C378]">
-                DIRETRIZES DE SEGURANÇA · BRATU ADMIN
-              </span>
-              <h3 className="text-2xl font-bold text-white mt-1">
-                Segurança Criptográfica & Gestão de Credenciais
-              </h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Esta aplicação segue as melhores práticas de cibersegurança: zero senhas em texto puro, autenticação com hash salted SHA-256, blindagem de banco de dados e proteção rigorosa de dados pessoais.
-              </p>
-            </div>
-
-            {/* Security Pillars Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-[#070F26] p-4 rounded-2xl border border-[#D4AF37]/30 space-y-2">
-                <div className="w-8 h-8 rounded-lg bg-[#0B163B] border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37]">
-                  <Lock className="w-4 h-4" />
-                </div>
-                <h5 className="text-xs font-bold text-white font-mono uppercase">Hash Criptográfico SHA-256</h5>
-                <p className="text-[11px] text-slate-400 leading-relaxed">
-                  A senha do administrador não fica salva em texto puro nem visível no código-fonte. O sistema calcula a validação em tempo real com salt criptográfico.
-                </p>
-              </div>
-
-              <div className="bg-[#070F26] p-4 rounded-2xl border border-[#D4AF37]/30 space-y-2">
-                <div className="w-8 h-8 rounded-lg bg-[#0B163B] border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37]">
-                  <ShieldAlert className="w-4 h-4" />
-                </div>
-                <h5 className="text-xs font-bold text-white font-mono uppercase">Proteção Anti-Força Bruta</h5>
-                <p className="text-[11px] text-slate-400 leading-relaxed">
-                  Limite rígido de 5 tentativas de login consecutivas. Em caso de repetição de erros, o sistema aciona bloqueio temporário automático.
-                </p>
-              </div>
-
-              <div className="bg-[#070F26] p-4 rounded-2xl border border-[#D4AF37]/30 space-y-2">
-                <div className="w-8 h-8 rounded-lg bg-[#0B163B] border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37]">
-                  <ShieldCheck className="w-4 h-4" />
-                </div>
-                <h5 className="text-xs font-bold text-white font-mono uppercase">Blindagem de Documentos</h5>
-                <p className="text-[11px] text-slate-400 leading-relaxed">
-                  CPF, RG, RUC, contas bancárias e PIX de proprietários são exibidos exclusivamente sob autenticação de administrador com sessão efêmera.
-                </p>
-              </div>
-            </div>
-
-            {/* Change Password Form */}
-            <div className="bg-[#070F26] rounded-3xl border border-[#D4AF37]/35 p-6 sm:p-8 shadow-2xl">
-              <div className="flex items-center gap-2 mb-4 pb-2 border-b border-[#D4AF37]/25">
-                <KeyRound className="w-5 h-5 text-[#D4AF37]" />
-                <h4 className="text-base font-bold text-white">
-                  Alterar Senha de Administrador
-                </h4>
-              </div>
-
-              {pwdFeedback.type !== 'idle' && (
-                <div
-                  className={`mb-5 p-3.5 rounded-xl border text-xs flex items-center gap-2.5 ${
-                    pwdFeedback.type === 'success'
-                      ? 'bg-emerald-950/70 border-emerald-500/50 text-emerald-200'
-                      : 'bg-red-950/70 border-red-500/50 text-red-200'
-                  }`}
-                >
-                  {pwdFeedback.type === 'success' ? (
-                    <CheckCircle className="w-4 h-4 shrink-0 text-emerald-400" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
-                  )}
-                  <span>{pwdFeedback.message}</span>
-                </div>
-              )}
-
-              <form onSubmit={handleChangePassword} className="space-y-4 max-w-lg">
-                <div>
-                  <label className="block text-[11px] font-mono text-slate-300 mb-1">
-                    SENHA ATUAL *
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={currPassword}
-                    onChange={(e) => setCurrPassword(e.target.value)}
-                    placeholder="Digite a senha atual..."
-                    className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2.5 text-xs focus:ring-1 focus:ring-[#D4AF37]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-mono text-slate-300 mb-1">
-                    NOVA SENHA (MÍNIMO 8 CARACTERES) *
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Digite a nova senha segura..."
-                    className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2.5 text-xs focus:ring-1 focus:ring-[#D4AF37]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-mono text-slate-300 mb-1">
-                    CONFIRMAR NOVA SENHA *
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Repita a nova senha..."
-                    className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2.5 text-xs focus:ring-1 focus:ring-[#D4AF37]"
-                  />
-                </div>
-
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    disabled={isUpdatingPwd}
-                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#ECC97E] via-[#D4AF37] to-[#B8934E] text-[#050B1A] text-xs font-bold hover:brightness-110 transition-all shadow-[0_0_20px_rgba(212,175,55,0.3)] cursor-pointer disabled:opacity-50"
-                  >
-                    <Save className="w-4 h-4 text-[#050B1A]" />
-                    <span>{isUpdatingPwd ? 'Criptografando e Atualizando...' : 'Salvar Nova Senha'}</span>
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
+          <AdminUsersManager
+            onAdminProfileUpdated={(updatedProfile) => setCurrentAdmin(updatedProfile)}
+          />
         )}
 
         {/* TAB: GOOGLE REVIEWS & DIRECT CLIENT DISPATCH */}

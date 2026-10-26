@@ -16,6 +16,7 @@ import { PropertyModal } from './components/PropertyModal';
 import { SellPropertyModal } from './components/SellPropertyModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { AdminPanel } from './components/AdminPanel';
+import { AdminTabType } from './components/AdminDashboardOverview';
 import { validateAdminSession, clearAdminSession } from './utils/security';
 import {
   Property,
@@ -65,7 +66,7 @@ export default function App() {
   });
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
-  const [adminInitialTab, setAdminInitialTab] = useState<'properties' | 'new' | 'owners' | 'condos' | 'realtors' | 'team' | 'leads' | 'segments' | 'security' | 'googleReviews'>('properties');
+  const [adminInitialTab, setAdminInitialTab] = useState<AdminTabType>('overview');
 
   // Periodically check session expiry
   useEffect(() => {

@@ -25,7 +25,10 @@ import {
   INITIAL_TEAM_MEMBERS,
   GoogleReviewConfig,
   INITIAL_GOOGLE_REVIEW_CONFIG,
+  AdminUser,
+  INITIAL_ADMIN_USERS,
 } from '../types/property';
+import { getCachedAdminUsers, setCachedAdminUsers } from '../utils/security';
 import { PROPERTIES as INITIAL_PROPERTIES } from '../data/properties';
 
 const PROPERTIES_COLLECTION = 'properties';
@@ -1176,3 +1179,111 @@ export function subscribeToGoogleReviewConfig(
     }
   );
 }
+
+// =========================================================================
+// MULTI-ADMINISTRATOR MANAGEMENT (FIRESTORE + LOCAL STORAGE SYNC)
+// =========================================================================
+const ADMIN_USERS_COLLECTION = 'admin_users';
+
+export async function fetchAdminUsers(): Promise<AdminUser[]> {
+  try {
+    const colRef = collection(db, ADMIN_USERS_COLLECTION);
+    const snap = await getDocs(colRef);
+    if (!snap.empty) {
+      const list = snap.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as Omit<AdminUser, 'id'>),
+      }));
+      setCachedAdminUsers(list);
+      return list;
+    } else {
+      // Seed initial admins if empty
+      const initial = getCachedAdminUsers();
+      for (const adm of initial) {
+        try {
+          await setDoc(doc(db, ADMIN_USERS_COLLECTION, adm.id), adm, { merge: true });
+        } catch {
+          // ignore if rules restrict unauthenticated seed
+        }
+      }
+      setCachedAdminUsers(initial);
+      return initial;
+    }
+  } catch (err) {
+    console.warn('Usando cache local de administradores:', err);
+    return getCachedAdminUsers();
+  }
+}
+
+export function subscribeToAdminUsers(callback: (admins: AdminUser[]) => void): () => void {
+  const colRef = collection(db, ADMIN_USERS_COLLECTION);
+  return onSnapshot(
+    colRef,
+    (snap) => {
+      if (!snap.empty) {
+        const list = snap.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as Omit<AdminUser, 'id'>),
+        }));
+        setCachedAdminUsers(list);
+        callback(list);
+      } else {
+        const fallback = getCachedAdminUsers();
+        callback(fallback);
+      }
+    },
+    () => {
+      callback(getCachedAdminUsers());
+    }
+  );
+}
+
+export async function saveAdminUser(admin: AdminUser): Promise<void> {
+  const cleanId = (admin.id || `admin_${Date.now()}`).trim();
+  const payload: AdminUser = {
+    id: cleanId,
+    name: admin.name.trim(),
+    email: admin.email.trim(),
+    phone: (admin.phone || '').trim(),
+    role: admin.role || 'Gestor Imobiliário',
+    department: (admin.department || 'Gestão Executiva').trim(),
+    avatarUrl:
+      admin.avatarUrl ||
+      'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=800&q=80',
+    passwordHash: admin.passwordHash,
+    permissions: Array.isArray(admin.permissions) ? admin.permissions : ['properties', 'leads'],
+    active: admin.active !== false,
+    notes: (admin.notes || '').trim(),
+    createdAt: admin.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    ...(admin.lastLoginAt ? { lastLoginAt: admin.lastLoginAt } : {}),
+  };
+
+  // Always update local cache immediately for instant login availability
+  const currentLocal = getCachedAdminUsers();
+  const exists = currentLocal.some((a) => a.id === cleanId);
+  const updatedLocal = exists
+    ? currentLocal.map((a) => (a.id === cleanId ? payload : a))
+    : [...currentLocal, payload];
+  setCachedAdminUsers(updatedLocal);
+
+  try {
+    const docRef = doc(db, ADMIN_USERS_COLLECTION, cleanId);
+    await setDoc(docRef, payload, { merge: true });
+  } catch (err: any) {
+    console.warn('Administrador salvo no cache seguro local (sincronização Firestore pendente):', err);
+  }
+}
+
+export async function deleteAdminUser(id: string): Promise<void> {
+  const currentLocal = getCachedAdminUsers().filter((a) => a.id !== id);
+  setCachedAdminUsers(currentLocal.length > 0 ? currentLocal : INITIAL_ADMIN_USERS);
+
+  try {
+    const docRef = doc(db, ADMIN_USERS_COLLECTION, id);
+    await deleteDoc(docRef);
+  } catch (err) {
+    console.warn('Administrador removido do cache seguro local:', err);
+  }
+}
+

@@ -202,6 +202,24 @@ service cloud.firestore {
       allow delete: if isValidId(memberId);
     }
 
+    // Admin users: Read and write administrator profiles (hashed credentials only)
+    match /admin_users/{adminId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(adminId) &&
+        incoming().keys().hasAll(['name', 'email', 'role', 'passwordHash']) &&
+        incoming().name is string && incoming().name.size() > 0 && incoming().name.size() <= 200 &&
+        incoming().email is string && incoming().email.size() > 0 && incoming().email.size() <= 200 &&
+        incoming().passwordHash is string && incoming().passwordHash.size() > 0 && incoming().passwordHash.size() <= 200;
+      allow delete: if isValidId(adminId);
+    }
+
+    // Settings (Google review configuration and templates)
+    match /settings/{settingId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(settingId);
+      allow delete: if isValidId(settingId);
+    }
+
     // Default deny catch-all
     match /{document=**} {
       allow read, write: if false;

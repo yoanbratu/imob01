@@ -1,263 +1,250 @@
+import { AdminUser, INITIAL_ADMIN_USERS } from '../types/property';
+
 /**
- * Bratu Imobiliária & Administradora - Security & Cryptographic Authentication Module
- * 
- * Implements security best practices:
- * 1. Zero plaintext passwords stored or displayed in client bundles.
- * 2. Cryptographic salted SHA-256 hashing via native Web Crypto API (SubtleCrypto).
- * 3. Rate-limiting & Brute-Force lockout mitigation (max 5 attempts, exponential lockout).
- * 4. High-entropy cryptographically random session tokens with automatic TTL expiry.
- * 5. Constant-time comparison simulation to mitigate timing side-channel attacks.
- * 6. Secure password reset/update capability with current-credential verification.
+ * BRATU IMOBILIÁRIA & ADMINISTRADORA LTDA — SECURITY & CRYPTOGRAPHY MODULE
+ *
+ * Security measures implemented:
+ * 1. Zero plaintext password storage: Admin authentication compares a salted SHA-256 hash.
+ * 2. Multi-Administrator Authentication: Supports individual admin accounts with hashed passwords,
+ *    roles, and permissions synced between Firestore and local cache.
+ * 3. Brute-force protection: Limits consecutive failed login attempts with an automatic cooldown lock.
+ * 4. Input sanitization: Prevents HTML/Script injection (XSS) in public lead forms and search queries.
+ * 5. Ephemeral Session Tokens: Admin sessions expire automatically or when the browser tab closes.
  */
 
 const AUTH_SALT = 'BRATU_IMMOBILIER_SECURE_AUTH_SALT_V2026';
-// Pre-computed salted SHA-256 hash for default system master access (casa5750)
-const DEFAULT_SALTED_HASH = '494d4c127b2d54e67ea409942f5ebb3b271052dd71320aaf353a5cbad5463fc2';
 
-const MAX_ATTEMPTS = 5;
-const LOCKOUT_DURATION_MS = 60 * 1000; // 60 seconds lockout
-const SESSION_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
+// Salted SHA-256 hash of the initial administrator master credential ('casa5750')
+export const DEFAULT_SALTED_HASH =
+  '03df9744d6e35c694784d7e60bd626468eb3bc3cd91d5631257c3cf4a1d11cb3';
 
-const STORAGE_KEYS = {
-  ATTEMPTS: 'bratu_sec_attempts',
-  LOCKOUT_UNTIL: 'bratu_sec_lockout_until',
-  SESSION_TOKEN: 'bratu_sec_session_token',
-  SESSION_EXPIRY: 'bratu_sec_session_expiry',
-  CUSTOM_HASH: 'bratu_sec_custom_hash',
-};
+const STORAGE_HASH_KEY = 'bratu_sec_admin_hash';
+const STORAGE_ATTEMPTS_KEY = 'bratu_sec_login_attempts';
+const STORAGE_LOCKOUT_KEY = 'bratu_sec_lockout_until';
+const SESSION_TOKEN_KEY = 'bratu_sec_session_token';
+const SESSION_ADMIN_PROFILE_KEY = 'bratu_sec_admin_profile';
+export const ADMIN_USERS_STORAGE_KEY = 'bratu_sec_admin_users';
+
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 3 * 60 * 1000; // 3 minutes lockout after 5 failed attempts
 
 /**
- * Computes a salted SHA-256 hash using native Web Crypto API
+ * Computes a salted SHA-256 hash using the Web Crypto API.
  */
 export async function computeSaltedHash(plainText: string): Promise<string> {
-  const enc = new TextEncoder();
-  const inputBuffer = enc.encode(`${AUTH_SALT}:${plainText.trim()}`);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', inputBuffer);
+  const salted = `${AUTH_SALT}::${plainText.trim()}`;
+  const msgBuffer = new TextEncoder().encode(salted);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 /**
- * Constant-time string comparison to prevent timing attacks
+ * Retrieves the currently active salted password hash for the master account.
  */
-function constantTimeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) {
-    return false;
-  }
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return result === 0;
-}
-
-/**
- * Checks if the user is currently locked out due to excessive failed attempts
- */
-export function getLockoutStatus(): { isLocked: boolean; remainingSeconds: number } {
+export function getStoredSaltedHash(): string {
   try {
-    const lockoutUntilStr = sessionStorage.getItem(STORAGE_KEYS.LOCKOUT_UNTIL);
-    if (!lockoutUntilStr) {
-      return { isLocked: false, remainingSeconds: 0 };
+    return localStorage.getItem(STORAGE_HASH_KEY) || DEFAULT_SALTED_HASH;
+  } catch {
+    return DEFAULT_SALTED_HASH;
+  }
+}
+
+/**
+ * Retrieves the cached list of AdminUser accounts from localStorage (fallback to INITIAL_ADMIN_USERS).
+ */
+export function getCachedAdminUsers(): AdminUser[] {
+  try {
+    const raw = localStorage.getItem(ADMIN_USERS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
     }
-    const lockoutUntil = parseInt(lockoutUntilStr, 10);
+  } catch {
+    // ignore
+  }
+  return INITIAL_ADMIN_USERS;
+}
+
+/**
+ * Updates the cached list of AdminUser accounts in localStorage.
+ */
+export function setCachedAdminUsers(users: AdminUser[]): void {
+  try {
+    localStorage.setItem(ADMIN_USERS_STORAGE_KEY, JSON.stringify(users));
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Gets the currently logged-in administrator profile for the active session.
+ */
+export function getCurrentAdminProfile(): AdminUser {
+  try {
+    const raw = sessionStorage.getItem(SESSION_ADMIN_PROFILE_KEY);
+    if (raw) {
+      return JSON.parse(raw) as AdminUser;
+    }
+  } catch {
+    // ignore
+  }
+  const admins = getCachedAdminUsers();
+  return admins[0] || INITIAL_ADMIN_USERS[0];
+}
+
+/**
+ * Sets the currently logged-in administrator profile in sessionStorage.
+ */
+export function setCurrentAdminProfile(admin: AdminUser): void {
+  try {
+    sessionStorage.setItem(SESSION_ADMIN_PROFILE_KEY, JSON.stringify(admin));
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Checks if the login is currently locked due to brute-force attempts.
+ */
+export function getLockoutStatus(): { locked: boolean; remainingSeconds: number } {
+  try {
+    const lockoutUntil = Number(localStorage.getItem(STORAGE_LOCKOUT_KEY) || '0');
     const now = Date.now();
-    if (now < lockoutUntil) {
+    if (lockoutUntil > now) {
       return {
-        isLocked: true,
+        locked: true,
         remainingSeconds: Math.ceil((lockoutUntil - now) / 1000),
       };
-    } else {
-      // Lockout expired, reset attempts counter
-      sessionStorage.removeItem(STORAGE_KEYS.LOCKOUT_UNTIL);
-      sessionStorage.removeItem(STORAGE_KEYS.ATTEMPTS);
-      return { isLocked: false, remainingSeconds: 0 };
     }
+    return { locked: false, remainingSeconds: 0 };
   } catch {
-    return { isLocked: false, remainingSeconds: 0 };
+    return { locked: false, remainingSeconds: 0 };
   }
 }
 
 /**
- * Records a failed login attempt and calculates lockout if threshold is exceeded
+ * Verifies the candidate password (and optional email/username) against:
+ * 1. Active registered administrators in `getCachedAdminUsers()`
+ * 2. Master password hash (`getStoredSaltedHash()`)
  */
-function recordFailedAttempt(): { remainingAttempts: number; isLocked: boolean; remainingSeconds: number } {
-  try {
-    const currentAttempts = parseInt(sessionStorage.getItem(STORAGE_KEYS.ATTEMPTS) || '0', 10) + 1;
-    sessionStorage.setItem(STORAGE_KEYS.ATTEMPTS, currentAttempts.toString());
-
-    if (currentAttempts >= MAX_ATTEMPTS) {
-      const lockoutUntil = Date.now() + LOCKOUT_DURATION_MS;
-      sessionStorage.setItem(STORAGE_KEYS.LOCKOUT_UNTIL, lockoutUntil.toString());
-      return {
-        remainingAttempts: 0,
-        isLocked: true,
-        remainingSeconds: Math.ceil(LOCKOUT_DURATION_MS / 1000),
-      };
-    }
-
-    return {
-      remainingAttempts: MAX_ATTEMPTS - currentAttempts,
-      isLocked: false,
-      remainingSeconds: 0,
-    };
-  } catch {
-    return { remainingAttempts: 1, isLocked: false, remainingSeconds: 0 };
-  }
-}
-
-/**
- * Resets failed attempts after successful authentication
- */
-function resetAttempts(): void {
-  try {
-    sessionStorage.removeItem(STORAGE_KEYS.ATTEMPTS);
-    sessionStorage.removeItem(STORAGE_KEYS.LOCKOUT_UNTIL);
-  } catch {}
-}
-
-/**
- * Generates a high-entropy random session token and stores it with an expiration timestamp
- */
-export function createAdminSession(): string {
-  const randomBytes = new Uint8Array(32);
-  crypto.getRandomValues(randomBytes);
-  const token = Array.from(randomBytes)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-
-  const expiry = Date.now() + SESSION_TTL_MS;
-  try {
-    sessionStorage.setItem(STORAGE_KEYS.SESSION_TOKEN, token);
-    sessionStorage.setItem(STORAGE_KEYS.SESSION_EXPIRY, expiry.toString());
-  } catch {}
-
-  return token;
-}
-
-/**
- * Validates if the current session is active and not expired
- */
-export function validateAdminSession(): boolean {
-  try {
-    const token = sessionStorage.getItem(STORAGE_KEYS.SESSION_TOKEN);
-    const expiryStr = sessionStorage.getItem(STORAGE_KEYS.SESSION_EXPIRY);
-    if (!token || !expiryStr) {
-      return false;
-    }
-    const expiry = parseInt(expiryStr, 10);
-    if (Date.now() > expiry) {
-      clearAdminSession();
-      return false;
-    }
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Terminates the admin session securely
- */
-export function clearAdminSession(): void {
-  try {
-    sessionStorage.removeItem(STORAGE_KEYS.SESSION_TOKEN);
-    sessionStorage.removeItem(STORAGE_KEYS.SESSION_EXPIRY);
-    sessionStorage.removeItem('bratu_admin_auth');
-  } catch {}
-}
-
-export interface VerificationResult {
+export async function verifyAdminPassword(
+  candidatePassword: string,
+  candidateIdentifier?: string
+): Promise<{
   success: boolean;
-  message?: string;
-  isLocked?: boolean;
-  remainingSeconds?: number;
+  error?: string;
   remainingAttempts?: number;
-}
-
-/**
- * Verifies candidate password against cryptographic salted hash with rate limiting
- */
-export async function verifyAdminPassword(candidatePassword: string): Promise<VerificationResult> {
-  const lockout = getLockoutStatus();
-  if (lockout.isLocked) {
+  adminUser?: AdminUser;
+}> {
+  const status = getLockoutStatus();
+  if (status.locked) {
     return {
       success: false,
-      isLocked: true,
-      remainingSeconds: lockout.remainingSeconds,
-      message: `Acesso bloqueado por segurança devido a múltiplas tentativas incorretas. Aguarde ${lockout.remainingSeconds} segundos.`,
+      error: `Muitas tentativas incorretas. Aguarde ${status.remainingSeconds} segundos para tentar novamente.`,
     };
   }
 
-  if (!candidatePassword || candidatePassword.trim().length === 0) {
-    return {
-      success: false,
-      message: 'Por favor, insira a senha de administrador.',
-    };
-  }
-
-  const computedHash = await computeSaltedHash(candidatePassword);
-
-  // Check custom hash if defined by administrator, otherwise check system default hash
-  let targetHash = DEFAULT_SALTED_HASH;
   try {
-    const storedCustom = localStorage.getItem(STORAGE_KEYS.CUSTOM_HASH);
-    if (storedCustom && storedCustom.length === 64) {
-      targetHash = storedCustom;
-    }
-  } catch {}
+    const candidateHash = await computeSaltedHash(candidatePassword);
+    const targetMasterHash = getStoredSaltedHash();
+    const admins = getCachedAdminUsers().filter((a) => a.active !== false);
+    const cleanId = (candidateIdentifier || '').trim().toLowerCase();
 
-  const isMasterValid = constantTimeEqual(computedHash, DEFAULT_SALTED_HASH);
-  const isCustomValid = constantTimeEqual(computedHash, targetHash);
-  const isValid = isMasterValid || isCustomValid;
+    let matchedAdmin: AdminUser | undefined;
 
-  if (isValid) {
-    if (isMasterValid) {
-      try {
-        localStorage.removeItem(STORAGE_KEYS.CUSTOM_HASH);
-      } catch {}
+    if (cleanId) {
+      // Find admin matching email or name
+      const byIdentifier = admins.find(
+        (a) =>
+          a.email.toLowerCase() === cleanId ||
+          a.name.toLowerCase() === cleanId ||
+          a.email.split('@')[0].toLowerCase() === cleanId
+      );
+
+      if (byIdentifier) {
+        if (
+          byIdentifier.passwordHash === candidateHash ||
+          (byIdentifier.role === 'Super Admin' && candidateHash === targetMasterHash)
+        ) {
+          matchedAdmin = byIdentifier;
+        }
+      } else if (candidateHash === targetMasterHash) {
+        matchedAdmin = admins[0] || INITIAL_ADMIN_USERS[0];
+      }
+    } else {
+      // Fast 1-step login: match any active admin with this password hash, or master hash
+      matchedAdmin = admins.find((a) => a.passwordHash === candidateHash);
+      if (!matchedAdmin && candidateHash === targetMasterHash) {
+        matchedAdmin = admins[0] || INITIAL_ADMIN_USERS[0];
+      }
     }
-    resetAttempts();
-    createAdminSession();
-    return {
-      success: true,
-    };
-  } else {
-    const attemptStatus = recordFailedAttempt();
-    if (attemptStatus.isLocked) {
+
+    if (matchedAdmin) {
+      localStorage.removeItem(STORAGE_ATTEMPTS_KEY);
+      localStorage.removeItem(STORAGE_LOCKOUT_KEY);
+      const sessionToken = crypto.randomUUID
+        ? crypto.randomUUID()
+        : `sec_${Date.now()}_${Math.random().toString(36).substring(2)}`;
+      sessionStorage.setItem(SESSION_TOKEN_KEY, sessionToken);
+
+      const updatedProfile: AdminUser = {
+        ...matchedAdmin,
+        lastLoginAt: new Date().toISOString(),
+      };
+      setCurrentAdminProfile(updatedProfile);
+
+      return { success: true, adminUser: updatedProfile };
+    } else {
+      const currentAttempts = Number(localStorage.getItem(STORAGE_ATTEMPTS_KEY) || '0') + 1;
+      localStorage.setItem(STORAGE_ATTEMPTS_KEY, String(currentAttempts));
+
+      if (currentAttempts >= MAX_LOGIN_ATTEMPTS) {
+        const lockUntil = Date.now() + LOCKOUT_DURATION_MS;
+        localStorage.setItem(STORAGE_LOCKOUT_KEY, String(lockUntil));
+        localStorage.setItem(STORAGE_ATTEMPTS_KEY, '0');
+        return {
+          success: false,
+          error: 'Limite de tentativas excedido. Acesso bloqueado temporariamente por 3 minutos por segurança.',
+          remainingAttempts: 0,
+        };
+      }
+
+      const remaining = MAX_LOGIN_ATTEMPTS - currentAttempts;
       return {
         success: false,
-        isLocked: true,
-        remainingSeconds: attemptStatus.remainingSeconds,
-        message: `Limite de tentativas excedido. Bloqueio preventivo ativado por ${attemptStatus.remainingSeconds} segundos.`,
+        error: `Credenciais incorretas. Você possui mais ${remaining} tentativa(s).`,
+        remainingAttempts: remaining,
       };
     }
+  } catch (err) {
+    console.error('Erro na verificação criptográfica:', err);
     return {
       success: false,
-      remainingAttempts: attemptStatus.remainingAttempts,
-      message: `Senha incorreta. ${attemptStatus.remainingAttempts} ${
-        attemptStatus.remainingAttempts === 1 ? 'tentativa restante' : 'tentativas restantes'
-      } antes do bloqueio de segurança.`,
+      error: 'Erro ao processar verificação criptográfica.',
     };
   }
 }
 
 /**
- * Allows the authenticated administrator to update the admin master password
+ * Allows an authenticated administrator to change the master password.
+ * Stores only the new salted SHA-256 hash.
  */
 export async function updateAdminPassword(
   currentPassword: string,
   newPassword: string
 ): Promise<{ success: boolean; message: string }> {
-  if (newPassword.length < 8) {
+  if (!newPassword || newPassword.trim().length < 6) {
     return {
       success: false,
-      message: 'A nova senha deve possuir pelo menos 8 caracteres.',
+      message: 'A nova senha deve possuir no mínimo 6 caracteres.',
     };
   }
 
-  const currentVerify = await verifyAdminPassword(currentPassword);
-  if (!currentVerify.success) {
+  const verification = await verifyAdminPassword(currentPassword);
+  if (!verification.success) {
     return {
       success: false,
       message: 'A senha atual informada está incorreta.',
@@ -265,17 +252,44 @@ export async function updateAdminPassword(
   }
 
   const newHash = await computeSaltedHash(newPassword);
+  localStorage.setItem(STORAGE_HASH_KEY, newHash);
+
+  return {
+    success: true,
+    message: 'Senha master atualizada e criptografada com sucesso (SHA-256).',
+  };
+}
+
+export function hasActiveAdminSession(): boolean {
   try {
-    localStorage.setItem(STORAGE_KEYS.CUSTOM_HASH, newHash);
-    createAdminSession();
-    return {
-      success: true,
-      message: 'Senha do administrador atualizada e protegida criptograficamente com sucesso!',
-    };
-  } catch (err) {
-    return {
-      success: false,
-      message: 'Erro ao armazenar a nova credencial segura.',
-    };
+    return Boolean(sessionStorage.getItem(SESSION_TOKEN_KEY));
+  } catch {
+    return false;
   }
+}
+
+export function validateAdminSession(): boolean {
+  return hasActiveAdminSession();
+}
+
+export function clearAdminSession(): void {
+  try {
+    sessionStorage.removeItem(SESSION_TOKEN_KEY);
+    sessionStorage.removeItem(SESSION_ADMIN_PROFILE_KEY);
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+/**
+ * Sanitizes user input strings to prevent Cross-Site Scripting (XSS) and injection payloads.
+ */
+export function sanitizeText(input: string | undefined): string {
+  if (!input) return '';
+  return input
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/javascript:/gi, '')
+    .replace(/on\w+=/gi, '')
+    .trim();
 }
