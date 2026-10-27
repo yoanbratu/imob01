@@ -10,6 +10,8 @@ import {
   ChevronRight,
   Maximize2,
   Camera,
+  Scale,
+  Check,
 } from 'lucide-react';
 import { Property } from '../types/property';
 import { getPropertyWhatsAppLink } from '../utils/whatsapp';
@@ -18,9 +20,16 @@ import { TechImage } from './TechImage';
 interface PropertyCardProps {
   property: Property;
   onSelect: (property: Property) => void;
+  isCompared?: boolean;
+  onToggleCompare?: (property: Property) => void;
 }
 
-export const PropertyCard: React.FC<PropertyCardProps> = ({ property, onSelect }) => {
+export const PropertyCard: React.FC<PropertyCardProps> = ({
+  property,
+  onSelect,
+  isCompared = false,
+  onToggleCompare,
+}) => {
   const [photoIdx, setPhotoIdx] = useState(0);
 
   const images =
@@ -60,7 +69,9 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, onSelect }
   return (
     <div
       className={`group flex flex-col bg-[#070F26] rounded-2xl overflow-hidden border transition-all duration-300 ${
-        property.featured
+        isCompared
+          ? 'border-[#D4AF37] ring-2 ring-[#D4AF37]/80 shadow-[0_0_35px_rgba(212,175,55,0.4)]'
+          : property.featured
           ? 'border-[#D4AF37]/65 shadow-[0_6px_30px_rgba(212,175,55,0.22)] hover:border-[#D4AF37]'
           : 'border-[#D4AF37]/25 hover:border-[#D4AF37]/65 shadow-[0_6px_24px_rgba(0,0,0,0.45)]'
       }`}
@@ -75,6 +86,28 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, onSelect }
           code={property.code}
           onClick={() => onSelect(property)}
         >
+          {/* Compare Toggle Button on Photo */}
+          {onToggleCompare && (
+            <div className="absolute top-11 left-2.5 z-20 pointer-events-auto">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleCompare(property);
+                }}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider backdrop-blur-md transition-all cursor-pointer flex items-center gap-1 shadow-md ${
+                  isCompared
+                    ? 'bg-[#D4AF37] text-[#050B1A] shadow-[0_0_12px_rgba(212,175,55,0.6)] border border-[#ECC97E]'
+                    : 'bg-[#050B1A]/85 text-slate-200 hover:text-white hover:bg-[#0B163B] border border-[#D4AF37]/40 hover:border-[#D4AF37]'
+                }`}
+                title={isCompared ? 'Remover do comparativo' : 'Adicionar ao comparativo (até 3 imóveis)'}
+              >
+                <Scale className={`w-3 h-3 ${isCompared ? 'text-[#050B1A]' : 'text-[#ECC97E]'}`} />
+                <span>{isCompared ? 'Comparando ✓' : 'Comparar'}</span>
+              </button>
+            </div>
+          )}
+
           {/* Top Feature, 360, Video & Photo Counter Badges */}
           <div className="absolute top-11 right-2.5 flex flex-col items-end gap-1.5 z-20 pointer-events-none">
             {property.featured && (
@@ -262,6 +295,25 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, onSelect }
               ) : null}
             </div>
           </div>
+
+          {/* Compare Toggle Full Width Bar */}
+          {onToggleCompare && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleCompare(property);
+              }}
+              className={`w-full mb-2.5 py-1.5 px-3 rounded-xl text-xs font-mono font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                isCompared
+                  ? 'bg-gradient-to-r from-[#ECC97E] to-[#D4AF37] text-[#050B1A] font-bold shadow-[0_0_15px_rgba(212,175,55,0.4)] border border-[#ECC97E]'
+                  : 'bg-[#0B163B] border border-[#D4AF37]/30 hover:border-[#D4AF37] text-slate-300 hover:text-white hover:bg-[#0E1C4D]'
+              }`}
+            >
+              <Scale className={`w-3.5 h-3.5 ${isCompared ? 'text-[#050B1A]' : 'text-[#ECC97E]'}`} />
+              <span>{isCompared ? '✓ Selecionado para Comparar' : '+ Comparar com Outros'}</span>
+            </button>
+          )}
 
           {/* Action Buttons */}
           <div className="grid grid-cols-2 gap-2.5">

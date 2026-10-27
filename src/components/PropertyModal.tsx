@@ -30,6 +30,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ZoomIn,
+  Scale,
 } from 'lucide-react';
 import { Property } from '../types/property';
 import { getPropertyWhatsAppLink, COMPANY_INFO } from '../utils/whatsapp';
@@ -43,6 +44,8 @@ interface PropertyModalProps {
   isAdmin?: boolean;
   onClose: () => void;
   onSaveAdminNotes?: (property: Property, notes: string) => Promise<void>;
+  isCompared?: boolean;
+  onToggleCompare?: (property: Property) => void;
 }
 
 export const PropertyModal: React.FC<PropertyModalProps> = ({
@@ -50,6 +53,8 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
   isAdmin = false,
   onClose,
   onSaveAdminNotes,
+  isCompared = false,
+  onToggleCompare,
 }) => {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [activeMediaTab, setActiveMediaTab] = useState<'photos' | 'video' | 'tour360'>('photos');
@@ -129,14 +134,33 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
         className="relative w-full max-w-4xl max-h-[92vh] bg-[#070F26] text-white rounded-3xl shadow-[0_25px_70px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col border border-[#D4AF37]/40"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Floating Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 z-20 w-9 h-9 rounded-full bg-[#050B1A]/80 hover:bg-[#0B163B] border border-[#D4AF37]/50 text-white flex items-center justify-center transition-colors cursor-pointer"
-          aria-label="Fechar janela"
-        >
-          <X className="w-5 h-5 text-[#D4AF37]" />
-        </button>
+        {/* Top Action Bar: Compare & Close */}
+        <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+          {onToggleCompare && (
+            <button
+              type="button"
+              onClick={() => onToggleCompare(property)}
+              className={`px-3 py-1.5 rounded-full text-xs font-mono font-bold transition-all cursor-pointer flex items-center gap-1.5 backdrop-blur-md shadow-md ${
+                isCompared
+                  ? 'bg-gradient-to-r from-[#ECC97E] to-[#D4AF37] text-[#050B1A] border border-[#ECC97E] shadow-[0_0_15px_rgba(212,175,55,0.5)]'
+                  : 'bg-[#050B1A]/85 text-slate-200 hover:text-white border border-[#D4AF37]/50 hover:bg-[#0B163B]'
+              }`}
+              title={isCompared ? 'Remover do comparativo' : 'Adicionar ao comparativo'}
+            >
+              <Scale className={`w-3.5 h-3.5 ${isCompared ? 'text-[#050B1A]' : 'text-[#ECC97E]'}`} />
+              <span>{isCompared ? 'Comparando ✓' : 'Comparar'}</span>
+            </button>
+          )}
+
+          {/* Floating Close Button */}
+          <button
+            onClick={onClose}
+            className="w-9 h-9 rounded-full bg-[#050B1A]/80 hover:bg-[#0B163B] border border-[#D4AF37]/50 text-white flex items-center justify-center transition-colors cursor-pointer"
+            aria-label="Fechar janela"
+          >
+            <X className="w-5 h-5 text-[#D4AF37]" />
+          </button>
+        </div>
 
         {/* Modal Scrollable Body */}
         <div className="overflow-y-auto p-0">

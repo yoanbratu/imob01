@@ -32,3 +32,13 @@ export function getListingWhatsAppLink(data: {
   const msg = `Olá, equipe Bratu! Meu nome é ${data.ownerName}. Gostaria de anunciar meu imóvel para ${data.purpose} (${data.propertyType} em ${data.city}). ${data.details ? `Observações: ${data.details}` : ''}`;
   return getWhatsAppLink(msg);
 }
+
+export function getComparisonWhatsAppLink(
+  properties: { code: string; title: string; priceFormatted: string; city: string }[]
+): string {
+  const list = properties
+    .map((p, i) => `${i + 1}. [${p.code}] ${p.title} - ${p.priceFormatted} (${p.city})`)
+    .join('\n');
+  const msg = `Olá, equipe Bratu Imobiliária! Estive comparando os seguintes imóveis no site da Bratu:\n\n${list}\n\nGostaria de uma orientação especializada sobre liquidez, valorização e agendar uma consultoria comparativa para me ajudar a escolher a melhor opção.`;
+  return getWhatsAppLink(msg);
+}

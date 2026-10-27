@@ -1,9 +1,78 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { motion, type Variants } from 'framer-motion';
 import { Property, PropertyCategory, PropertyFilters } from '../types/property';
 import { PropertyCard } from './PropertyCard';
 import { CinemaPropertyGallery } from './CinemaPropertyGallery';
 import { getPropertyWhatsAppLink } from '../utils/whatsapp';
 import { ParallaxSection, RevealBlock } from './ParallaxReveal';
+
+/** Staggered Grid Container Variants */
+const gridContainerVariants: Variants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.065,
+      delayChildren: 0.04,
+    },
+  },
+};
+
+/** High-tech card staggered fade-in with smooth spring elevation & subtle unblur */
+const cardItemVariants: Variants = {
+  hidden: {
+    opacity: 0,
+    y: 26,
+    scale: 0.965,
+    filter: 'blur(6px)',
+  },
+  show: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    filter: 'blur(0px)',
+    transition: {
+      type: 'spring',
+      damping: 24,
+      stiffness: 260,
+      mass: 0.75,
+    },
+  },
+};
+
+/** Staggered List Container Variants */
+const listContainerVariants: Variants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.05,
+      delayChildren: 0.03,
+    },
+  },
+};
+
+/** Executive List Item staggered fade-in */
+const listItemVariants: Variants = {
+  hidden: {
+    opacity: 0,
+    y: 18,
+    scale: 0.98,
+    filter: 'blur(4px)',
+  },
+  show: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    filter: 'blur(0px)',
+    transition: {
+      type: 'spring',
+      damping: 22,
+      stiffness: 240,
+      mass: 0.7,
+    },
+  },
+};
 import {
   SlidersHorizontal,
   RotateCcw,
@@ -28,6 +97,7 @@ import {
   List,
   ArrowUpRight,
   MessageCircle,
+  Scale,
 } from 'lucide-react';
 
 interface PropertyGridProps {
@@ -38,6 +108,8 @@ interface PropertyGridProps {
   onSelectProperty: (property: Property) => void;
   forceCinemaMode?: boolean;
   onResetCinemaMode?: () => void;
+  comparedPropertyIds?: string[];
+  onToggleCompare?: (property: Property) => void;
 }
 
 const CATEGORIES: { id: PropertyCategory; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -56,10 +128,18 @@ export const PropertyGrid: React.FC<PropertyGridProps> = ({
   onSelectProperty,
   forceCinemaMode = false,
   onResetCinemaMode,
+  comparedPropertyIds = [],
+  onToggleCompare,
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'hybrid' | 'grid' | 'list'>('hybrid');
   const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Unique signature for active filters & property set to re-trigger staggered cascade
+  const filterKey = useMemo(() => {
+    const idsHash = properties.map((p) => p.id).join(',');
+    return `${filters.purpose}-${filters.category}-${filters.onlyFeatured}-${filters.hasVirtualTour360}-${filters.type}-${filters.location}-${filters.priceRange}-${(filters.searchQuery || '').trim().toLowerCase()}-${viewMode}-${idsHash}`;
+  }, [filters, viewMode, properties]);
 
   useEffect(() => {
     if (forceCinemaMode) {
@@ -756,10 +836,16 @@ export const PropertyGrid: React.FC<PropertyGridProps> = ({
           />
         )}
 
-        {/* Properties Grid or Executive List */}
+        {/* Properties Grid or Executive List with Staggered Fade-in Animation */}
         {properties.length > 0 ? (
           viewMode === 'list' ? (
-            <div className="space-y-3">
+            <motion.div
+              key={`list-${filterKey}`}
+              variants={listContainerVariants}
+              initial="hidden"
+              animate="show"
+              className="space-y-3"
+            >
               {properties.map((property) => {
                 const waUrl = getPropertyWhatsAppLink(
                   property.code,
@@ -767,9 +853,10 @@ export const PropertyGrid: React.FC<PropertyGridProps> = ({
                   property.priceFormatted
                 );
                 return (
-                  <div
+                  <motion.div
                     key={property.id}
-                    className="rounded-2xl bg-[#070F26] border border-[#D4AF37]/30 hover:border-[#D4AF37] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all shadow-lg"
+                    variants={listItemVariants}
+                    className="rounded-2xl bg-[#070F26] border border-[#D4AF37]/30 hover:border-[#D4AF37] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all shadow-lg transform-gpu"
                   >
                     <div
                       onClick={() => onSelectProperty(property)}
@@ -826,6 +913,35 @@ export const PropertyGrid: React.FC<PropertyGridProps> = ({
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
+                        {onToggleCompare && (
+                          <button
+                            type="button"
+                            onClick={() => onToggleCompare(property)}
+                            className={`px-3 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-all ${
+                              comparedPropertyIds.includes(property.id)
+                                ? 'bg-gradient-to-r from-[#ECC97E] to-[#D4AF37] text-[#050B1A] font-bold shadow-[0_0_12px_rgba(212,175,55,0.5)]'
+                                : 'tech-btn-secondary text-slate-300 hover:text-white'
+                            }`}
+                            title={
+                              comparedPropertyIds.includes(property.id)
+                                ? 'Remover do comparativo'
+                                : 'Adicionar ao comparativo'
+                            }
+                          >
+                            <Scale
+                              className={`w-3.5 h-3.5 ${
+                                comparedPropertyIds.includes(property.id)
+                                  ? 'text-[#050B1A]'
+                                  : 'text-[#ECC97E]'
+                              }`}
+                            />
+                            <span>
+                              {comparedPropertyIds.includes(property.id)
+                                ? 'Comparando ✓'
+                                : 'Comparar'}
+                            </span>
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => onSelectProperty(property)}
@@ -845,31 +961,42 @@ export const PropertyGrid: React.FC<PropertyGridProps> = ({
                         </a>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 );
               })}
-            </div>
+            </motion.div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-              {properties.map((property, idx) => (
-                <RevealBlock
+            <motion.div
+              key={`grid-${filterKey}`}
+              variants={gridContainerVariants}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8"
+            >
+              {properties.map((property) => (
+                <motion.div
                   key={property.id}
-                  delay={Math.min((idx % 3) * 0.08, 0.24)}
-                  distance={26}
-                  parallaxStrength={14}
-                  className="h-full"
+                  variants={cardItemVariants}
+                  className="h-full transform-gpu"
                 >
                   <PropertyCard
                     property={property}
                     onSelect={onSelectProperty}
+                    isCompared={comparedPropertyIds.includes(property.id)}
+                    onToggleCompare={onToggleCompare}
                   />
-                </RevealBlock>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           )
         ) : (
           /* Empty State */
-          <div className="py-16 text-center bg-[#070F26] rounded-2xl border border-[#D4AF37]/30 p-8 max-w-lg mx-auto shadow-2xl">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            className="py-16 text-center bg-[#070F26] rounded-2xl border border-[#D4AF37]/30 p-8 max-w-lg mx-auto shadow-2xl"
+          >
             <div className="w-12 h-12 rounded-xl bg-[#0B163B] border border-[#D4AF37]/30 flex items-center justify-center mx-auto mb-4 text-[#D4AF37] shadow-[0_0_15px_rgba(212,175,55,0.2)]">
               <Building className="w-6 h-6" />
             </div>
@@ -886,7 +1013,7 @@ export const PropertyGrid: React.FC<PropertyGridProps> = ({
               <RotateCcw className="w-3.5 h-3.5 text-[#050B1A]" />
               <span>Ver Todos os Imóveis</span>
             </button>
-          </div>
+          </motion.div>
         )}
       </div>
     </ParallaxSection>

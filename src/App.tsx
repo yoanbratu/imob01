@@ -13,6 +13,8 @@ import { Footer } from './components/Footer';
 import { FloatingWhatsApp } from './components/FloatingWhatsApp';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { PropertyModal } from './components/PropertyModal';
+import { PropertyComparisonBar } from './components/PropertyComparisonBar';
+import { PropertyComparisonModal } from './components/PropertyComparisonModal';
 import { SellPropertyModal } from './components/SellPropertyModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { AdminPanel } from './components/AdminPanel';
@@ -59,6 +61,43 @@ export default function App() {
   const [isSellModalOpen, setIsSellModalOpen] = useState(false);
   const [forceCinemaMode, setForceCinemaMode] = useState(false);
   const [activeSection, setActiveSection] = useState<'inicio' | 'imoveis' | 'galeria' | 'servicos' | 'contato'>('inicio');
+
+  // Property Comparison Side-by-Side System (up to 3 properties)
+  const [comparedPropertyIds, setComparedPropertyIds] = useState<string[]>([]);
+  const [isComparisonModalOpen, setIsComparisonModalOpen] = useState(false);
+  const [comparisonToast, setComparisonToast] = useState<string | null>(null);
+
+  const handleToggleCompare = (property: Property) => {
+    setComparedPropertyIds((prev) => {
+      if (prev.includes(property.id)) {
+        setComparisonToast(`Imóvel "${property.title}" removido do comparativo.`);
+        setTimeout(() => setComparisonToast(null), 3000);
+        return prev.filter((id) => id !== property.id);
+      }
+      if (prev.length >= 3) {
+        setComparisonToast('Limite atingido: você pode comparar no máximo 3 imóveis simultaneamente.');
+        setTimeout(() => setComparisonToast(null), 4000);
+        return prev;
+      }
+      setComparisonToast(`Imóvel "${property.title}" adicionado ao comparativo (${prev.length + 1}/3).`);
+      setTimeout(() => setComparisonToast(null), 3000);
+      return [...prev, property.id];
+    });
+  };
+
+  const handleRemoveComparedProperty = (propertyId: string) => {
+    setComparedPropertyIds((prev) => prev.filter((id) => id !== propertyId));
+  };
+
+  const handleClearComparison = () => {
+    setComparedPropertyIds([]);
+    setComparisonToast('Comparativo limpo.');
+    setTimeout(() => setComparisonToast(null), 2500);
+  };
+
+  const comparedProperties = useMemo(() => {
+    return properties.filter((p) => comparedPropertyIds.includes(p.id));
+  }, [properties, comparedPropertyIds]);
 
   // Admin authentication and modal state backed by cryptographic token verification
   const [isAdmin, setIsAdmin] = useState<boolean>(() => {
@@ -334,6 +373,8 @@ export default function App() {
           onSelectProperty={setSelectedProperty}
           forceCinemaMode={forceCinemaMode}
           onResetCinemaMode={() => setForceCinemaMode(false)}
+          comparedPropertyIds={comparedPropertyIds}
+          onToggleCompare={handleToggleCompare}
         />
 
         {/* Bento Services Section: Venda, Locação, Administração e Investidores */}
@@ -383,12 +424,40 @@ export default function App() {
         onOpenCinemaGallery={handleOpenCinemaGallery}
       />
 
+      {/* Floating Property Comparison Dock Bar */}
+      <PropertyComparisonBar
+        comparedProperties={comparedProperties}
+        onRemoveProperty={handleRemoveComparedProperty}
+        onClearAll={handleClearComparison}
+        onOpenModal={() => setIsComparisonModalOpen(true)}
+      />
+
+      {/* Side-by-Side Property Comparison Matrix Modal */}
+      <PropertyComparisonModal
+        isOpen={isComparisonModalOpen}
+        onClose={() => setIsComparisonModalOpen(false)}
+        comparedProperties={comparedProperties}
+        onRemoveProperty={handleRemoveComparedProperty}
+        onClearAll={handleClearComparison}
+        onSelectProperty={setSelectedProperty}
+      />
+
+      {/* Real-time Comparison Toast Notification */}
+      {comparisonToast && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-2xl bg-[#070F26]/95 border border-[#D4AF37]/60 text-white text-xs sm:text-sm font-mono shadow-[0_10px_35px_rgba(0,0,0,0.6)] backdrop-blur-xl flex items-center gap-2.5 animate-in fade-in slide-in-from-top-4 duration-200">
+          <span className="w-2 h-2 rounded-full bg-[#D4AF37] animate-ping" />
+          <span>{comparisonToast}</span>
+        </div>
+      )}
+
       {/* Property Details Modal with Conditional Admin Section */}
       <PropertyModal
         property={selectedProperty}
         isAdmin={isAdmin}
         onClose={() => setSelectedProperty(null)}
         onSaveAdminNotes={handleSaveAdminNotes}
+        isCompared={selectedProperty ? comparedPropertyIds.includes(selectedProperty.id) : false}
+        onToggleCompare={handleToggleCompare}
       />
 
       {/* Sell / Administer Property Modal for Public Owners */}
