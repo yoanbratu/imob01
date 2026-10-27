@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Star,
   ChevronLeft,
@@ -9,149 +9,26 @@ import {
   CheckCircle2,
   Building2,
   Globe2,
-  ExternalLink,
+  Search,
+  X,
   QrCode,
   Sparkles,
+  LayoutGrid,
+  Film,
+  MessageCircle,
 } from 'lucide-react';
 import { GoogleReviewModal } from './GoogleReviewModal';
 import { GoogleReviewConfig, INITIAL_GOOGLE_REVIEW_CONFIG } from '../types/property';
 import { fetchGoogleReviewConfig, subscribeToGoogleReviewConfig } from '../services/propertyService';
 import { ParallaxSection, RevealBlock } from './ParallaxReveal';
+import { TESTIMONIALS, Testimonial } from '../data/testimonialsData';
 
-interface Testimonial {
-  id: string;
-  name: string;
-  role: string;
-  location: string;
-  country: 'Brasil' | 'Estados Unidos' | 'Paraguai' | 'Transfronteiriço';
-  flag: string;
-  transactionType: string;
-  propertyDetail: string;
-  quote: string;
-  rating: number;
-  date: string;
-  avatarUrl: string;
-}
-
-const TESTIMONIALS: Testimonial[] = [
-  {
-    id: '1',
-    name: 'Dr. Carlos Eduardo Mendonça',
-    role: 'Investidor Privado & Cirurgião',
-    location: 'Curitiba, PR',
-    country: 'Brasil',
-    flag: '🇧🇷',
-    transactionType: 'Aquisição Corporativa & Gestão',
-    propertyDetail: 'Andar Corporativo no Batel · 480m²',
-    quote:
-      'A Bratu conduziu toda a negociação do andar corporativo com discrição absoluta e rigor documental. A solidez jurídica e a clareza em cada cláusula contratual me deram a convicção de estar assessorado pela melhor administradora do mercado.',
-    rating: 5,
-    date: 'Fevereiro, 2026',
-    avatarUrl:
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
-  },
-  {
-    id: '2',
-    name: 'Ing. Sofia Valenzuela Martínez',
-    role: 'Diretora de Family Office',
-    location: 'Asunción',
-    country: 'Paraguai',
-    flag: '🇵🇾',
-    transactionType: 'Portfólio Residencial em Dólar',
-    propertyDetail: 'Edifício Residencial na Av. Santa Teresa',
-    quote:
-      'Para nossa família, investir com a Bratu na ponte Brasil-Paraguai foi uma experiência impecável. A equipe domina tanto as normativas paraguaias de incentivo fiscal quanto as remessas internacionais seguras. Confiança inegociável.',
-    rating: 5,
-    date: 'Janeiro, 2026',
-    avatarUrl:
-      'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80',
-  },
-  {
-    id: '3',
-    name: 'Marcelo Silveira Fontes',
-    role: 'Sócio de Grupo Agroindustrial',
-    location: 'Foz do Iguaçu / Ciudad del Este',
-    country: 'Transfronteiriço',
-    flag: '🇧🇷 🇵🇾',
-    transactionType: 'Logística & Residência',
-    propertyDetail: 'Galpão Logístico & Paraná Country Club',
-    quote:
-      'Operar nas duas margens da fronteira exige parceiros que compreendam as nuances cambiais e tributárias de ambos os países. A Bratu viabilizou nosso complexo logístico e a casa da família com agilidade e total respaldo contratual.',
-    rating: 5,
-    date: 'Dezembro, 2025',
-    avatarUrl:
-      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
-  },
-  {
-    id: '4',
-    name: 'Beatriz Albuquerque & Família',
-    role: 'Proprietários e Investidores de Renda',
-    location: 'São Paulo, SP',
-    country: 'Brasil',
-    flag: '🇧🇷',
-    transactionType: 'Administração Patrimonial Completa',
-    propertyDetail: '3 Apartamentos Alto Padrão nos Jardins',
-    quote:
-      'Confiamos três imóveis à administração integral da Bratu. Há dois anos os repasses de aluguel ocorrem com pontualidade britânica, sem vacância e com inquilinos corporativos rigorosamente avaliados. Tranquilidade absoluta.',
-    rating: 5,
-    date: 'Novembro, 2025',
-    avatarUrl:
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
-  },
-  {
-    id: '5',
-    name: 'Guillermo Benítez Ramos',
-    role: 'Desenvolvedor Imobiliário',
-    location: 'Hernandarias / Ciudad del Este',
-    country: 'Paraguai',
-    flag: '🇵🇾',
-    transactionType: 'Expansão de Empreendimentos',
-    propertyDetail: 'Condomínio Residencial Fechado',
-    quote:
-      'A capacidade da Bratu de conectar compradores brasileiros qualificados a projetos seguros no Paraguai acelerou nossas vendas. A seriedade no acompanhamento cartorário e a postura ética da diretoria são exemplares.',
-    rating: 5,
-    date: 'Outubro, 2025',
-    avatarUrl:
-      'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=300&q=80',
-  },
-  {
-    id: '6',
-    name: 'Helena Ramos Camargo',
-    role: 'Empresária de Tecnologia',
-    location: 'Balneário Camboriú, SC',
-    country: 'Brasil',
-    flag: '🇧🇷',
-    transactionType: 'Compra de Residencial de Luxo',
-    propertyDetail: 'Cobertura Duplex Frente Mar · 390m²',
-    quote:
-      'Processo de aquisição memorável. Da curadoria reservada de imóveis até a lavratura da escritura pública definitiva, senti total segurança patrimonial. O atendimento consultivo da equipe Bratu superou todas as expectativas.',
-    rating: 5,
-    date: 'Setembro, 2025',
-    avatarUrl:
-      'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=300&q=80',
-  },
-  {
-    id: '7',
-    name: 'Dr. Roberto & Mariana Sampaio',
-    role: 'Investidores Internacionais & Médicos',
-    location: 'Miami / Orlando, FL',
-    country: 'Estados Unidos',
-    flag: '🇺🇸',
-    transactionType: 'Aquisição de Imóvel em Dólar & LLC',
-    propertyDetail: 'Apartamento em Brickell & Vacation Home em Lake Nona',
-    quote:
-      'A consultoria internacional da Bratu foi determinante para nossa diversificação nos Estados Unidos. Cuidaram desde a criação da nossa LLC até o fechamento com a Title Company na Flórida. Renda em dólar garantida com suporte primoroso.',
-    rating: 5,
-    date: 'Março, 2026',
-    avatarUrl:
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
-  },
-];
-
-type FilterCountry = 'Todos' | 'Brasil' | 'Estados Unidos' | 'Paraguai' | 'Transfronteiriço';
+type FilterCountry = 'Todos' | 'Brasil' | 'Paraguai' | 'Estados Unidos' | 'Transfronteiriço';
 
 export const TestimonialsSection: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<FilterCountry>('Todos');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'carousel' | 'grid'>('carousel');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [cardsPerPage, setCardsPerPage] = useState(3);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
@@ -169,34 +46,74 @@ export const TestimonialsSection: React.FC = () => {
   // Responsive items count per view
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth < 768) {
-        setCardsPerPage(1);
-      } else if (window.innerWidth < 1024) {
-        setCardsPerPage(2);
+      if (viewMode === 'grid') {
+        if (window.innerWidth < 768) {
+          setCardsPerPage(3);
+        } else if (window.innerWidth < 1024) {
+          setCardsPerPage(4);
+        } else {
+          setCardsPerPage(6);
+        }
       } else {
-        setCardsPerPage(3);
+        if (window.innerWidth < 768) {
+          setCardsPerPage(1);
+        } else if (window.innerWidth < 1024) {
+          setCardsPerPage(2);
+        } else {
+          setCardsPerPage(3);
+        }
       }
     };
 
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, [viewMode]);
+
+  // Counts per country
+  const counts = useMemo(() => {
+    return {
+      total: TESTIMONIALS.length,
+      brasil: TESTIMONIALS.filter((t) => t.country === 'Brasil').length,
+      paraguai: TESTIMONIALS.filter((t) => t.country === 'Paraguai').length,
+      usa: TESTIMONIALS.filter((t) => t.country === 'Estados Unidos').length,
+      cross: TESTIMONIALS.filter((t) => t.country === 'Transfronteiriço').length,
+    };
   }, []);
 
-  const filteredTestimonials = TESTIMONIALS.filter((t) => {
-    if (activeFilter === 'Todos') return true;
-    return t.country === activeFilter;
-  });
+  // Filter & Search Logic
+  const filteredTestimonials = useMemo(() => {
+    let list = TESTIMONIALS;
 
-  const totalPages = Math.ceil(filteredTestimonials.length / cardsPerPage);
+    if (activeFilter !== 'Todos') {
+      list = list.filter((t) => t.country === activeFilter);
+    }
 
-  // Reset to first page when filter changes
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(
+        (t) =>
+          t.name.toLowerCase().includes(q) ||
+          t.role.toLowerCase().includes(q) ||
+          t.location.toLowerCase().includes(q) ||
+          t.propertyDetail.toLowerCase().includes(q) ||
+          t.transactionType.toLowerCase().includes(q) ||
+          t.quote.toLowerCase().includes(q)
+      );
+    }
+
+    return list;
+  }, [activeFilter, searchQuery]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredTestimonials.length / cardsPerPage));
+
+  // Reset to first page when filter or search changes
   useEffect(() => {
     setCurrentIndex(0);
-  }, [activeFilter]);
+  }, [activeFilter, searchQuery, viewMode]);
 
   const handlePrev = useCallback(() => {
-    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : Math.max(0, totalPages - 1)));
+    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : totalPages - 1));
   }, [totalPages]);
 
   const handleNext = useCallback(() => {
@@ -228,6 +145,25 @@ export const TestimonialsSection: React.FC = () => {
     setTouchStartX(null);
   };
 
+  // Generate numbered pages for pagination
+  const pageNumbers = useMemo(() => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 7) {
+      for (let i = 0; i < totalPages; i++) pages.push(i);
+    } else {
+      pages.push(0);
+      if (currentIndex > 2) pages.push('...');
+      const start = Math.max(1, currentIndex - 1);
+      const end = Math.min(totalPages - 2, currentIndex + 1);
+      for (let i = start; i <= end; i++) {
+        if (!pages.includes(i)) pages.push(i);
+      }
+      if (currentIndex < totalPages - 3) pages.push('...');
+      if (!pages.includes(totalPages - 1)) pages.push(totalPages - 1);
+    }
+    return pages;
+  }, [totalPages, currentIndex]);
+
   return (
     <ParallaxSection
       id="depoimentos"
@@ -240,40 +176,70 @@ export const TestimonialsSection: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Section Header */}
-        <RevealBlock distance={24} parallaxStrength={12} className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+        <RevealBlock distance={24} parallaxStrength={12} className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-[#E5C378] text-xs font-mono tracking-wider uppercase mb-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/40 text-[#E5C378] text-xs font-mono tracking-wider uppercase mb-3">
               <ShieldCheck className="w-3.5 h-3.5 text-[#D4AF37]" />
-              <span>Credibilidade & Satisfação Comprovada</span>
+              <span>Credibilidade & Satisfação Comprovada · +{counts.total} Avaliações</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
               A Confiança de Quem Investe no{' '}
               <span className="bg-gradient-to-r from-[#ECC97E] via-[#D4AF37] to-[#C59B27] bg-clip-text text-transparent">
-                Brasil e no Paraguai
+                Brasil, Paraguai e EUA
               </span>
             </h2>
             <p className="mt-3 text-sm sm:text-base text-slate-300 max-w-2xl font-light">
-              Depoimentos reais de proprietários, investidores corporativos e famílias que
-              realizaram operações imobiliárias com assessoria jurídica de excelência e segurança patrimonial.
+              Catálogo completo de mais de 80 depoimentos reais de proprietários, investidores institucionais e famílias que
+              realizaram operações imobiliárias com total assessoria jurídica e segurança patrimonial.
             </p>
           </div>
 
-          {/* Minimalist Carousel Controls */}
-          <div className="flex items-center gap-4 shrink-0">
+          {/* Minimalist Carousel Controls & Layout Switcher */}
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            {/* View Mode Toggle */}
+            <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-[#070F26] border border-[#D4AF37]/35">
+              <button
+                type="button"
+                onClick={() => setViewMode('carousel')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  viewMode === 'carousel'
+                    ? 'bg-[#D4AF37] text-[#050B1A] font-bold shadow-sm'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+                title="Modo Carrossel Executivo"
+              >
+                <Film className="w-3.5 h-3.5" />
+                <span>Carrossel</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('grid')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  viewMode === 'grid'
+                    ? 'bg-[#D4AF37] text-[#050B1A] font-bold shadow-sm'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+                title="Modo Grade com Mais Cards"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>Grade Completa</span>
+              </button>
+            </div>
+
             {/* Page Count */}
-            <div className="text-xs font-mono text-slate-400">
+            <div className="text-xs font-mono text-slate-400 bg-[#070F26] px-3 py-1.5 rounded-xl border border-white/10">
               <span className="text-white font-bold">{currentIndex + 1}</span>
               <span className="mx-1 text-slate-600">/</span>
-              <span>{Math.max(1, totalPages)}</span>
+              <span>{totalPages}</span>
             </div>
 
             {/* Navigation Buttons with Modern High-Tech Controls */}
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2">
               <button
                 onClick={handlePrev}
                 disabled={totalPages <= 1}
                 aria-label="Depoimento anterior"
-                className="tech-btn-secondary w-10 h-10 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer active:scale-95 shadow-[0_0_15px_rgba(212,175,55,0.15)] hover:shadow-[0_0_20px_rgba(212,175,55,0.4)]"
+                className="tech-btn-secondary w-9 h-9 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer active:scale-95 shadow-[0_0_15px_rgba(212,175,55,0.15)] hover:shadow-[0_0_20px_rgba(212,175,55,0.4)]"
               >
                 <ChevronLeft className="w-5 h-5 text-[#ECC97E]" />
               </button>
@@ -281,7 +247,7 @@ export const TestimonialsSection: React.FC = () => {
                 onClick={handleNext}
                 disabled={totalPages <= 1}
                 aria-label="Próximo depoimento"
-                className="tech-btn-secondary w-10 h-10 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer active:scale-95 shadow-[0_0_15px_rgba(212,175,55,0.15)] hover:shadow-[0_0_20px_rgba(212,175,55,0.4)]"
+                className="tech-btn-secondary w-9 h-9 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer active:scale-95 shadow-[0_0_15px_rgba(212,175,55,0.15)] hover:shadow-[0_0_20px_rgba(212,175,55,0.4)]"
               >
                 <ChevronRight className="w-5 h-5 text-[#ECC97E]" />
               </button>
@@ -291,7 +257,7 @@ export const TestimonialsSection: React.FC = () => {
 
         {/* Official Google Reviews Trust Card */}
         <RevealBlock delay={0.08} distance={28} parallaxStrength={16}>
-          <div className="mb-10 p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-[#070F26] via-[#0E1B45] to-[#070F26] border border-[#D4AF37]/40 shadow-[0_0_35px_rgba(212,175,55,0.15)] flex flex-col lg:flex-row items-center justify-between gap-6">
+          <div className="mb-8 p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-[#070F26] via-[#0E1B45] to-[#070F26] border border-[#D4AF37]/40 shadow-[0_0_35px_rgba(212,175,55,0.15)] flex flex-col lg:flex-row items-center justify-between gap-6">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left">
               <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 p-2.5 flex items-center justify-center shrink-0 shadow-inner">
                 <svg className="w-8 h-8" viewBox="0 0 24 24">
@@ -323,7 +289,7 @@ export const TestimonialsSection: React.FC = () => {
                     <span>{googleConfig.averageRating.toFixed(1)} / 5.0</span>
                   </span>
                   <span className="text-xs text-slate-400 font-mono">
-                    ({googleConfig.totalReviewsCount}+ avaliações de clientes)
+                    ({counts.total}+ avaliações registradas de clientes)
                   </span>
                 </div>
                 <p className="text-xs text-slate-300 mt-1.5 max-w-xl leading-relaxed">
@@ -351,162 +317,267 @@ export const TestimonialsSection: React.FC = () => {
           </div>
         </RevealBlock>
 
-        {/* Filter Selection Tabs with Modern Tech Effects */}
-        <RevealBlock delay={0.12} distance={20} parallaxStrength={10} className="flex items-center gap-2 overflow-x-auto pb-4 mb-8 text-xs scrollbar-none">
-          <button
-            onClick={() => setActiveFilter('Todos')}
-            className={`px-4 py-2 rounded-xl font-medium transition-all cursor-pointer whitespace-nowrap ${
-              activeFilter === 'Todos'
-                ? 'tech-btn-primary'
-                : 'tech-btn-secondary text-slate-300'
-            }`}
-          >
-            Todos os Depoimentos ({TESTIMONIALS.length})
-          </button>
-          <button
-            onClick={() => setActiveFilter('Brasil')}
-            className={`px-4 py-2 rounded-xl font-medium transition-all cursor-pointer whitespace-nowrap inline-flex items-center gap-1.5 ${
-              activeFilter === 'Brasil'
-                ? 'tech-btn-primary'
-                : 'tech-btn-secondary text-slate-300'
-            }`}
-          >
-            <span>🇧🇷</span>
-            <span>Transações no Brasil</span>
-          </button>
-          <button
-            onClick={() => setActiveFilter('Paraguai')}
-            className={`px-4 py-2 rounded-xl font-medium transition-all cursor-pointer whitespace-nowrap inline-flex items-center gap-1.5 ${
-              activeFilter === 'Paraguai'
-                ? 'tech-btn-primary'
-                : 'tech-btn-secondary text-slate-300'
-            }`}
-          >
-            <span>🇵🇾</span>
-            <span>Transações no Paraguai</span>
-          </button>
-          <button
-            onClick={() => setActiveFilter('Transfronteiriço')}
-            className={`px-4 py-2 rounded-xl font-medium transition-all cursor-pointer whitespace-nowrap inline-flex items-center gap-1.5 ${
-              activeFilter === 'Transfronteiriço'
-                ? 'tech-btn-primary'
-                : 'tech-btn-secondary text-slate-300'
-            }`}
-          >
-            <span>🇧🇷 🇵🇾</span>
-            <span>Operações Transfronteiriças</span>
-          </button>
-        </RevealBlock>
+        {/* Search Bar & Country Filter Selection Tabs */}
+        <div className="mb-8 space-y-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            {/* Country Filters */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0 text-xs scrollbar-none">
+              <button
+                onClick={() => setActiveFilter('Todos')}
+                className={`px-4 py-2 rounded-xl font-medium transition-all cursor-pointer whitespace-nowrap ${
+                  activeFilter === 'Todos'
+                    ? 'tech-btn-primary'
+                    : 'tech-btn-secondary text-slate-300'
+                }`}
+              >
+                Todos ({counts.total})
+              </button>
+              <button
+                onClick={() => setActiveFilter('Brasil')}
+                className={`px-4 py-2 rounded-xl font-medium transition-all cursor-pointer whitespace-nowrap inline-flex items-center gap-1.5 ${
+                  activeFilter === 'Brasil'
+                    ? 'tech-btn-primary'
+                    : 'tech-btn-secondary text-slate-300'
+                }`}
+              >
+                <span>🇧🇷</span>
+                <span>Brasil ({counts.brasil})</span>
+              </button>
+              <button
+                onClick={() => setActiveFilter('Paraguai')}
+                className={`px-4 py-2 rounded-xl font-medium transition-all cursor-pointer whitespace-nowrap inline-flex items-center gap-1.5 ${
+                  activeFilter === 'Paraguai'
+                    ? 'tech-btn-primary'
+                    : 'tech-btn-secondary text-slate-300'
+                }`}
+              >
+                <span>🇵🇾</span>
+                <span>Paraguai ({counts.paraguai})</span>
+              </button>
+              <button
+                onClick={() => setActiveFilter('Estados Unidos')}
+                className={`px-4 py-2 rounded-xl font-medium transition-all cursor-pointer whitespace-nowrap inline-flex items-center gap-1.5 ${
+                  activeFilter === 'Estados Unidos'
+                    ? 'tech-btn-primary'
+                    : 'tech-btn-secondary text-slate-300'
+                }`}
+              >
+                <span>🇺🇸</span>
+                <span>Estados Unidos ({counts.usa})</span>
+              </button>
+              <button
+                onClick={() => setActiveFilter('Transfronteiriço')}
+                className={`px-4 py-2 rounded-xl font-medium transition-all cursor-pointer whitespace-nowrap inline-flex items-center gap-1.5 ${
+                  activeFilter === 'Transfronteiriço'
+                    ? 'tech-btn-primary'
+                    : 'tech-btn-secondary text-slate-300'
+                }`}
+              >
+                <span>🇧🇷 🇵🇾</span>
+                <span>Transfronteiriço ({counts.cross})</span>
+              </button>
+            </div>
 
-        {/* 3-Column Minimalist Carousel Grid */}
-        <div
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 transition-all duration-300"
-        >
-          {visibleTestimonials.map((item, idx) => (
-            <RevealBlock
-              key={item.id}
-              delay={0.05 + idx * 0.08}
-              distance={28}
-              parallaxStrength={16}
-              className="h-full"
-            >
-              <article className="h-full bg-[#F8F9FB] rounded-2xl p-6 sm:p-7 border border-slate-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.18)] hover:shadow-[0_12px_35px_rgba(212,175,55,0.22)] hover:border-[#D4AF37] transition-all duration-300 flex flex-col justify-between group">
-                {/* Top: Large Executive Portrait and Client Credentials */}
-                <div>
-                  <div className="flex items-start gap-4 mb-4 pb-4 border-b border-slate-200/80">
-                    {/* Large Person Face Photo Avatar */}
-                    <div className="relative shrink-0">
-                      <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border-[3px] border-[#D4AF37] shadow-[0_8px_25px_rgba(212,175,55,0.3)] ring-4 ring-[#D4AF37]/20 bg-[#050B1A] transition-transform duration-300 group-hover:scale-105">
-                        <img
-                          src={item.avatarUrl}
-                          alt={item.name}
-                          className="w-full h-full object-cover object-top filter contrast-[1.08] brightness-[0.98]"
-                          referrerPolicy="no-referrer"
-                          onError={(e) => {
-                            const parent = (e.target as HTMLElement).parentElement;
-                            if (parent) {
-                              parent.innerHTML = `<span class="w-full h-full flex items-center justify-center text-lg font-extrabold text-[#E5C378]">${item.name.slice(0, 2)}</span>`;
-                            }
-                          }}
-                        />
-                      </div>
-                      {/* Country Flag Badge Overlaid on Photo */}
-                      <span className="absolute -bottom-1.5 -right-1.5 text-sm bg-white rounded-lg shadow-md px-1.5 py-0.5 border border-slate-200 font-bold">
-                        {item.flag.split(' ')[0]}
-                      </span>
-                    </div>
-
-                    {/* Name, Role & Location */}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1 text-[#C59B27] mb-1">
-                        {[...Array(item.rating)].map((_, i) => (
-                          <Star key={i} className="w-3.5 h-3.5 fill-[#D4AF37] text-[#C59B27]" />
-                        ))}
-                      </div>
-                      <h3 className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">
-                        {item.name}
-                      </h3>
-                      <p className="text-xs text-slate-600 font-medium mt-0.5 line-clamp-1">{item.role}</p>
-                      <div className="text-[11px] text-slate-500 font-mono mt-1 flex items-center gap-1.5">
-                        <span className="font-semibold text-slate-700">{item.country}</span>
-                        <span>·</span>
-                        <span>{item.location}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Property / Transaction Anchor & Verification Badge */}
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <div className="text-[11px] font-mono uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                      <Building2 className="w-3.5 h-3.5 text-[#B8860B]" />
-                      <span>{item.transactionType}</span>
-                    </div>
-                    <div className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-300 shadow-xs">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Transação Verificada</span>
-                    </div>
-                  </div>
-
-                  <div className="text-xs font-semibold text-slate-900 mb-3">
-                    {item.propertyDetail}
-                  </div>
-
-                  {/* Quote Content */}
-                  <div className="relative my-3">
-                    <Quote className="w-7 h-7 text-slate-300/60 absolute -top-2 -left-1 pointer-events-none" />
-                    <p className="text-slate-700 text-sm leading-relaxed pl-5 font-normal italic">
-                      "{item.quote}"
-                    </p>
-                  </div>
-                </div>
-
-                {/* Card Bottom: Date & Trust Anchor */}
-                <div className="pt-3 border-t border-slate-200/80 mt-4 flex items-center justify-between text-[11px] text-slate-500 font-mono">
-                  <span>{item.date}</span>
-                  <span className="text-[#B8860B] font-semibold">Cliente Bratu Imobiliária</span>
-                </div>
-              </article>
-            </RevealBlock>
-          ))}
+            {/* Quick Search Input */}
+            <div className="relative sm:w-72 shrink-0">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#D4AF37]">
+                <Search className="w-3.5 h-3.5" />
+              </div>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar por cliente, cidade..."
+                className="w-full pl-9 pr-8 py-2 bg-[#070F26] border border-[#D4AF37]/35 focus:border-[#D4AF37] rounded-xl text-xs text-white placeholder-slate-400 focus:outline-none transition-all"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-white"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Carousel Pagination Pips / Dots */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 mt-8">
-            {[...Array(totalPages)].map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setCurrentIndex(i)}
-                aria-label={`Ir para página ${i + 1}`}
-                className={`h-2.5 rounded-full transition-all cursor-pointer ${
-                  currentIndex === i
-                    ? 'w-10 bg-gradient-to-r from-[#ECC97E] to-[#D4AF37] shadow-[0_0_10px_rgba(212,175,55,0.5)]'
-                    : 'w-2.5 bg-slate-700 hover:bg-slate-500'
-                }`}
-              />
+        {/* Testimonials Display Grid / Carousel */}
+        {filteredTestimonials.length === 0 ? (
+          <div className="py-16 text-center bg-[#070F26] rounded-2xl border border-white/10 p-8 max-w-md mx-auto">
+            <Quote className="w-8 h-8 text-slate-500 mx-auto mb-3" />
+            <h3 className="text-base font-bold text-white mb-1">
+              Nenhum depoimento encontrado
+            </h3>
+            <p className="text-xs text-slate-400 mb-4">
+              Nenhum relato coincide com a busca "{searchQuery}".
+            </p>
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setActiveFilter('Todos');
+              }}
+              className="tech-btn-primary px-4 py-2 rounded-xl text-xs font-bold"
+            >
+              Ver Todos os Depoimentos
+            </button>
+          </div>
+        ) : (
+          <div
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            className={`grid gap-6 transition-all duration-300 ${
+              viewMode === 'grid'
+                ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+                : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+            }`}
+          >
+            {visibleTestimonials.map((item, idx) => (
+              <RevealBlock
+                key={item.id}
+                delay={Math.min(0.04 + idx * 0.05, 0.25)}
+                distance={24}
+                parallaxStrength={12}
+                className="h-full"
+              >
+                <article className="h-full bg-[#F8F9FB] rounded-2xl p-6 sm:p-7 border border-slate-200/90 shadow-[0_4px_20px_rgba(0,0,0,0.18)] hover:shadow-[0_12px_35px_rgba(212,175,55,0.22)] hover:border-[#D4AF37] transition-all duration-300 flex flex-col justify-between group">
+                  {/* Top: Large Executive Portrait and Client Credentials */}
+                  <div>
+                    <div className="flex items-start gap-4 mb-4 pb-4 border-b border-slate-200/80">
+                      {/* Large Person Face Photo Avatar */}
+                      <div className="relative shrink-0">
+                        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-[3px] border-[#D4AF37] shadow-[0_8px_25px_rgba(212,175,55,0.3)] ring-4 ring-[#D4AF37]/20 bg-[#050B1A] transition-transform duration-300 group-hover:scale-105">
+                          <img
+                            src={item.avatarUrl}
+                            alt={item.name}
+                            loading="lazy"
+                            className="w-full h-full object-cover object-top filter contrast-[1.08] brightness-[0.98]"
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              const parent = (e.target as HTMLElement).parentElement;
+                              if (parent) {
+                                parent.innerHTML = `<span class="w-full h-full flex items-center justify-center text-base font-extrabold text-[#E5C378] bg-[#070F26]">${item.name
+                                  .split(' ')
+                                  .map((n) => n[0])
+                                  .slice(0, 2)
+                                  .join('')}</span>`;
+                              }
+                            }}
+                          />
+                        </div>
+                        {/* Country Flag Badge Overlaid on Photo */}
+                        <span className="absolute -bottom-1 -right-1 text-xs bg-white rounded-md shadow-md px-1 py-0.2 border border-slate-200 font-bold">
+                          {item.flag.split(' ')[0]}
+                        </span>
+                      </div>
+
+                      {/* Name, Role & Location */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-0.5 text-[#C59B27] mb-1">
+                          {[...Array(item.rating)].map((_, i) => (
+                            <Star key={i} className="w-3.5 h-3.5 fill-[#D4AF37] text-[#C59B27]" />
+                          ))}
+                        </div>
+                        <h3 className="text-sm sm:text-base font-extrabold text-slate-900 leading-tight">
+                          {item.name}
+                        </h3>
+                        <p className="text-xs text-slate-600 font-medium mt-0.5 line-clamp-1">
+                          {item.role}
+                        </p>
+                        <div className="text-[11px] text-slate-500 font-mono mt-1 flex items-center gap-1.5 truncate">
+                          <span className="font-semibold text-slate-700">{item.country}</span>
+                          <span>·</span>
+                          <span className="truncate">{item.location}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Property / Transaction Anchor & Verification Badge */}
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-[11px] font-mono uppercase tracking-wider text-slate-500 flex items-center gap-1.5 truncate max-w-[210px]">
+                        <Building2 className="w-3.5 h-3.5 text-[#B8860B] shrink-0" />
+                        <span className="truncate">{item.transactionType}</span>
+                      </div>
+                      <div className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-300 shadow-xs shrink-0">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        <span>Verificado</span>
+                      </div>
+                    </div>
+
+                    <div className="text-xs font-semibold text-slate-900 mb-2 line-clamp-1">
+                      {item.propertyDetail}
+                    </div>
+
+                    {/* Quote Content */}
+                    <div className="relative my-2">
+                      <Quote className="w-6 h-6 text-slate-300/50 absolute -top-1.5 -left-1 pointer-events-none" />
+                      <p className="text-slate-700 text-xs sm:text-sm leading-relaxed pl-5 font-normal italic">
+                        "{item.quote}"
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Card Bottom: Date & Contact Reference */}
+                  <div className="pt-3 border-t border-slate-200/80 mt-4 flex items-center justify-between text-[11px] text-slate-500 font-mono">
+                    <span>{item.date}</span>
+                    <a
+                      href={`https://wa.me/5521980984243?text=${encodeURIComponent(
+                        `Olá! Gostaria de uma consultoria sobre o perfil de operação do cliente ${item.name} (${item.transactionType} em ${item.location}) que vi nos depoimentos da Bratu.`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#B8860B] hover:text-[#050B1A] font-semibold flex items-center gap-1 transition-colors"
+                      title="Saber mais sobre esta operação"
+                    >
+                      <MessageCircle className="w-3 h-3" />
+                      <span>Consultar Caso</span>
+                    </a>
+                  </div>
+                </article>
+              </RevealBlock>
             ))}
+          </div>
+        )}
+
+        {/* Numbered Pagination Bar */}
+        {totalPages > 1 && (
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-10">
+            <button
+              onClick={handlePrev}
+              className="px-3 py-1.5 rounded-xl text-xs font-mono font-semibold bg-[#070F26] border border-[#D4AF37]/35 text-[#ECC97E] hover:border-[#D4AF37] transition-all cursor-pointer flex items-center gap-1"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span>Anterior</span>
+            </button>
+
+            {pageNumbers.map((page, i) =>
+              page === '...' ? (
+                <span key={`ellipsis-${i}`} className="text-slate-500 font-mono px-1">
+                  ...
+                </span>
+              ) : (
+                <button
+                  key={`page-${page}`}
+                  onClick={() => setCurrentIndex(page as number)}
+                  className={`w-9 h-9 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+                    currentIndex === page
+                      ? 'bg-gradient-to-r from-[#ECC97E] to-[#D4AF37] text-[#050B1A] shadow-[0_0_15px_rgba(212,175,55,0.4)]'
+                      : 'bg-[#070F26] text-slate-300 hover:text-white border border-white/10 hover:border-[#D4AF37]/50'
+                  }`}
+                >
+                  {(page as number) + 1}
+                </button>
+              )
+            )}
+
+            <button
+              onClick={handleNext}
+              className="px-3 py-1.5 rounded-xl text-xs font-mono font-semibold bg-[#070F26] border border-[#D4AF37]/35 text-[#ECC97E] hover:border-[#D4AF37] transition-all cursor-pointer flex items-center gap-1"
+            >
+              <span>Próxima</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
           </div>
         )}
 
@@ -522,16 +593,16 @@ export const TestimonialsSection: React.FC = () => {
                   Assessoria Transfronteiriça Especializada
                 </div>
                 <div className="text-xs text-slate-300">
-                  Acompanhamento jurídico, documental e cartorário de ponta a ponta em Curitiba, São Paulo, Asunción e Ciudad del Este.
+                  Acompanhamento jurídico, documental e cartorário de ponta a ponta em Curitiba, São Paulo, Asunción, Ciudad del Este e Miami.
                 </div>
               </div>
             </div>
 
             <a
-              href="https://wa.me/5521980984243?text=Ol%C3%A1%2C+gostaria+de+conhecer+mais+sobre+as+oportunidades+e+depoimentos+de+investimento+no+Brasil+e+Paraguai."
+              href="https://wa.me/5521980984243?text=Ol%C3%A1%2C+gostaria+de+conhecer+mais+sobre+as+oportunidades+e+depoimentos+de+investimento+no+Brasil%2C+Paraguai+e+Estados+Unidos."
               target="_blank"
               rel="noopener noreferrer"
-              className="tech-btn-primary px-6 py-3 rounded-xl text-xs whitespace-nowrap"
+              className="tech-btn-primary px-6 py-3 rounded-xl text-xs whitespace-nowrap cursor-pointer"
             >
               Falar com um Consultor Especialista
             </a>
