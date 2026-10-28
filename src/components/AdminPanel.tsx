@@ -517,7 +517,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     realtorName: 'Alexandre Bratu',
     realtorCreci: 'CRECI-PR 32.410',
     realtorPhone: COMPANY_INFO.phoneDisplay,
-    realtorEmail: COMPANY_INFO.email,
+    realtorEmail: '',
     realtorCommission: '6%',
     adminNotes: '',
   });
@@ -828,7 +828,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         realtorName: (newProp.realtorName || 'Alexandre Bratu').trim(),
         realtorCreci: (newProp.realtorCreci || 'CRECI-PR 32.410').trim(),
         realtorPhone: (newProp.realtorPhone || COMPANY_INFO.phoneDisplay).trim(),
-        realtorEmail: (newProp.realtorEmail || COMPANY_INFO.email).trim(),
+        realtorEmail: (newProp.realtorEmail || '').trim(),
         realtorCommission: (newProp.realtorCommission || '6%').trim(),
         adminNotes: (newProp.adminNotes || '').trim(),
         createdAt: new Date().toISOString(),
@@ -856,7 +856,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       name: '',
       creci: '',
       phone: COMPANY_INFO.phoneDisplay,
-      email: COMPANY_INFO.email,
+      email: '',
       defaultCommission: '6% Padrão Venda',
       specialty: 'Alto Padrão',
       active: true,
@@ -1211,7 +1211,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       photoUrl: '',
       creci: '',
       phone: '+55 (21) 98098-4243',
-      email: 'Demy@Bratu.com.br',
+      email: '',
       bio: '',
       order: (teamMembers.length || 0) + 1,
       active: true,
@@ -3893,7 +3893,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                     <div className="text-xs text-slate-300 space-y-1">
                       <p><strong className="text-slate-400">Telefone:</strong> <span className="font-mono text-emerald-400">{lead.phone}</span></p>
-                      {lead.email && <p><strong className="text-slate-400">E-mail:</strong> {lead.email}</p>}
+                      {lead.email ? (
+                        <p><strong className="text-slate-400">E-mail:</strong> <span className="font-mono text-slate-200">{lead.email}</span></p>
+                      ) : (
+                        <p><strong className="text-slate-400">E-mail:</strong> <span className="text-slate-500 italic text-[11px]">Não informado pelo internauta</span></p>
+                      )}
                       {lead.purpose && <p><strong className="text-slate-400">Interesse:</strong> {lead.purpose}</p>}
                       {lead.propertyType && <p><strong className="text-slate-400">Tipo:</strong> {lead.propertyType}</p>}
                       {lead.city && <p><strong className="text-slate-400">Local:</strong> {lead.city}</p>}
@@ -6985,13 +6989,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                   <div>
                     <label className="block text-[11px] font-mono text-slate-300 mb-1">
-                      E-MAIL CORPORATIVO
+                      E-MAIL CORPORATIVO (OPCIONAL)
                     </label>
                     <input
                       type="email"
                       value={realtorFormData.email || ''}
                       onChange={(e) => setRealtorFormData({ ...realtorFormData, email: e.target.value })}
-                      placeholder="corretor@bratu.com.br"
+                      placeholder="email@exemplo.com (se desejar)"
                       className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs"
                     />
                   </div>
@@ -7113,13 +7117,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                   <div>
                     <label className="block text-[11px] font-mono text-slate-300 mb-1">
-                      E-MAIL
+                      E-MAIL (OPCIONAL)
                     </label>
                     <input
                       type="email"
                       value={ownerFormData.email || ''}
                       onChange={(e) => setOwnerFormData({ ...ownerFormData, email: e.target.value })}
-                      placeholder="proprietario@email.com"
+                      placeholder="email@exemplo.com (se desejar)"
                       className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs"
                     />
                   </div>
@@ -7634,13 +7638,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                   <div>
                     <label className="block text-[11px] font-mono text-slate-300 mb-1">
-                      E-MAIL CORPORATIVO
+                      E-MAIL CORPORATIVO (OPCIONAL)
                     </label>
                     <input
                       type="email"
                       value={teamFormData.email || ''}
                       onChange={(e) => setTeamFormData({ ...teamFormData, email: e.target.value })}
-                      placeholder="Demy@Bratu.com.br"
+                      placeholder="email@exemplo.com (se desejar)"
                       className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white rounded-xl px-3.5 py-2 text-xs"
                     />
                   </div>

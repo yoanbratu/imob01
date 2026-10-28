@@ -768,7 +768,7 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
                       <p><strong className="text-slate-400 text-[10px] font-mono uppercase block">Corretor:</strong> <span className="text-white font-semibold">{property.realtorName || 'Alexandre Bratu'}</span></p>
                       <p><strong className="text-slate-400 text-[10px] font-mono uppercase block">CRECI / Registro:</strong> <span className="text-slate-300 font-mono">{property.realtorCreci || 'CRECI-PR J-08240'}</span></p>
                       <p><strong className="text-slate-400 text-[10px] font-mono uppercase block">Contato Direto do Corretor:</strong> <span className="text-emerald-400 font-mono font-bold">{property.realtorPhone || COMPANY_INFO.phoneDisplay}</span></p>
-                      <p><strong className="text-slate-400 text-[10px] font-mono uppercase block">E-mail Direto do Corretor:</strong> <span className="text-slate-200 font-mono">{property.realtorEmail || COMPANY_INFO.email}</span></p>
+                      <p><strong className="text-slate-400 text-[10px] font-mono uppercase block">E-mail Direto do Corretor:</strong> <span className="text-slate-200 font-mono">{property.realtorEmail || 'Não informado'}</span></p>
                       <p><strong className="text-slate-400 text-[10px] font-mono uppercase block">Comissão Acordada:</strong> <span className="text-[#E5C378] font-mono font-bold">{property.realtorCommission || '6%'}</span></p>
                     </div>
                   </div>

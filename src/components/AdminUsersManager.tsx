@@ -279,10 +279,10 @@ export const AdminUsersManager: React.FC<AdminUsersManagerProps> = ({
 
   const handleSaveAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formName.trim() || !formEmail.trim()) {
+    if (!formName.trim()) {
       setFeedback({
         type: 'error',
-        message: 'Preencha o Nome Completo e o E-mail / Login do Administrador.',
+        message: 'Preencha o Nome Completo do Administrador.',
       });
       return;
     }
@@ -712,7 +712,11 @@ Seu perfil de Administrador foi configurado com sucesso:
                 <div className="p-3.5 rounded-2xl bg-[#0B163B]/70 border border-white/10 space-y-2 text-xs mb-4">
                   <div className="flex items-center gap-2 text-slate-200">
                     <Mail className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
-                    <span className="font-mono truncate">{adm.email}</span>
+                    {adm.email ? (
+                      <span className="font-mono truncate">{adm.email}</span>
+                    ) : (
+                      <span className="text-slate-500 italic text-[11px]">Sem e-mail cadastrado</span>
+                    )}
                   </div>
                   {adm.phone && (
                     <div className="flex items-center gap-2 text-emerald-400">
@@ -1094,14 +1098,13 @@ Seu perfil de Administrador foi configurado com sucesso:
 
                 <div>
                   <label className="block text-[11px] font-mono text-[#E5C378] mb-1 font-bold">
-                    E-MAIL CORPORATIVO / LOGIN *
+                    E-MAIL CORPORATIVO (OPCIONAL)
                   </label>
                   <input
                     type="email"
-                    required
                     value={formEmail}
                     onChange={(e) => setFormEmail(e.target.value)}
-                    placeholder="Ex: fernanda@bratu.com.br"
+                    placeholder="Ex: seuemail@exemplo.com (se desejar)"
                     className="w-full bg-[#0B163B] border border-[#D4AF37]/35 text-white rounded-xl px-3.5 py-2.5 text-xs font-mono focus:ring-1 focus:ring-[#D4AF37]"
                   />
                 </div>

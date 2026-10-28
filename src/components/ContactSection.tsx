@@ -217,14 +217,13 @@ export const ContactSection: React.FC = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-mono font-bold uppercase tracking-wider text-[#E5C378] mb-1.5">
-                        E-MAIL *
+                        E-MAIL (OPCIONAL)
                       </label>
                       <input
                         type="email"
-                        required
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        placeholder="seuemail@exemplo.com"
+                        placeholder="seuemail@exemplo.com (se desejar)"
                         className="w-full bg-[#0B163B] border border-[#D4AF37]/25 text-white rounded-xl px-4 py-3 text-xs focus:outline-none focus:ring-1 focus:ring-[#D4AF37] focus:border-[#D4AF37]"
                       />
                     </div>

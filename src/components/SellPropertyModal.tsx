@@ -173,6 +173,19 @@ export const SellPropertyModal: React.FC<SellPropertyModalProps> = ({ isOpen, on
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs font-mono font-bold uppercase tracking-wider text-[#E5C378] mb-1">
+                  E-MAIL (OPCIONAL)
+                </label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="seuemail@exemplo.com (se desejar retorno por e-mail)"
+                  className="w-full bg-[#0B163B] border border-[#D4AF37]/25 text-white rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
+                />
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-mono font-bold uppercase tracking-wider text-[#E5C378] mb-1">
