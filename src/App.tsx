@@ -40,7 +40,6 @@ import {
   subscribeToTeamMembers,
 } from './services/propertyService';
 import { injectOrUpdateJSONLD } from './utils/seoStructuredData';
-import { SemanticCatalogIndex } from './components/SemanticCatalogIndex';
 
 const INITIAL_FILTERS: PropertyFilters = {
   searchQuery: '',
@@ -403,12 +402,6 @@ export default function App() {
 
         {/* Lead Capture Contact Section */}
         <ContactSection />
-
-        {/* Semantic Catalog Index for Google Search and AI Web Crawlers */}
-        <SemanticCatalogIndex
-          properties={properties}
-          onSelectProperty={setSelectedProperty}
-        />
       </main>
 
       {/* Institutional Footer */}

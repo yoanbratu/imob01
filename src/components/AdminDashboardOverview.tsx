@@ -19,6 +19,7 @@ import {
   MapPin,
   Phone,
   Send,
+  FileCode,
 } from 'lucide-react';
 import {
   Property,
@@ -579,6 +580,69 @@ ${featuredList}
               </p>
             </div>
           </button>
+
+          {/* Card 7: Arquivos de Indexação (Google & IAs) - Reservado aos Administradores */}
+          <div className="text-left p-5 rounded-3xl bg-[#070F26] border border-[#D4AF37]/35 flex flex-col justify-between gap-4 shadow-lg">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-[#0B163B] border border-cyan-400/40 flex items-center justify-center text-cyan-400 shrink-0">
+                <Globe className="w-6 h-6" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono uppercase text-cyan-300 font-bold">
+                    07 · SEO & INTELIGÊNCIA ARTIFICIAL
+                  </span>
+                  <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-500/30">
+                    Ativo
+                  </span>
+                </div>
+                <h4 className="text-base font-extrabold text-white mt-0.5">
+                  Arquivos Técnicos de Indexação
+                </h4>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                  Arquivos internos de leitura direta para robôs do Google e IAs (ChatGPT, Perplexity, Claude). Ocultos do internauta na navegação pública.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/10">
+              <a
+                href="/llms.txt"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0B163B] hover:bg-[#12235E] border border-[#D4AF37]/30 text-slate-200 hover:text-[#ECC97E] text-xs font-mono font-bold transition-all"
+                title="Acessar base de conhecimento llms.txt"
+              >
+                <FileCode className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <span>llms.txt</span>
+                <ArrowUpRight className="w-3 h-3 text-slate-400" />
+              </a>
+
+              <a
+                href="/sitemap.xml"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0B163B] hover:bg-[#12235E] border border-[#D4AF37]/30 text-slate-200 hover:text-[#ECC97E] text-xs font-mono font-bold transition-all"
+                title="Acessar sitemap.xml do Google"
+              >
+                <Globe className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <span>sitemap.xml</span>
+                <ArrowUpRight className="w-3 h-3 text-slate-400" />
+              </a>
+
+              <a
+                href="/robots.txt"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0B163B] hover:bg-[#12235E] border border-[#D4AF37]/30 text-slate-200 hover:text-[#ECC97E] text-xs font-mono font-bold transition-all"
+                title="Acessar robots.txt"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span>robots.txt</span>
+                <ArrowUpRight className="w-3 h-3 text-slate-400" />
+              </a>
+            </div>
+          </div>
         </div>
       </div>
 
