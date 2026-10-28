@@ -138,6 +138,110 @@ export const Hero: React.FC<HeroProps> = ({
     return feat.length > 0 ? feat : properties.slice(0, 6);
   }, [properties]);
 
+  // Compute available locations dynamically and strictly from registered available properties
+  const locationGroups = React.useMemo(() => {
+    type CityInfo = {
+      value: string;
+      label: string;
+      city: string;
+      stateOrDept: string;
+      count: number;
+    };
+
+    const countryMap = new Map<
+      string,
+      {
+        country: string;
+        countryTitle: string;
+        countryCode: string;
+        flag: string;
+        totalCount: number;
+        citiesMap: Map<string, CityInfo>;
+      }
+    >();
+
+    properties.forEach((p) => {
+      const city = (p.city || '').trim();
+      if (!city) return;
+      const rawCountry = (p.country || 'Brasil').trim();
+      const stateOrDept = (p.stateOrDept || '').trim();
+
+      let countryNorm = 'Brasil';
+      let countryTitle = 'Brasil';
+      let countryCode = 'BR';
+      let flag = '🇧🇷';
+
+      const lowerCountry = rawCountry.toLowerCase();
+      if (
+        lowerCountry.includes('estados unidos') ||
+        lowerCountry === 'eua' ||
+        lowerCountry === 'usa' ||
+        lowerCountry === 'us'
+      ) {
+        countryNorm = 'Estados Unidos';
+        countryTitle = 'Estados Unidos';
+        countryCode = 'EUA';
+        flag = '🇺🇸';
+      } else if (
+        lowerCountry.includes('paraguai') ||
+        lowerCountry.includes('paraguay') ||
+        lowerCountry === 'py'
+      ) {
+        countryNorm = 'Paraguai';
+        countryTitle = 'Paraguai';
+        countryCode = 'PY';
+        flag = '🇵🇾';
+      }
+
+      if (!countryMap.has(countryNorm)) {
+        countryMap.set(countryNorm, {
+          country: countryNorm,
+          countryTitle,
+          countryCode,
+          flag,
+          totalCount: 0,
+          citiesMap: new Map<string, CityInfo>(),
+        });
+      }
+
+      const group = countryMap.get(countryNorm)!;
+      group.totalCount += 1;
+
+      const cityKey = city.toLowerCase();
+      const existingCity = group.citiesMap.get(cityKey);
+      if (existingCity) {
+        existingCity.count += 1;
+      } else {
+        const statePart = stateOrDept ? ` / ${stateOrDept}` : '';
+        group.citiesMap.set(cityKey, {
+          value: city,
+          label: `${city}${statePart}`,
+          city,
+          stateOrDept,
+          count: 1,
+        });
+      }
+    });
+
+    const countryOrder: Record<string, number> = {
+      'Brasil': 1,
+      'Estados Unidos': 2,
+      'Paraguai': 3,
+    };
+
+    return Array.from(countryMap.values())
+      .sort((a, b) => {
+        const orderA = countryOrder[a.country] || 99;
+        const orderB = countryOrder[b.country] || 99;
+        if (orderA !== orderB) return orderA - orderB;
+        return a.countryTitle.localeCompare(b.countryTitle);
+      })
+      .map((g) => ({
+        ...g,
+        cities: Array.from(g.citiesMap.values()).sort((a, b) => a.city.localeCompare(b.city)),
+      }));
+  }, [properties]);
+
   useEffect(() => {
     if (!isAutoPlaying) return;
     const timer = setInterval(() => {
@@ -580,8 +684,13 @@ export const Hero: React.FC<HeroProps> = ({
 
             {/* Localização */}
             <div>
-              <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-[#E5C378] mb-1.5">
-                LOCALIZAÇÃO (BR / EUA / PY)
+              <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-[#E5C378] mb-1.5 flex items-center justify-between">
+                <span>LOCALIZAÇÃO (BR / EUA / PY)</span>
+                {properties.length > 0 && (
+                  <span className="text-[9px] text-[#D4AF37]/80 font-normal">
+                    {locationGroups.reduce((acc, g) => acc + g.cities.length, 0)} polos ativos
+                  </span>
+                )}
               </label>
               <select
                 value={filters.location}
@@ -589,32 +698,27 @@ export const Hero: React.FC<HeroProps> = ({
                 className="w-full bg-[#0B163B] border border-[#D4AF37]/30 text-white text-xs font-medium rounded-xl px-3 py-3 focus:outline-none focus:ring-1 focus:ring-[#D4AF37] focus:border-[#D4AF37] transition-colors cursor-pointer"
               >
                 <option value="" className="bg-[#070F26] text-white">
-                  Todas as Regiões
+                  Todas as Regiões ({properties.length} {properties.length === 1 ? 'imóvel disponível' : 'imóveis disponíveis'})
                 </option>
-                <option value="Curitiba" className="bg-[#070F26] text-white">
-                  Curitiba / PR
-                </option>
-                <option value="Balneário Camboriú" className="bg-[#070F26] text-white">
-                  Balneário Camboriú / SC
-                </option>
-                <option value="São Paulo" className="bg-[#070F26] text-white">
-                  São Paulo / SP
-                </option>
-                <option value="Foz do Iguaçu" className="bg-[#070F26] text-white">
-                  Foz do Iguaçu / PR
-                </option>
-                <option value="Miami" className="bg-[#070F26] text-white">
-                  Miami (Estados Unidos)
-                </option>
-                <option value="Orlando" className="bg-[#070F26] text-white">
-                  Orlando (Estados Unidos)
-                </option>
-                <option value="Asunción" className="bg-[#070F26] text-white">
-                  Asunción (Paraguai)
-                </option>
-                <option value="Ciudad del Este" className="bg-[#070F26] text-white">
-                  Ciudad del Este (Paraguai)
-                </option>
+
+                {locationGroups.map((group) => (
+                  <optgroup
+                    key={group.country}
+                    label={`${group.flag} ${group.countryTitle} (${group.totalCount} ${
+                      group.totalCount === 1 ? 'imóvel' : 'imóveis'
+                    })`}
+                    className="bg-[#070F26] text-[#E5C378] font-bold"
+                  >
+                    <option value={group.country} className="bg-[#070F26] text-white font-medium">
+                      {group.flag} {group.countryTitle} — Todos os Imóveis ({group.totalCount})
+                    </option>
+                    {group.cities.map((loc) => (
+                      <option key={loc.value} value={loc.value} className="bg-[#070F26] text-slate-200">
+                        &nbsp;&nbsp;• {loc.label} ({loc.count} {loc.count === 1 ? 'disponível' : 'disponíveis'})
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
               </select>
             </div>
 

@@ -344,7 +344,7 @@ export default function App() {
         {/* Hero Section */}
         <Hero
           filters={filters}
-          properties={filteredProperties}
+          properties={properties}
           onFilterChange={handleFilterChange}
           onSearchSubmit={handleSearchSubmit}
           onOpenSellModal={() => setIsSellModalOpen(true)}

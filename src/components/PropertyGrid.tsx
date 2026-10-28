@@ -333,15 +333,50 @@ export const PropertyGrid: React.FC<PropertyGridProps> = ({
     setIsDropdownOpen(false);
   };
 
-  const popularLocations = [
-    { label: 'Batel (Curitiba)', value: 'Batel' },
-    { label: 'Miami · Brickell (EUA)', value: 'Miami' },
-    { label: 'Orlando · Lake Nona (EUA)', value: 'Orlando' },
-    { label: 'Santa Teresa (Asunción · PY)', value: 'Santa Teresa' },
-    { label: 'Jardins (São Paulo)', value: 'Jardins' },
-    { label: 'Balneário Camboriú', value: 'Balneário Camboriú' },
-    { label: 'Paraná Country Club (PY)', value: 'Paraná Country Club' },
-  ];
+  // Only display popular location shortcut pills for locations that actually exist in the registered portfolio
+  const popularLocations = useMemo(() => {
+    const locMap = new Map<string, { label: string; value: string; count: number }>();
+
+    properties.forEach((p) => {
+      const city = (p.city || '').trim();
+      const neighborhood = (p.neighborhood || '').trim();
+      const country = (p.country || 'Brasil').trim();
+
+      let flag = '🇧🇷';
+      const cLower = country.toLowerCase();
+      if (cLower.includes('estados unidos') || cLower === 'eua' || cLower === 'usa') {
+        flag = '🇺🇸';
+      } else if (cLower.includes('paraguai') || cLower === 'py') {
+        flag = '🇵🇾';
+      }
+
+      if (neighborhood) {
+        const key = neighborhood.toLowerCase();
+        if (!locMap.has(key)) {
+          locMap.set(key, {
+            label: `${flag} ${neighborhood} (${city})`,
+            value: neighborhood,
+            count: 1,
+          });
+        } else {
+          locMap.get(key)!.count += 1;
+        }
+      } else if (city) {
+        const key = city.toLowerCase();
+        if (!locMap.has(key)) {
+          locMap.set(key, {
+            label: `${flag} ${city}`,
+            value: city,
+            count: 1,
+          });
+        } else {
+          locMap.get(key)!.count += 1;
+        }
+      }
+    });
+
+    return Array.from(locMap.values()).slice(0, 7);
+  }, [properties]);
 
   return (
     <ParallaxSection
