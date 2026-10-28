@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageCircle, Menu, X, PlusCircle, Globe2, Lock, ShieldCheck } from 'lucide-react';
+import { MessageCircle, Menu, X, PlusCircle, Globe2, Lock, ShieldCheck, Star } from 'lucide-react';
 import { COMPANY_INFO, getWhatsAppLink } from '../utils/whatsapp';
 import { TechBrandEmblem } from './TechBrandEmblem';
 
@@ -7,12 +7,14 @@ interface HeaderProps {
   onOpenSellModal: () => void;
   isAdmin?: boolean;
   onOpenAdmin: () => void;
+  onOpenReviewModal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   onOpenSellModal,
   isAdmin = false,
   onOpenAdmin,
+  onOpenReviewModal,
 }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -102,7 +104,19 @@ export const Header: React.FC<HeaderProps> = ({
           </nav>
 
           {/* Primary Actions Zone */}
-          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Avaliar a Bratu no Google Button */}
+            {onOpenReviewModal && (
+              <button
+                onClick={onOpenReviewModal}
+                className="tech-btn-secondary inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer text-[#E5C378] hover:text-white"
+                title="Avaliar a Bratu Imobiliária & Administradora no Google"
+              >
+                <Star className="w-3.5 h-3.5 fill-[#D4AF37] text-[#D4AF37]" />
+                <span className="whitespace-nowrap hidden sm:inline">Avaliar</span>
+              </button>
+            )}
+
             {/* Admin Panel Button with Modern Tech Style */}
             <button
               onClick={onOpenAdmin}
@@ -233,6 +247,19 @@ export const Header: React.FC<HeaderProps> = ({
                 <Lock className="w-4 h-4 text-[#D4AF37]" />
                 {isAdmin ? 'Acessar Painel de Administração' : 'Área do Administrador com Senha'}
               </button>
+
+              {onOpenReviewModal && (
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onOpenReviewModal();
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 text-xs font-semibold rounded-xl bg-[#0B163B] text-[#ECC97E] border border-[#D4AF37]/50 hover:border-[#D4AF37] transition-colors"
+                >
+                  <Star className="w-4 h-4 fill-[#D4AF37] text-[#D4AF37]" />
+                  Avaliar a Bratu no Google ⭐
+                </button>
+              )}
 
               <button
                 onClick={() => {

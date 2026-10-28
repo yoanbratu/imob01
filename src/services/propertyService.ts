@@ -1118,17 +1118,57 @@ const SETTINGS_COLLECTION = 'settings';
 const GOOGLE_REVIEW_DOC_ID = 'google_review';
 const GOOGLE_REVIEW_LOCAL_STORAGE_KEY = 'bratu_google_review_config_cache';
 
+/**
+ * Garante que a URL do Google Review seja limpa e funcional, eliminando apenas
+ * fragmentos corrompidos (como o ID truncado 0x2249e98e82ef429 com vírgulas extras)
+ * que provocavam erro no Google Maps, mas PRESERVANDO URLs oficiais como:
+ * - https://search.google.com/local/writereview?placeid=...
+ * - https://g.page/r/.../review
+ * - https://www.google.com/search?q=avaliar+Bratu+Imobiliaria+e+Administradora+LTDA#lrd=...
+ */
+export function cleanGoogleReviewUrl(rawUrl?: string): string {
+  const DEFAULT_REVIEW_URL = 'https://www.google.com/search?q=avaliar+Bratu+Imobiliaria+e+Administradora+LTDA';
+  if (!rawUrl || typeof rawUrl !== 'string') return DEFAULT_REVIEW_URL;
+
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return DEFAULT_REVIEW_URL;
+
+  // Se a URL contém o fragmento corrompido com 15 dígitos hex e vírgulas extras (,3,,,)
+  if (trimmed.includes('0x2249e98e82ef429') || trimmed.includes(',3,,,') || trimmed.includes('0x94dce4113291eb01:0x2249e98e82ef429')) {
+    try {
+      const urlObj = new URL(trimmed);
+      urlObj.hash = '';
+      if (urlObj.searchParams.has('q')) {
+        urlObj.searchParams.set('q', 'avaliar Bratu Imobiliaria e Administradora LTDA');
+      }
+      return urlObj.toString();
+    } catch {
+      return DEFAULT_REVIEW_URL;
+    }
+  }
+
+  return trimmed;
+}
+
 export async function fetchGoogleReviewConfig(): Promise<GoogleReviewConfig> {
   try {
     const docRef = doc(db, SETTINGS_COLLECTION, GOOGLE_REVIEW_DOC_ID);
     const snap = await getDoc(docRef);
     if (snap.exists()) {
       const data = snap.data() as GoogleReviewConfig;
+      const cleanedUrl = cleanGoogleReviewUrl(data.reviewUrl);
       const merged: GoogleReviewConfig = {
         ...INITIAL_GOOGLE_REVIEW_CONFIG,
         ...data,
+        reviewUrl: cleanedUrl,
         templates: data.templates && data.templates.length > 0 ? data.templates : INITIAL_GOOGLE_REVIEW_CONFIG.templates,
       };
+
+      // Auto-heal silencioso no Firestore caso a URL estivesse com o fragmento #lrd quebrado
+      if (data.reviewUrl && data.reviewUrl !== cleanedUrl) {
+        setDoc(docRef, { reviewUrl: cleanedUrl, updatedAt: new Date().toISOString() }, { merge: true }).catch(() => {});
+      }
+
       try {
         localStorage.setItem(GOOGLE_REVIEW_LOCAL_STORAGE_KEY, JSON.stringify(merged));
       } catch (e) {
@@ -1143,7 +1183,9 @@ export async function fetchGoogleReviewConfig(): Promise<GoogleReviewConfig> {
   try {
     const cached = localStorage.getItem(GOOGLE_REVIEW_LOCAL_STORAGE_KEY);
     if (cached) {
-      return JSON.parse(cached);
+      const parsed = JSON.parse(cached) as GoogleReviewConfig;
+      parsed.reviewUrl = cleanGoogleReviewUrl(parsed.reviewUrl);
+      return parsed;
     }
   } catch (e) {
     // ignore
@@ -1155,6 +1197,7 @@ export async function fetchGoogleReviewConfig(): Promise<GoogleReviewConfig> {
 export async function saveGoogleReviewConfig(config: GoogleReviewConfig): Promise<void> {
   const payload: GoogleReviewConfig = {
     ...config,
+    reviewUrl: cleanGoogleReviewUrl(config.reviewUrl),
     updatedAt: new Date().toISOString(),
   };
 
@@ -1187,11 +1230,19 @@ export function subscribeToGoogleReviewConfig(
     (snap) => {
       if (snap.exists()) {
         const data = snap.data() as GoogleReviewConfig;
+        const cleanedUrl = cleanGoogleReviewUrl(data.reviewUrl);
         const merged: GoogleReviewConfig = {
           ...INITIAL_GOOGLE_REVIEW_CONFIG,
           ...data,
+          reviewUrl: cleanedUrl,
           templates: data.templates && data.templates.length > 0 ? data.templates : INITIAL_GOOGLE_REVIEW_CONFIG.templates,
         };
+
+        // Auto-heal silencioso no Firestore
+        if (data.reviewUrl && data.reviewUrl !== cleanedUrl) {
+          setDoc(docRef, { reviewUrl: cleanedUrl, updatedAt: new Date().toISOString() }, { merge: true }).catch(() => {});
+        }
+
         try {
           localStorage.setItem(GOOGLE_REVIEW_LOCAL_STORAGE_KEY, JSON.stringify(merged));
         } catch (e) {
@@ -1207,7 +1258,9 @@ export function subscribeToGoogleReviewConfig(
       try {
         const cached = localStorage.getItem(GOOGLE_REVIEW_LOCAL_STORAGE_KEY);
         if (cached) {
-          callback(JSON.parse(cached));
+          const parsed = JSON.parse(cached) as GoogleReviewConfig;
+          parsed.reviewUrl = cleanGoogleReviewUrl(parsed.reviewUrl);
+          callback(parsed);
           return;
         }
       } catch (e) {

@@ -108,6 +108,7 @@ import {
   fetchGoogleReviewConfig,
   saveGoogleReviewConfig,
   subscribeToGoogleReviewConfig,
+  cleanGoogleReviewUrl,
   subscribeToAdminUsers,
 } from '../services/propertyService';
 import { COMPANY_INFO, getWhatsAppLink } from '../utils/whatsapp';
@@ -264,7 +265,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setIsSavingGoogleConfig(true);
     setGoogleConfigFeedback(null);
     try {
-      await saveGoogleReviewConfig(googleConfig);
+      const cleaned: GoogleReviewConfig = {
+        ...googleConfig,
+        reviewUrl: cleanGoogleReviewUrl(googleConfig.reviewUrl),
+      };
+      await saveGoogleReviewConfig(cleaned);
+      setGoogleConfig(cleaned);
       setGoogleConfigFeedback({
         type: 'success',
         message: 'Link de Avaliação do Google e parâmetros atualizados com sucesso no Firestore!',

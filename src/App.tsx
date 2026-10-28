@@ -18,6 +18,7 @@ import { PropertyComparisonModal } from './components/PropertyComparisonModal';
 import { SellPropertyModal } from './components/SellPropertyModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { AdminPanel } from './components/AdminPanel';
+import { GoogleReviewModal } from './components/GoogleReviewModal';
 import { AdminTabType } from './components/AdminDashboardOverview';
 import { validateAdminSession, clearAdminSession } from './utils/security';
 import {
@@ -40,6 +41,12 @@ import {
   subscribeToTeamMembers,
 } from './services/propertyService';
 import { injectOrUpdateJSONLD } from './utils/seoStructuredData';
+import {
+  applyPropertySEO,
+  restoreInstitutionalSEO,
+  syncPropertyURL,
+  getPropertyCodeFromURL,
+} from './utils/propertySEO';
 
 const INITIAL_FILTERS: PropertyFilters = {
   searchQuery: '',
@@ -58,6 +65,7 @@ export default function App() {
   const [filters, setFilters] = useState<PropertyFilters>(INITIAL_FILTERS);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [isSellModalOpen, setIsSellModalOpen] = useState(false);
+  const [isGoogleReviewModalOpen, setIsGoogleReviewModalOpen] = useState(false);
   const [forceCinemaMode, setForceCinemaMode] = useState(false);
   const [activeSection, setActiveSection] = useState<'inicio' | 'imoveis' | 'galeria' | 'servicos' | 'contato'>('inicio');
 
@@ -162,10 +170,38 @@ export default function App() {
 
   // Automatically generate and inject Schema.org JSON-LD for Google, ChatGPT, Perplexity & AI engines
   useEffect(() => {
-    if (properties.length > 0) {
+    if (properties.length > 0 && !selectedProperty) {
       injectOrUpdateJSONLD(properties);
     }
+  }, [properties, selectedProperty]);
+
+  // Deep-linking: auto-open property modal when URL has ?imovel=BRT-XXXX or #BRT-XXXX
+  useEffect(() => {
+    if (properties.length > 0 && !selectedProperty) {
+      const codeFromUrl = getPropertyCodeFromURL();
+      if (codeFromUrl) {
+        const found = properties.find(
+          (p) =>
+            p.code.toLowerCase() === codeFromUrl.toLowerCase() ||
+            p.id.toLowerCase() === codeFromUrl.toLowerCase()
+        );
+        if (found) {
+          setSelectedProperty(found);
+        }
+      }
+    }
   }, [properties]);
+
+  // Dynamic Meta Tags Generator for Property Detail Page (Google, AI, Social Cards & Schema.org)
+  useEffect(() => {
+    if (selectedProperty) {
+      applyPropertySEO(selectedProperty);
+      syncPropertyURL(selectedProperty);
+    } else {
+      restoreInstitutionalSEO();
+      syncPropertyURL(null);
+    }
+  }, [selectedProperty]);
 
   const refreshData = async () => {
     const updatedProps = await fetchProperties();
@@ -337,6 +373,7 @@ export default function App() {
         onOpenSellModal={() => setIsSellModalOpen(true)}
         isAdmin={isAdmin}
         onOpenAdmin={handleOpenAdminTrigger}
+        onOpenReviewModal={() => setIsGoogleReviewModalOpen(true)}
       />
 
       {/* Main Content */}
@@ -405,7 +442,7 @@ export default function App() {
       </main>
 
       {/* Institutional Footer */}
-      <Footer />
+      <Footer onOpenReviewModal={() => setIsGoogleReviewModalOpen(true)} />
 
       {/* Discreet Floating WhatsApp Trigger */}
       <FloatingWhatsApp />
@@ -457,6 +494,12 @@ export default function App() {
       <SellPropertyModal
         isOpen={isSellModalOpen}
         onClose={() => setIsSellModalOpen(false)}
+      />
+
+      {/* Google Review Direct Evaluation Modal for Visitors & Clients */}
+      <GoogleReviewModal
+        isOpen={isGoogleReviewModalOpen}
+        onClose={() => setIsGoogleReviewModalOpen(false)}
       />
 
       {/* Admin Login Modal (Password Protected) */}

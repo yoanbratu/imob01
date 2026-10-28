@@ -31,6 +31,8 @@ import {
   ChevronRight,
   ZoomIn,
   Scale,
+  Share2,
+  Globe,
 } from 'lucide-react';
 import { Property } from '../types/property';
 import { getPropertyWhatsAppLink, COMPANY_INFO } from '../utils/whatsapp';
@@ -38,6 +40,7 @@ import { getYouTubeEmbedUrl } from '../utils/youtube';
 import { parse360Tour } from '../utils/virtualTour360';
 import { PropertyMap } from './PropertyMap';
 import { Panorama360Viewer } from './Panorama360Viewer';
+import { getPropertyCanonicalURL } from '../utils/propertySEO';
 
 interface PropertyModalProps {
   property: Property | null;
@@ -104,9 +107,10 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
   );
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(window.location.href);
+    const link = getPropertyCanonicalURL(property);
+    navigator.clipboard.writeText(link);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), 2500);
   };
 
   const handleSaveNotes = async () => {
@@ -379,10 +383,20 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
                   </button>
                   <button
                     onClick={handleCopyLink}
-                    className="px-3 py-1.5 rounded-xl bg-[#050B1A]/80 hover:bg-[#0B163B] border border-[#D4AF37]/40 text-white text-xs font-medium backdrop-blur-md transition-colors flex items-center gap-1.5 cursor-pointer"
+                    title="Copiar link indexável deste imóvel para Google, WhatsApp e redes"
+                    className="px-3 py-1.5 rounded-xl bg-[#050B1A]/80 hover:bg-[#0B163B] border border-[#D4AF37]/40 text-white text-xs font-medium backdrop-blur-md transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
                   >
-                    <Copy className="w-3.5 h-3.5 text-[#D4AF37]" />
-                    <span>{copied ? 'Copiado!' : 'Compartilhar'}</span>
+                    {copied ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-emerald-300">Link Copiado!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Share2 className="w-3.5 h-3.5 text-[#D4AF37]" />
+                        <span>Compartilhar Link</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -436,6 +450,20 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({
                 {property.title}
               </h2>
               <p className="text-sm text-slate-300 mt-1">{property.subtitle}</p>
+
+              {/* Dynamic Google SEO & AI Indexing Status Badge */}
+              <div className="flex flex-wrap items-center gap-2 pt-2 text-[11px] font-mono">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-950/60 border border-emerald-500/40 text-emerald-300">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>SEO Google Ativo</span>
+                </span>
+                <span className="inline-flex items-center gap-1 text-slate-400">
+                  <Globe className="w-3 h-3 text-[#D4AF37]" />
+                  <span className="text-slate-300">Metatags Individuais & Schema.org JSON-LD</span>
+                </span>
+                <span className="text-slate-500 hidden sm:inline">·</span>
+                <span className="text-slate-400 hidden sm:inline font-mono">Ref: {property.code}</span>
+              </div>
             </div>
 
             {/* Key Specs Bar in Midnight Navy */}

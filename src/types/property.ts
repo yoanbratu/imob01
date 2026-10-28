@@ -527,9 +527,9 @@ Muito obrigado pelo apoio!`,
 ];
 
 export const INITIAL_GOOGLE_REVIEW_CONFIG: GoogleReviewConfig = {
-  // Direct Google search/maps review link for Bratu Imobiliária & Administradora LTDA
-  reviewUrl: 'https://www.google.com/search?q=Bratu+Imobiliaria+%26+Administradora+LTDA#lrd=0x94dce4113291eb01:0x2249e98e82ef429,3,,,',
-  placeId: 'ChIJ0b55Mp_135QRKb3viI7pSSIi',
+  // Direct evaluation prompt on Google for Bratu Imobiliária & Administradora LTDA
+  reviewUrl: 'https://www.google.com/search?q=avaliar+Bratu+Imobiliaria+e+Administradora+LTDA',
+  placeId: '',
   businessName: 'Bratu Imobiliária & Administradora LTDA',
   averageRating: 5.0,
   totalReviewsCount: 148,
